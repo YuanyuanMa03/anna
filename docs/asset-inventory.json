@@ -1,0 +1,357 @@
+[
+  {
+    "path": "assets/characters/haru/ReadMe.txt",
+    "bytes": 2917,
+    "sha256": "1371442da46ba8d8af99bd7d316cd189ddf14fb4320e59fc0a844b6162019676"
+  },
+  {
+    "path": "assets/characters/haru/portrait.jpg",
+    "bytes": 49244,
+    "sha256": "7f9a48c914eb5730bdb19724eb768fd60587940dd37ded22a7410cb34d9e61c7"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.2048/texture_00.png",
+    "bytes": 1526786,
+    "sha256": "30fce81e6b2d69fb99e8d1b5f391a6e0240f671095e491e9bbe24ddd7c7f434d"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.2048/texture_01.png",
+    "bytes": 1188664,
+    "sha256": "e1e977447ee7e6e347f1b96b9103ae269e6f4e4a8cf38068d161537415cc51c8"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.cdi3.json",
+    "bytes": 5707,
+    "sha256": "af2c75bb89e39098c97783c887c108db7dc25f229f421fe0f06ca6931ce3c224"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.moc3",
+    "bytes": 387392,
+    "sha256": "597571191064a12ffe592bcb5fade586ef5876bbbcf78905c348a78a0991432a"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.model3.json",
+    "bytes": 2276,
+    "sha256": "fc9c2532e0a8142b542ae3e3a11417aae1d1ee998c73be0d792f8f078eff1a3e"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.physics3.json",
+    "bytes": 5914,
+    "sha256": "b09a654759a0a0a49998a263757b10f310377adab4b8a281ae5c70902a8a7d1f"
+  },
+  {
+    "path": "assets/characters/haru/runtime/haru_greeter_t05.pose3.json",
+    "bytes": 274,
+    "sha256": "0014f220336de55bebb506892c0541853e05771e3f16dfd98389f709aabd127c"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_idle.motion3.json",
+    "bytes": 21183,
+    "sha256": "8a4fac459abf35dfb049188e4330d485a9fce54ae6111625f4ffae4d9b03abfb"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m01.motion3.json",
+    "bytes": 11944,
+    "sha256": "ed85c07795fba2e57d7701b706ba04516b83a0b7e4463752320c2c0a8bdca033"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m02.motion3.json",
+    "bytes": 12055,
+    "sha256": "8a187a9a830ddb62f5471dc974782af68f61dfeb12b31eb3858d3513cf2c035d"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m03.motion3.json",
+    "bytes": 16981,
+    "sha256": "8edba3952e0c45ce0bc3d20755ba212528b6450641e82dec162d7a327d48b82b"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m04.motion3.json",
+    "bytes": 23449,
+    "sha256": "9532599ea7c54452e1b2a689652a76e50fa1d261f0a5cd0adaaa01b1c567fbdf"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m05.motion3.json",
+    "bytes": 14198,
+    "sha256": "5015d14ffad99a9eb43f48dfaa6e400072b610467611ad72221b04a21e3252c6"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m06.motion3.json",
+    "bytes": 15118,
+    "sha256": "311c544c67282cbc40ac1e0287751b20a7f49a46f4eea989b7071efc3188053c"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m07.motion3.json",
+    "bytes": 14821,
+    "sha256": "faa3aa7ca9c05cc395003a4a072ea8d3397c9a3480c9220e486dd70beb32bda9"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m08.motion3.json",
+    "bytes": 15439,
+    "sha256": "8933e2e0db8818037db817d5e6aa4fd795c6f3e302fceae26f2b5a4b88889446"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m09.motion3.json",
+    "bytes": 25066,
+    "sha256": "d6c8abb01dcfee8246cccbe7a437f025cb31884f8408f3207e1a6e4139888e45"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m10.motion3.json",
+    "bytes": 34954,
+    "sha256": "27933b0363abda5c13a55cfea5f2968293abcbc8995140773ff2bf7186c631c1"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m11.motion3.json",
+    "bytes": 14475,
+    "sha256": "cd4afa96422f649cdf32782f6d79594a52fbc106717a4b4056caaddbec7538d3"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m12.motion3.json",
+    "bytes": 22441,
+    "sha256": "a512cf99c416ead14cd8bc89f2e3b021fce2bcf46f670f1d151d374d95476ab8"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m13.motion3.json",
+    "bytes": 11601,
+    "sha256": "cb59cafad6567b4dfe71f69d6fc19d17902f9a397badc4e4003491229fe744be"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m14.motion3.json",
+    "bytes": 20625,
+    "sha256": "a61765c485d61169b2dbd3a4b760d409964edd6f272f3ae26ef3069e8ebc7559"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m15.motion3.json",
+    "bytes": 13540,
+    "sha256": "4383147bd61a7bd2d990591512bfe29eea743f93868e8679ffed16e588628088"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m16.motion3.json",
+    "bytes": 18639,
+    "sha256": "7ab44f3e3e3258c4666fb3ed3643e947faf04a2c17b77bc0b12121ea983c9e23"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m17.motion3.json",
+    "bytes": 16109,
+    "sha256": "9be971760fb922e3dc3d588b7eca15c48655db721c3578d73e54daf55fc8677d"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m18.motion3.json",
+    "bytes": 13424,
+    "sha256": "4dbecfa60f081dc5ff63a08fbbf27889663f766b4c449df534a904528d2b7f36"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m19.motion3.json",
+    "bytes": 11302,
+    "sha256": "598c52b4068482ece9c1d6ddf1f0f0dd8b18eb625fa3e758a0acb677bb2eac9d"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m20.motion3.json",
+    "bytes": 23651,
+    "sha256": "536e467d6533c0883b2ad6c8915bc632b4d4188fc3d3abb19cc6b4f5fd12ddb9"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m21.motion3.json",
+    "bytes": 23906,
+    "sha256": "02efb8fc2296da6531d364dec7929c1685763046b744ba470326b7961c7123b3"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m22.motion3.json",
+    "bytes": 27408,
+    "sha256": "02f2bca00f22281966a86d6885dbdee67d725c7dc163e5b2bbbeb1ccf9fb5ec3"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m23.motion3.json",
+    "bytes": 16695,
+    "sha256": "24cef039138ce14c902807cf1a4d24ce48cfb4802c788a9a9fb8b5a6c4556444"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m24.motion3.json",
+    "bytes": 18090,
+    "sha256": "70c9f34193f3d9fd30f9ec204a333b0169bb290540e751cfa203de6611a9c8d7"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m25.motion3.json",
+    "bytes": 17528,
+    "sha256": "bef0fdcd9bc40d61eebb723234e00a5f87ba00d97f31f65dd215b862c3074245"
+  },
+  {
+    "path": "assets/characters/haru/runtime/motion/haru_g_m26.motion3.json",
+    "bytes": 23275,
+    "sha256": "2b20fbbf31439a5792c808085ecd4c9dc5addeb6195c6d113a25e77f7acc0f4f"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/ReadMe.txt",
+    "bytes": 1708,
+    "sha256": "33d2528e854f5dd3c6fa81b445d1cdb9454b8165a0e9748c6b3c04926f5964af"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.2048/texture_00.png",
+    "bytes": 2846473,
+    "sha256": "5d4183d2f1eb1c4a08e45f91ea968b29694fb916945e75f9bc1099aaeabc1a4f"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.cdi3.json",
+    "bytes": 4436,
+    "sha256": "4ce883197ec5669a69067988c1c19b22ec17cce0a70feec3b60146bb80849f12"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.moc3",
+    "bytes": 236480,
+    "sha256": "86d4417140ef036b5ce155d99f938c49e1ed66ee398e52f6d87fd122770345f1"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.model3.json",
+    "bytes": 1136,
+    "sha256": "936ada713af7ac6842cd38f614a77ed0ae288e8ba1f31d1ffae4d745cdda6e38"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.physics3.json",
+    "bytes": 10080,
+    "sha256": "b94886e2a3b6868a11ee38b2c2ceabcce6864f14ea444b353a5a007f5d337bb6"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08_old.cdi3.json",
+    "bytes": 4435,
+    "sha256": "158aea33d480cc1bb373ea3cd652c53c6fd2785dd60bdfde6d6ac8760daeecaf"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m01.motion3.json",
+    "bytes": 9223,
+    "sha256": "c2a280a0fe30f82f0c4fcc8140bd674ba7d6627f479e3326dac7f1464fdc3b39"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m02.motion3.json",
+    "bytes": 11859,
+    "sha256": "a8638ad57ff255b7a6f5baa81e937ea5c072fd0cf12b048df521dabb0353f0f1"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m03.motion3.json",
+    "bytes": 9896,
+    "sha256": "0b418a08fd58ba6922563f7068eaf68dca1c3f16eda9a9c98c5b2cd8d21f3ee1"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m04.motion3.json",
+    "bytes": 7692,
+    "sha256": "2f2a3c9a4a0b1bf7aba42f3dd0548c644db41f583c9f99f92e452953d9af67a0"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m05.motion3.json",
+    "bytes": 13999,
+    "sha256": "8806e09de13a01b66d421dfdf9cbddb59360f6a28d64aa5c4d07b11bae2a4ef0"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m06.motion3.json",
+    "bytes": 7063,
+    "sha256": "ddae4c8d820decb9abb41de85a3b7fb24ed57a57275222e4be8a940d4d4e72fb"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m07.motion3.json",
+    "bytes": 8370,
+    "sha256": "1006ab62ef4ad8470a1d0fbd3d97fede62dd1bc2c426889a711b448be922acb2"
+  },
+  {
+    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m08.motion3.json",
+    "bytes": 7395,
+    "sha256": "a8618287946ba791300b6d6e002a7f81ed7b0734d725826abe2506472ea6fc00"
+  },
+  {
+    "path": "assets/characters/hiyori/portrait.jpg",
+    "bytes": 55968,
+    "sha256": "2768528aa5e078aaed20e7a97e091b9dd70df9cfa714c810cbbc4bee53b2dbe3"
+  },
+  {
+    "path": "assets/characters/mark/ReadMe.txt",
+    "bytes": 1792,
+    "sha256": "b421a1321b19e44c06ecf08359e1511a5d0ede63f1b3c726ff08c65bc26c81c1"
+  },
+  {
+    "path": "assets/characters/mark/portrait.jpg",
+    "bytes": 57831,
+    "sha256": "f8c33e090feea364c15fa06211556a2137cbf10011e1482c699cb226597af740"
+  },
+  {
+    "path": "assets/characters/mark/runtime/mark_free_t04.2048/texture_00.png",
+    "bytes": 465924,
+    "sha256": "2d1190a596f202423b005075e15816013544b456f78e029e18b5fde45329785c"
+  },
+  {
+    "path": "assets/characters/mark/runtime/mark_free_t04.cdi3.json",
+    "bytes": 2669,
+    "sha256": "53f31206c574763813f9a7f8bbef88ba001e64395196e0f5105ad7ebad77e181"
+  },
+  {
+    "path": "assets/characters/mark/runtime/mark_free_t04.moc3",
+    "bytes": 124736,
+    "sha256": "f6351429bd3dd655ac95d1027e463ae415e99e2b1b43431a9662fcd316373e9e"
+  },
+  {
+    "path": "assets/characters/mark/runtime/mark_free_t04.model3.json",
+    "bytes": 880,
+    "sha256": "e35024f65af02e5f0024d4429ddcf27ac5947e6c6b48e7acddb167484a8a4e68"
+  },
+  {
+    "path": "assets/characters/mark/runtime/mark_free_t04.physics3.json",
+    "bytes": 2198,
+    "sha256": "6324414044835687b8bcc358a1add196e622b007115087b8ce512de28e7050df"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m01.motion3.json",
+    "bytes": 28594,
+    "sha256": "b7567df80a4b9c6487142aae95a8535174882d32cddd9d71a2f356d0e4f2c247"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m02.motion3.json",
+    "bytes": 18717,
+    "sha256": "c292927418fb3f1af2ed7bfc8a5cf93d21e73ca425550c44ae3818bc1c095c19"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m03.motion3.json",
+    "bytes": 9201,
+    "sha256": "df2d18c1d0c0ec35068c2ec662665048ec0d9ba879ac42207e8b991af3c88c2b"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m04.motion3.json",
+    "bytes": 15897,
+    "sha256": "e191085176c05074f8762ce4a46c35a21d5a7fe8176af2a4dcf2e028fb37c018"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m05.motion3.json",
+    "bytes": 13054,
+    "sha256": "a681213b1c6f72eb97cd019d9571caec0d8520f32f7a8e45902c2ff6438e5d1e"
+  },
+  {
+    "path": "assets/characters/mark/runtime/motion/mark_m06.motion3.json",
+    "bytes": 8451,
+    "sha256": "11189f96fd1505199a8442675f4538c401d73ac0c63679dfed6e744e6278c17d"
+  },
+  {
+    "path": "assets/licenses/AIRI-MIT.txt",
+    "bytes": 1075,
+    "sha256": "f334260edf0508041280b534ca9d0abd5a02a9626c1d2e20a556ac4eb72b07f9"
+  },
+  {
+    "path": "assets/licenses/Hiyori-ReadMe.txt",
+    "bytes": 1643,
+    "sha256": "31d3a0a76ed0ac79dd1fdfe9beb9631d208fc54dfba9da30a65eaddac0b924e2"
+  },
+  {
+    "path": "assets/licenses/Live2D-Core-LICENSE.md",
+    "bytes": 520,
+    "sha256": "b81e37048010ef1d336106151201a0323c3309cae44aecdedf57831fe88fa991"
+  },
+  {
+    "path": "assets/licenses/haru-ReadMe.txt",
+    "bytes": 2917,
+    "sha256": "1371442da46ba8d8af99bd7d316cd189ddf14fb4320e59fc0a844b6162019676"
+  },
+  {
+    "path": "assets/licenses/mark-ReadMe.txt",
+    "bytes": 1792,
+    "sha256": "b421a1321b19e44c06ecf08359e1511a5d0ede63f1b3c726ff08c65bc26c81c1"
+  },
+  {
+    "path": "assets/live2dcubismcore.min.js",
+    "bytes": 206678,
+    "sha256": "944988f1523c9f888afe3611b630121ff503ea6246971d2eeee76f45cbfb8004"
+  }
+]

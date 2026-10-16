@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "compilerOptions": { "rootDir": ".", "noEmit": false, "outDir": "dist/host", "sourceMap": true }, "include": ["apps/desktop/main.ts", "apps/desktop/preload.ts", "packages/**/*.ts", "plugins/**/*.ts"], "exclude": ["packages/character/stage.ts"] }

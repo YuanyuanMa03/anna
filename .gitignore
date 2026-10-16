@@ -1,0 +1,7 @@
+node_modules/
+dist/
+artifacts/
+.data/
+.env*
+assets/characters/
+assets/live2dcubismcore.min.js
