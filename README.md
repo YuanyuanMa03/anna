@@ -165,3 +165,9 @@ DSH 的只读策略仍然启用，没有通过关闭审批来演示高权限操�
 进程隔离与独立目录不构成第三方代码沙箱。不要将其用于执行未知插件。
 
 使用范围与第三方资产许可见 `NOTICE.md`。
+
+## Product website
+
+The public Anna landing page is in `website/`.
+It includes the desktop download and optional WeChat or Alipay support.
+See `website/README.md` for preview and deployment commands.
