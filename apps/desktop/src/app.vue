@@ -62,6 +62,8 @@ function send() {
 }
 onMounted(async () => {
   release = window.anna.subscribe((event) => {
+    if (event.type === 'navigate')
+      settingsOpen.value = true
     if (event.type === 'snapshot')
       snapshot.value = event.snapshot
     if (event.type === 'tool')

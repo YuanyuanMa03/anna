@@ -5,7 +5,33 @@ Anna — A Composable Digital Life.
 一个本地 Electron + Vue 桌面 Demo。DSH 执行真实 Agent Loop，Anna Host 管理进程、凭据、会话及产品事件。
 Hiyori、Haru 和 Mark 使用真实 Live2D 模型。角色切换不切换大脑会话。
 
-## 启动
+## macOS 应用
+
+日常直接打开 `~/Applications/Anna.app`。它包含 Electron、Node、DSH、插件和三个角色，运行不需要终端、pnpm 或源码目录。
+
+- 应用包：`dist/macos/Anna.app`
+- 安装镜像：`dist/macos/Anna-0.2.0-arm64.dmg`
+- 架构：Apple Silicon arm64
+- 当前签名：本机 ad-hoc，严格校验通过。Apple 证书签名和公证未完成。
+
+本机安装已替换旧版 Anna。用户数据保留在原 Anna DSH 数据目录。
+打包与验收详情见 `docs/macos-package.md`。
+
+```bash
+pnpm package:mac
+pnpm package:dmg
+```
+
+一键构建、覆盖安装及启动：
+
+```bash
+./script/build_and_run.sh --verify
+```
+
+`.codex/environments/environment.toml` 提供相同的 Run 入口。
+`.ai-sign.json` 定义 Mac Sign 的构建目标。有效 Apple 签名身份可用后，可以用该插件完成证书签名。
+
+## 开发启动
 
 ```bash
 cd ~/git/anna-dsh
@@ -129,7 +155,7 @@ pnpm test:desktop
 
 ## 当前边界
 
-此项目交付本机开发 Demo，尚未制作签名安装包。
+此项目提供可独立运行的 macOS Demo 应用和 DMG，使用本机 ad-hoc 签名。Apple 证书签名和公证尚未完成。
 模型回复目前按 DSH 已提交消息展示，工具状态实时展示。
 系统朗读及基于朗读状态的口型为可选功能，不代表音素级同步。
 本次没有 STT、麦克风输入、长期记忆、自动任务或插件市场。

@@ -26,7 +26,7 @@ export interface RuntimeSnapshot {
   messages: Message[]
 }
 /** Only these product events cross the preload boundary. DSH objects stay in the host. */
-export type AnnaEvent = { type: 'snapshot', snapshot: RuntimeSnapshot }
+export type AnnaEvent = { type: 'navigate', panel: 'settings' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
   | { type: 'tool', phase: 'call' | 'result', name: string, text: string }
   | { type: 'activity', text: string }
 export type Command = { type: 'snapshot' } | { type: 'send', text: string }

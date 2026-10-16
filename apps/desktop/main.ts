@@ -6,17 +6,22 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage } from 'electron'
 import { Host } from '../../packages/anna-host/host'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
 
-const root = process.env.ANNA_ROOT ?? resolve(import.meta.dirname, '../../../..')
+const root = app.isPackaged ? app.getAppPath() : process.env.ANNA_ROOT ?? resolve(import.meta.dirname, '../../../..')
 const data = process.env.ANNA_DATA_DIR ?? join(homedir(), '.local', 'share', 'anna-dsh')
 app.setName('Anna Reborn')
 mkdirSync(join(data, 'electron'), { recursive: true, mode: 0o700 })
 app.setPath('userData', join(data, 'electron'))
 if (!app.requestSingleInstanceLock())
-  app.quit()
+  app.exit(0)
+app.on('second-instance', () => {
+  const existing = BrowserWindow.getAllWindows()[0]
+  existing?.show()
+  existing?.focus()
+})
 if (process.env.ANNA_TEST_CDP) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ANNA_TEST_CDP)
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
@@ -39,6 +44,20 @@ async function start() {
   window.webContents.on('will-navigate', (event) => { event.preventDefault() })
   const { context, dispose } = createContext(ipcMain, window, { onlySameWindow: false })
   window.on('closed', dispose)
+  app.setAboutPanelOptions({ applicationName: 'Anna', applicationVersion: app.getVersion(), copyright: 'Copyright © 2026 Anna contributors' })
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: 'Anna', submenu: [
+      { label: '关于 Anna', role: 'about' },
+      { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => context.emit(runtimeEvent, { type: 'navigate', panel: 'settings' }) },
+      { type: 'separator' },
+      { label: '隐藏 Anna', role: 'hide' },
+      { label: '隐藏其他', role: 'hideOthers' },
+      { type: 'separator' },
+      { label: '退出 Anna', role: 'quit' },
+    ] },
+    { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
+    { label: '窗口', submenu: [{ role: 'minimize', label: '最小化' }, { role: 'zoom', label: '缩放' }, { role: 'front', label: '全部置于前面' }] },
+  ]))
   const vault = {
     async read() {
       try {
@@ -66,9 +85,15 @@ async function start() {
     try { return { ok: true as const, snapshot: await host!.execute(request) } }
     catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : 'Anna 操作失败' } }
   })
-  if (process.env.ANNA_DEV_URL)
+  if (!app.isPackaged && process.env.ANNA_DEV_URL)
     await window.loadURL(process.env.ANNA_DEV_URL)
   else await window.loadFile(join(root, 'dist/renderer/index.html'))
 }
-void start().catch((error) => { console.error(error instanceof Error ? error.message : 'Anna startup failed'); app.quit() })
+void start().catch((error) => {
+  const message = error instanceof Error ? error.message : 'Anna startup failed'
+  console.error(message)
+  if (app.isReady())
+    dialog.showErrorBox('Anna 启动失败', message)
+  app.quit()
+})
 app.on('window-all-closed', () => app.quit())

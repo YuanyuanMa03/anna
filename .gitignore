@@ -5,3 +5,4 @@ artifacts/
 .env*
 assets/characters/
 assets/live2dcubismcore.min.js
+__pycache__/

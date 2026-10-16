@@ -21,10 +21,22 @@ await writeFile(join(data, 'settings.json'), JSON.stringify(settings), { mode: 0
 const evidence = { data, checks: [], consoleErrors: [] }
 let desktop
 async function launch() {
-  desktop = await _electron.launch({ executablePath: electron, args: ['dist/host/apps/desktop/main.js'], cwd: root, env: { ...process.env, ANNA_DEV_URL: '', ANNA_TEST_CDP: '', ANNA_ROOT: root, ANNA_DATA_DIR: data } })
+  const packaged = process.env.ANNA_PACKAGED_APP
+  desktop = await _electron.launch({ executablePath: packaged ? join(packaged, 'Contents/MacOS/Anna') : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], cwd: packaged ? '/' : root, env: { ...process.env, PATH: packaged ? '/usr/bin:/bin:/usr/sbin:/sbin' : process.env.PATH, ANNA_DEV_URL: packaged ? 'http://127.0.0.1:9' : '', ANNA_TEST_CDP: '', ANNA_ROOT: packaged ? '/nonexistent/anna-source' : root, ANNA_DATA_DIR: data } })
   const page = await desktop.firstWindow()
+  if (packaged) {
+    await desktop.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      window.webContents.setBackgroundThrottling(false)
+      window.setTitle('Anna · 自动验收')
+      window.showInactive()
+      window.blur()
+    })
+  }
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.main-layout').waitFor()
+  if (packaged)
+    assert(page.url().startsWith('file:'))
   await page.locator('.connection i.online').waitFor({ timeout: 60000 })
   const state = await snapshot(page)
   assert.equal(state.state, 'ready', state.error ?? 'Unexpected runtime state')

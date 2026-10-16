@@ -10,7 +10,10 @@
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.host.json --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
-    "test:desktop": "node tests/desktop.mjs"
+    "test:desktop": "node tests/desktop.mjs",
+    "package:mac": "node scripts/package-mac.mjs",
+    "package:dmg": "node scripts/create-dmg.mjs",
+    "install:mac": "python3 scripts/install-mac.py"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.5-alpha.2",
