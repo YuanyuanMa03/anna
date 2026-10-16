@@ -14,6 +14,8 @@
 - `node tests/unconfigured.mjs`：通过。无密钥时显示配置表单，不生成假对话。
 - `pnpm test:desktop`：使用真实 Electron、真实 DSH 子进程和真实模型执行。
 
+完整退出及恢复后，还再次实际调用了重新启用的状态工具，返回了真实版本与插件信息。
+
 最新完整桌面结果在 `artifacts/acceptance.json`。
 自动化使用独立测试数据目录，不覆盖用户当前对话。
 

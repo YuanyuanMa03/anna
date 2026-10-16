@@ -96,7 +96,7 @@ onBeforeUnmount(() => { release?.(); speechSynthesis.cancel() })
           <article v-for="(message, index) in snapshot.messages" :key="index" class="message" :class="[message.role]"><span>{{ message.role === 'user' ? '你' : 'Anna' }}</span><p>{{ message.text }}</p></article>
           <p v-if="activity" class="activity" role="status">{{ activity }}</p>
           <p v-if="turnCompleted && !tools.length" class="activity">本轮没有实际工具调用</p>
-          <details v-if="tools.length" class="tool-events"><summary>工具活动 · {{ tools.length }} 个事件</summary><div v-for="(tool, index) in tools" :key="index"><strong>{{ tool.name }} · {{ tool.phase === 'call' ? '执行中' : '返回结果' }}</strong><pre>{{ tool.text }}</pre></div></details>
+          <details v-if="tools.length" class="tool-events"><summary>工具活动 · {{ tools.length }} 个事件</summary><div v-for="(tool, index) in tools" :key="index"><strong>{{ tool.name }} · {{ tool.phase === 'call' ? '发起调用' : '返回结果' }}</strong><pre>{{ tool.text }}</pre></div></details>
         </div>
         <div v-if="error || snapshot.error" class="error" role="alert">{{ error || snapshot.error }}</div>
         <div v-if="!snapshot.hasKey" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
