@@ -287,3 +287,15 @@ it('a key is only "verified" after a real reply, and an auth failure says so in 
   expect(host.snapshot().credential).toBe('unverified')
   await host.close()
 })
+
+it('switching companions keeps the session and tells the newcomer who spoke before', async () => {
+  const { host } = await setup([{ text: '我是 Anna。' }, { text: '我是名执尽。' }])
+  await host.execute({ type: 'send', text: '你是谁' })
+  const session = host.snapshot().settings.sessionFile
+  await host.execute({ type: 'character', id: 'natori' })
+  expect(host.snapshot()).toMatchObject({ state: 'ready', settings: { characterId: 'natori', sessionFile: session }, anna: { line: '恭候多时。请吩咐，我会把每一步都安排妥当。' } })
+  await host.execute({ type: 'send', text: '现在呢' })
+  expect(await sessionText(host)).toMatch(/用户把伙伴从 Anna 换成了 名执尽/)
+  expect(host.snapshot().messages!.map(message => message.text)).toEqual(['你是谁', '我是 Anna。', '现在呢', '我是名执尽。'])
+  await host.close()
+})

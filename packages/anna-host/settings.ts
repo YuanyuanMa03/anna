@@ -1,7 +1,9 @@
+import type { CharacterId } from '../character/manifest'
 import type { ModelSettings, Settings, WorkspaceSettings } from '../shared/contracts'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as v from 'valibot'
+import { characters } from '../character/manifest'
 import { emptyRules } from '../permissions/rules'
 
 const modelSchema = v.object({ provider: v.picklist(['deepseek-official', 'custom']), model: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[\w./:@+-]+$/)), baseURL: v.pipe(v.string(), v.url()), api: v.picklist(['anthropic-messages', 'openai-completions', 'openai-responses']) })
@@ -10,14 +12,14 @@ const workspaceSchema = v.object({ trusted: v.boolean(), mode: v.picklist(['plan
 const settingsSchema = v.object({
   version: v.literal(2),
   kernel: v.optional(v.picklist(['pi', 'claude-code', 'codex']), 'pi'),
-  characterId: v.picklist(['hiyori', 'haru', 'mark']),
+  characterId: v.picklist(characters.map(character => character.id) as [CharacterId, ...CharacterId[]]),
   statusEnabled: v.boolean(),
   memoryEnabled: v.optional(v.boolean(), true),
   model: modelSchema,
   sessionFile: v.optional(v.string()),
+  modelVerified: v.optional(v.boolean()),
   workspace: v.optional(v.string()),
   workspaces: v.optional(v.record(v.string(), workspaceSchema), {}),
-  modelVerified: v.optional(v.boolean()),
   agents: v.optional(v.record(v.string(), v.object({ provider: v.optional(v.string()) }))),
   providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
 })

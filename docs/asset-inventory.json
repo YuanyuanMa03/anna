@@ -1,5 +1,100 @@
 [
   {
+    "path": "assets/characters/chitose/ReadMe.txt",
+    "bytes": 2443,
+    "sha256": "bbae3ca9136394e7caaf1f00a0fbda4c50eef6f13bb64ba850fe71e01314563e"
+  },
+  {
+    "path": "assets/characters/chitose/portrait.jpg",
+    "bytes": 39732,
+    "sha256": "6a436d2ab17f4ac9128eb532a160cdb74479acd707402480433638fae030fd0d"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.2048/texture_00.png",
+    "bytes": 1741337,
+    "sha256": "9504a1e1c68f623142bdf3c984834ed5a5e7f508d96fa36ce01ab2887fd8c1b0"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.cdi3.json",
+    "bytes": 3972,
+    "sha256": "4e1e40845c1cc2bab183078ceb272a3929d0ab5aa6e8f52cd2ca195d231eaeb7"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.moc3",
+    "bytes": 259584,
+    "sha256": "308926ffb52a215010887acfeec36a129772b361cb8bc2aab459d70bad4fe89c"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.model3.json",
+    "bytes": 1426,
+    "sha256": "36b759ff4832932760d21fba7ceb34e43fb578f3ded6541fadab2dfd275dcf0c"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.physics3.json",
+    "bytes": 3281,
+    "sha256": "5c457dc22c0800bb6e9eaf85b2b003739cc49e5764f48ee0f5a06d3c9ef4dca2"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/chitose.pose3.json",
+    "bytes": 226,
+    "sha256": "b2e8d723c7e221c3966576d916174ae8d2d4a814293a1333f6b9e02ff24ba10b"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Angry.exp3.json",
+    "bytes": 1485,
+    "sha256": "2f12146a5e261e058e67a2c0e7b5a5c5e3364f52c9237103170ebb1865eb94a7"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Blushing.exp3.json",
+    "bytes": 1506,
+    "sha256": "290f37ff8ac2e040a30cfeb3ff1e65a21bb7e019948ec8e6695d2cbd57f6aad1"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Normal.exp3.json",
+    "bytes": 1465,
+    "sha256": "631a820cf65154e652b1c2e7c6f62c73778d4498c5f663d012b7e1a47cf6753d"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Sad.exp3.json",
+    "bytes": 1501,
+    "sha256": "234db7ecdd9c2c66dc6203579cc2f897d1609ce62f209a2fbef4b11e81577112"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Smile.exp3.json",
+    "bytes": 1467,
+    "sha256": "a0108b371fe1b2ad74cc763bf33eb60bdb7cc15fbc25cd4b76683d5733bd550c"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/Surprised.exp3.json",
+    "bytes": 1491,
+    "sha256": "5bc7a13f084b889a7dd29c84bd4738054d988c7be41c70b0ae7c1d9ad5a82156"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/expressions/f01.exp3.json",
+    "bytes": 1490,
+    "sha256": "e16f8c47e6f791695e2e3299119b2f842dfaac8852bc32f3551b8e95fc5ddd88"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/motion/chitose_handwave.motion3.json",
+    "bytes": 12258,
+    "sha256": "959e9a89dc792f04954b290c4fc9b82c8abfa24613cb28c6dafba191ffa19bda"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/motion/chitose_idle.motion3.json",
+    "bytes": 23939,
+    "sha256": "59992774d31297041d52b449b14967eefe54c5159503ac67bfad3dc66a391fb2"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/motion/chitose_kime01.motion3.json",
+    "bytes": 11416,
+    "sha256": "296e8473627e2aa4c7140ac0e0e9be4734405357fdc42307a15e2a212a206b4f"
+  },
+  {
+    "path": "assets/characters/chitose/runtime/motion/chitose_kime02.motion3.json",
+    "bytes": 14399,
+    "sha256": "5e2e5583c552a43ce134de7e685598c35b9f8e5177db284bcb800f9b9a55ae0c"
+  },
+  {
     "path": "assets/characters/haru/ReadMe.txt",
     "bytes": 2917,
     "sha256": "1371442da46ba8d8af99bd7d316cd189ddf14fb4320e59fc0a844b6162019676"
@@ -260,6 +355,121 @@
     "sha256": "2768528aa5e078aaed20e7a97e091b9dd70df9cfa714c810cbbc4bee53b2dbe3"
   },
   {
+    "path": "assets/characters/mao/ReadMe.txt",
+    "bytes": 2425,
+    "sha256": "9fa935d1cee42c471a0d756a3c4dad6755b65ccb35e66fcf38ea248cbd94bcd9"
+  },
+  {
+    "path": "assets/characters/mao/portrait.jpg",
+    "bytes": 50753,
+    "sha256": "4e24b722d718fb3d8ae327b503d92e917c80abda21e607f76d24604f2fbe5c3b"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_01.exp3.json",
+    "bytes": 1981,
+    "sha256": "afbe54559e428acdaf43190d1c497792048c35ed37979f33d9a37c70181ddf5b"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_02.exp3.json",
+    "bytes": 1981,
+    "sha256": "6d35132627f9e362e526c0ce8c2152ece2b305c9abd3368da43460c2af8538f6"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_03.exp3.json",
+    "bytes": 1981,
+    "sha256": "460a3077d61adfdd1e6b9a062d0d7c3fcc2fb74c80f67ec3649982a9fab49bee"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_04.exp3.json",
+    "bytes": 1985,
+    "sha256": "abad61f4ec7f1a157d6b914643e5bd4ffb29964e67f538cace420ebc9f69a716"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_05.exp3.json",
+    "bytes": 1986,
+    "sha256": "331fe0d9c78861496a9cc9acba9650f295a72af8c36df7036ab8a372840d2cc1"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_06.exp3.json",
+    "bytes": 1985,
+    "sha256": "52f1e391008d61efb17a33602c004a637a42bdb8af8aca3d2319ac5dac215ed1"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_07.exp3.json",
+    "bytes": 1987,
+    "sha256": "8bf587d3d7bef509166c8ff95cc9f47c23c895eaf55f9d95110263e44452a53a"
+  },
+  {
+    "path": "assets/characters/mao/runtime/expressions/exp_08.exp3.json",
+    "bytes": 1982,
+    "sha256": "761190452e48d22727fce91e76270af2c27b0bb0ee3d04b2c6b0dc6cec49f88d"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.4096/texture_00.png",
+    "bytes": 8209997,
+    "sha256": "0a5f5436f26dcc908cf7c5ec1f8b54ff36b895cacaf9804daba31b92d424c594"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.cdi3.json",
+    "bytes": 15984,
+    "sha256": "f3384b3a633bc1af255d30af92c45ff19489708b6531ce7a449571b5b165046d"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.moc3",
+    "bytes": 870272,
+    "sha256": "247d028f9900be2a46e4530816ece5749524d35013ba77424bd943598e0e54ff"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.model3.json",
+    "bytes": 1645,
+    "sha256": "27b71a0e5476d870ba69d1b52f5bd068ed5a03113739b4f5337e579e954b7e2a"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.physics3.json",
+    "bytes": 21808,
+    "sha256": "bb9de06bd8dc2a81a3c44634494a61b66d7ade0759ff9320928c52c4585c9039"
+  },
+  {
+    "path": "assets/characters/mao/runtime/mao_pro.pose3.json",
+    "bytes": 254,
+    "sha256": "efac160eccb7183ee6555d4e53a739042e1c55b92f59a99c2e4bed8e73a5ab91"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/mtn_01.motion3.json",
+    "bytes": 27147,
+    "sha256": "5456d9ee0b2e13ab1174918a077490cb79fb3f73cad74c962f5f78214e98b007"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/mtn_02.motion3.json",
+    "bytes": 23760,
+    "sha256": "d5d4bd768336d88839d3e8d17802c8ce4fe4f232bd06b7507e02bd876f15a9d6"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/mtn_03.motion3.json",
+    "bytes": 22428,
+    "sha256": "2e7f784918acde7c6cac0e9243cf5f826f64b4f18fadc3d27069f92c46679c5f"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/mtn_04.motion3.json",
+    "bytes": 26840,
+    "sha256": "c84387bde7f862fda9f5e8fa29703664623649828de585650d170045f86a6bbc"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/special_01.motion3.json",
+    "bytes": 33723,
+    "sha256": "846d5bbac4fc80c7451688f5d56a5cb60f01d951b5c719a36bbdfa46fe08b49f"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/special_02.motion3.json",
+    "bytes": 41295,
+    "sha256": "6bc5d29371ea5edffe030271bd09a1a4fd51d35eaa511d977fbfb5703de75a57"
+  },
+  {
+    "path": "assets/characters/mao/runtime/motions/special_03.motion3.json",
+    "bytes": 47803,
+    "sha256": "5e3b89bb95f5abe067cdec47395c19c88882846051b4b35e5f7c8bc875b83d17"
+  },
+  {
     "path": "assets/characters/mark/ReadMe.txt",
     "bytes": 1792,
     "sha256": "b421a1321b19e44c06ecf08359e1511a5d0ede63f1b3c726ff08c65bc26c81c1"
@@ -325,6 +535,141 @@
     "sha256": "11189f96fd1505199a8442675f4538c401d73ac0c63679dfed6e744e6278c17d"
   },
   {
+    "path": "assets/characters/natori/ReadMe.txt",
+    "bytes": 2437,
+    "sha256": "d55be02d406ec5370b579e7811f047e61b8328cd4b5890d1f3215f6c4322bb71"
+  },
+  {
+    "path": "assets/characters/natori/portrait.jpg",
+    "bytes": 41748,
+    "sha256": "95568980d1736f6bae61423eb931458c425bb8830983c853c63a8466992b552a"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Angry.exp3.json",
+    "bytes": 1860,
+    "sha256": "ff21ddb9b1dbf40f6114e59c8d31f0592e54d0110be25ba4cefaac62b808cbb8"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Blushing.exp3.json",
+    "bytes": 1848,
+    "sha256": "d77e289b18e7ce9914dec187f0f1cbf83669ccaa9416fc1034d21aeded91ad93"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Normal.exp3.json",
+    "bytes": 1845,
+    "sha256": "bc3e5f4f3bb3fb0c783915c0bae2fbb65fb6b4ca5779433972dc0b0aea1fca39"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Sad.exp3.json",
+    "bytes": 1850,
+    "sha256": "cd051c97f0c1981e7207cefcc87d1769601234ea14294d153b89ec0d45bc7034"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Smile.exp3.json",
+    "bytes": 1847,
+    "sha256": "06e5a7eedb082e20252a87bd996fa163c53d934b06e43a268494ba25f1e94ba6"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/Surprised.exp3.json",
+    "bytes": 1865,
+    "sha256": "e7dc9ac4dbea6b9a98f5296b6df3e29727a1e2955bd198c4f5e9f47c0bf2d3e9"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/exp_01.exp3.json",
+    "bytes": 1851,
+    "sha256": "f9175f600bdbd1a0206264c0915d1a7bab595ac749c6da0db01365f99b8efda4"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/exp_02.exp3.json",
+    "bytes": 1853,
+    "sha256": "c9c098b9721aef0f5c63d99960381e8a21bb366a4da14f902b2ffe734bcc95e1"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/exp_03.exp3.json",
+    "bytes": 1848,
+    "sha256": "8f416a2fff0a3bbaf719414de46458e6675e109e8c93cf70019b4bba9af956cd"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/exp_04.exp3.json",
+    "bytes": 1864,
+    "sha256": "28e6ad30a14f485eda54e8bc6ea89a0183df15b0a120729a704d265fa265b5ad"
+  },
+  {
+    "path": "assets/characters/natori/runtime/exp/exp_05.exp3.json",
+    "bytes": 1848,
+    "sha256": "ace45afdd9b5bab06b45a69c4cf23ca5d8a494448c32cb7fcee3f1db5f5a1fb3"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_00.motion3.json",
+    "bytes": 15644,
+    "sha256": "a72450ad79739192fca350c327ec45b699d9fafb25304180a5283c9746ee5a44"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_01.motion3.json",
+    "bytes": 19926,
+    "sha256": "d2cd0c9315b9058cceb898b71b8e660c14c6e41f59b7b1ba2cf8d9d25b6699b7"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_02.motion3.json",
+    "bytes": 22165,
+    "sha256": "68147f88c8dd9d64b138ec36bfc2cc6cea0ec4d288778290684106ed97540ffe"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_03.motion3.json",
+    "bytes": 25815,
+    "sha256": "79b39209297178e24386b6aebc24e20777fe58ee06b4329c92b878760674283d"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_04.motion3.json",
+    "bytes": 23692,
+    "sha256": "656b06ca7e748c89d90146427b0cace936ef3af99fae39b15e27f646548cad8b"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_05.motion3.json",
+    "bytes": 23687,
+    "sha256": "f5b2c88f50c8e1e502579dfccbe84452c80fe9c9026706076a582343374937b0"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_06.motion3.json",
+    "bytes": 21628,
+    "sha256": "6dce3d2fec68f0e85811c8862652766ac6157403e407552410c68fb1088dd449"
+  },
+  {
+    "path": "assets/characters/natori/runtime/motions/mtn_07.motion3.json",
+    "bytes": 19460,
+    "sha256": "8b12022b7bdf01e7a9e6f124f043452c6c49432368da0aecc82a550b79e72182"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori.pose3.json",
+    "bytes": 480,
+    "sha256": "e3feed602d86d4dc37365622db1c2950dd6707e13cd9a29afa7f9dc9fcebe398"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori_pro_t06.4096/texture_00.png",
+    "bytes": 6958390,
+    "sha256": "0921cece25f7e702a07cec4b8aa8235ba8904f013cc4d921cffd445c07cb04a4"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori_pro_t06.cdi3.json",
+    "bytes": 12676,
+    "sha256": "e30ada6f4ad3de8a948f0eed68c20b3438e15ec6e4259d0e1be52062d7ae9f66"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori_pro_t06.moc3",
+    "bytes": 771072,
+    "sha256": "8f3122e2d3b5a30f79d95078ac756e45ea5df740f3e72f461cdec793303bf94f"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori_pro_t06.model3.json",
+    "bytes": 1969,
+    "sha256": "8021d0762ec8f68f0ccab9d8c9b31f4fce57488da6a77c669768cd1ca9b4af1f"
+  },
+  {
+    "path": "assets/characters/natori/runtime/natori_pro_t06.physics3.json",
+    "bytes": 15575,
+    "sha256": "d280a0088b17df4ddaf8fb417b5ee11601bd40686a91540eaaf0e5eeb69eb874"
+  },
+  {
     "path": "assets/licenses/AIRI-MIT.txt",
     "bytes": 1075,
     "sha256": "f334260edf0508041280b534ca9d0abd5a02a9626c1d2e20a556ac4eb72b07f9"
@@ -340,14 +685,29 @@
     "sha256": "b81e37048010ef1d336106151201a0323c3309cae44aecdedf57831fe88fa991"
   },
   {
+    "path": "assets/licenses/chitose-ReadMe.txt",
+    "bytes": 2443,
+    "sha256": "bbae3ca9136394e7caaf1f00a0fbda4c50eef6f13bb64ba850fe71e01314563e"
+  },
+  {
     "path": "assets/licenses/haru-ReadMe.txt",
     "bytes": 2917,
     "sha256": "1371442da46ba8d8af99bd7d316cd189ddf14fb4320e59fc0a844b6162019676"
   },
   {
+    "path": "assets/licenses/mao-ReadMe.txt",
+    "bytes": 2425,
+    "sha256": "9fa935d1cee42c471a0d756a3c4dad6755b65ccb35e66fcf38ea248cbd94bcd9"
+  },
+  {
     "path": "assets/licenses/mark-ReadMe.txt",
     "bytes": 1792,
     "sha256": "b421a1321b19e44c06ecf08359e1511a5d0ede63f1b3c726ff08c65bc26c81c1"
+  },
+  {
+    "path": "assets/licenses/natori-ReadMe.txt",
+    "bytes": 2437,
+    "sha256": "d55be02d406ec5370b579e7811f047e61b8328cd4b5890d1f3215f6c4322bb71"
   },
   {
     "path": "assets/live2dcubismcore.min.js",
