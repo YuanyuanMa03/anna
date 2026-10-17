@@ -48,14 +48,57 @@ export function isInside(root: string, target: string, platform: NodeJS.Platform
   return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path))
 }
 
-/** Paths whose contents must never reach a model or be changed by a tool, regardless of mode or rules. */
-export function sensitivePaths(home = homedir(), platform: NodeJS.Platform = process.platform) {
-  const paths = ['.ssh', '.aws', '.gnupg', '.kube', '.docker/config.json', '.netrc', '.npmrc', '.pypirc', '.git-credentials', '.config/gh', '.config/gcloud', '.azure', '.pi', '.claude', '.codex'].map(name => join(home, name))
-  if (platform === 'darwin')
-    paths.push(join(home, 'Library/Keychains'), join(home, 'Library/Application Support/Google/Chrome'), join(home, 'Library/Cookies'))
-  if (platform === 'win32')
-    paths.push(join(home, 'AppData/Roaming/Microsoft/Credentials'), join(home, 'AppData/Local/Microsoft/Credentials'))
-  return paths
+/** A path and the location it resolves to (one entry when they are the same). */
+export function spellings(path: string) {
+  const real = canonical(path)
+  return real === path ? [path] : [path, real]
+}
+
+/** Each path as written and as resolved. Seatbelt and bubblewrap check the resolved path, so a sandbox needs both. */
+export function withRealPaths(paths: string[]) {
+  return [...new Set(paths.flatMap(spellings))]
+}
+
+/** A glob as a regular expression: `*` and `?` stay within one path segment, `**` crosses segments. */
+export function globRegExp(glob: string, flags = '') {
+  let source = ''
+  for (let index = 0; index < glob.length; index++) {
+    const char = glob[index]!
+    if (char === '*' && glob[index + 1] === '*') {
+      const slash = glob[index + 2] === '/'
+      source += slash ? '(?:.*/)?' : '.*'
+      index += slash ? 2 : 1
+    }
+    else if (char === '*') { source += '[^/]*' }
+    else if (char === '?') { source += '[^/]' }
+    else if (char === '[' && glob.indexOf(']', index + 2) > 0) {
+      const end = glob.indexOf(']', index + 2)
+      source += `[${glob.slice(index + 1, end).replace(/^!/, '^').replace(/\\/g, '\\\\')}]`
+      index = end
+    }
+    else { source += char.replace(/[.+^${}()|[\]\\]/g, '\\$&') }
+  }
+  return new RegExp(`^${source}$`, flags)
+}
+
+/** Whether a shell glob in a command (`~/.s?h/id_rsa`) could expand to `root` or to something inside it. */
+export function globMayReach(pattern: string, root: string, platform: NodeJS.Platform = process.platform) {
+  if (!/[*?[]/.test(pattern))
+    return false
+  const flags = platform === 'win32' || platform === 'darwin' ? 'i' : ''
+  const globs = pattern.split(/[\\/]/)
+  const names = root.split(/[\\/]/)
+  if (globs.length < names.length && !globs.includes('**'))
+    return false
+  for (let index = 0; index < names.length; index++) {
+    const glob = globs[index]!
+    if (glob === '**')
+      return true
+    // Shells leave dotfiles out of `*` unless the pattern itself starts with a dot.
+    if (!globRegExp(glob, flags).test(names[index]!) || (names[index]!.startsWith('.') && !glob.startsWith('.')))
+      return false
+  }
+  return true
 }
 
 /** File names that usually hold secrets wherever they live. */

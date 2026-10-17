@@ -39,10 +39,10 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
           <dd>{{ modes[item].description }}</dd>
         </template>
       </dl>
-      <p class="small muted">在输入框里按 Shift+Tab 切换模式。微信派来的任务始终按“谨慎”执行。读取凭据目录（~/.ssh、~/.aws 等）和 Anna 自己的数据在任何模式下都会被拒绝。</p>
+      <p class="small muted">在输入框里按 Shift+Tab 切换模式。微信派来的任务始终按“谨慎”执行。工作文件夹之外的读写（包括 ~/.ssh 这类凭据目录）按模式和规则处理，和 Claude Code 一样。读 .env、私钥这类可能含密钥的文件前会先问你，无论用工具、命令还是搜索；选“总是允许”后同一个文件不再问。Anna 自己的密钥和数据在任何模式下都不可访问。</p>
 
       <h3>命令沙箱</h3>
-      <p class="small" :class="snapshot.platform.sandbox.available ? 'ok' : 'warn'">{{ snapshot.platform.sandbox.available ? '已启用：终端命令只能写工作文件夹、临时目录和包管理缓存；读取凭据目录会被系统拒绝；每个联网地址都要经过确认（放手模式自动放行常用软件源）。' : `不可用：${snapshot.platform.sandbox.reason ?? '未知原因'}。放手模式下修改类命令仍会先问你。` }}</p>
+      <p class="small" :class="snapshot.platform.sandbox.available ? 'ok' : 'warn'">{{ snapshot.platform.sandbox.available ? '已启用：终端命令只能写工作文件夹、临时目录和包管理缓存；其他位置（包括 ~/.ssh）可以读，Anna 自己的数据会被系统拒绝读取；每个联网地址都要经过确认（放手模式自动放行常用软件源）。' : `不可用：${snapshot.platform.sandbox.reason ?? '未知原因'}。放手模式下修改类命令仍会先问你。` }}</p>
 
       <h3>权限规则</h3>
       <p v-if="!rules.length" class="small muted">还没有规则。在确认卡上选“总是允许”或“本次会话都允许”会出现在这里。</p>

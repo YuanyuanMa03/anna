@@ -90,7 +90,7 @@ export const copy = {
       ],
     },
     showcase: [
-      { eyebrow: 'APPROVALS', title: '需要你拍板时，她会转过来问你。', body: '确认卡有四个选项：拒绝、仅允许一次、本次会话都允许、总是允许。“总是允许”会写成一条 Claude Code 格式的规则，比如 Edit(src/**)，随时可以删掉。', points: ['高风险操作只能逐次批准', '~/.ssh、钥匙串等凭据目录永远碰不到', '微信派来的任务始终按“谨慎”执行'], image: '/media/approval.webp', alt: 'Anna 改文件前弹出确认卡' },
+      { eyebrow: 'APPROVALS', title: '需要你拍板时，她会转过来问你。', body: '确认卡有四个选项：拒绝、仅允许一次、本次会话都允许、总是允许。“总是允许”会写成一条 Claude Code 格式的规则，比如 Edit(src/**)，随时可以删掉。', points: ['高风险操作只能逐次批准', '读 .env、私钥前先问你；Anna 自己的数据永远碰不到', '微信派来的任务始终按“谨慎”执行'], image: '/media/approval.webp', alt: 'Anna 改文件前弹出确认卡' },
       { eyebrow: 'DELEGATION', title: '有更合适的人选，她就派活。', body: '像 cc-switch 一样，Anna 会找到你电脑上已经装好的 Claude Code、Codex、Gemini CLI、OpenCode。输入 @claude 或 @codex，它们开工，Anna 换上“督工”的姿态。', points: ['它们的授权请求出现在 Anna 的确认卡上', '派活前先拍快照，别人的改动也能看 diff、能撤销', '大脑也可以整个换成 Claude Code 或 Codex'], image: '/media/delegation.webp', alt: 'Anna 督工 Claude Code' },
       { eyebrow: 'PROVIDERS', title: '服务商在一处切换，所有 agent 通用。', body: '内置 cc-switch 的服务商预设。可以只给某一次派活注入，不改任何配置文件；也可以应用到全局，写入前先备份，一键就能恢复。', points: ['自动识别 10 种 coding 工具', '检测登录状态，一键安装或升级', '密钥由系统凭据库加密保存'], image: '/media/agents.webp', alt: '识别到的 coding agent 与服务商设置' },
     ],
@@ -105,7 +105,7 @@ export const copy = {
       title: ['四种模式，', '四种站姿。'],
       desc: '参考 Claude Code 的设计：模式决定默认做法，规则记住你的例外，操作系统沙箱才是真正的边界。在输入框里按 Shift+Tab 切换。',
       rows: ['改工作区文件', '测试、构建', '联网、其他命令', '高风险命令'],
-      always: '凭据目录与 Anna 自己的数据：任何模式都碰不到。',
+      always: '工作区之外的读写按模式来，和 Claude Code 一样；Anna 自己的密钥和数据，任何模式都碰不到。',
       try: '在演示里试试',
     },
     journey: {
@@ -189,7 +189,7 @@ export const copy = {
       ],
     },
     showcase: [
-      { eyebrow: 'APPROVALS', title: 'When the call is yours, she turns and asks.', body: 'Approval cards offer Deny, Allow once, Allow for this session and Always allow. "Always allow" becomes a Claude Code-format rule such as Edit(src/**), and you can remove it any time.', points: ['Risky actions can only be approved one at a time', '~/.ssh, keychains and other credentials are always off-limits', 'Tasks from WeChat always run in Ask mode'], image: '/media/approval.webp', alt: 'Anna shows an approval card before editing a file' },
+      { eyebrow: 'APPROVALS', title: 'When the call is yours, she turns and asks.', body: 'Approval cards offer Deny, Allow once, Allow for this session and Always allow. "Always allow" becomes a Claude Code-format rule such as Edit(src/**), and you can remove it any time.', points: ['Risky actions can only be approved one at a time', 'Reading .env files or private keys asks first; Anna\'s own data is always off-limits', 'Tasks from WeChat always run in Ask mode'], image: '/media/approval.webp', alt: 'Anna shows an approval card before editing a file' },
       { eyebrow: 'DELEGATION', title: 'When someone else fits better, she delegates.', body: 'Like cc-switch, Anna finds the Claude Code, Codex, Gemini CLI or OpenCode already on your machine. Type @claude or @codex and they get to work while Anna switches to her supervising pose.', points: ['Their permission prompts land on Anna\'s cards', 'A snapshot before each task makes their changes diffable and undoable', 'You can even swap Anna\'s brain for Claude Code or Codex'], image: '/media/delegation.webp', alt: 'Anna supervising Claude Code' },
       { eyebrow: 'PROVIDERS', title: 'Switch providers once, for every agent.', body: 'cc-switch\'s provider presets are built in. Inject one into a single delegation without touching any config file, or apply it globally, with a backup first and one-click restore.', points: ['Detects 10 coding tools', 'Checks login status, installs or upgrades in one click', 'Keys are encrypted by the OS keychain'], image: '/media/agents.webp', alt: 'Detected coding agents and provider settings' },
     ],
@@ -204,7 +204,7 @@ export const copy = {
       title: ['Four modes,', 'four stances.'],
       desc: 'Modeled on Claude Code: the mode sets the default, rules remember your exceptions, and the OS sandbox is the real boundary. Press Shift+Tab in the input to switch.',
       rows: ['Edit workspace files', 'Tests, builds', 'Network, other commands', 'Risky commands'],
-      always: 'Credential folders and Anna\'s own data: off-limits in every mode.',
+      always: 'Paths outside the workspace follow the mode, as in Claude Code. Anna\'s own keys and data: off-limits in every mode.',
       try: 'Try it in the demo',
     },
     journey: {

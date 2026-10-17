@@ -10,7 +10,7 @@ export interface LaunchInput {
   /** Continue this agent session. */
   sessionId?: string
   provider?: ProviderChoice
-  /** Paths the agent must never read or edit (credentials, Anna's own data). */
+  /** Paths the agent must never read or edit (Anna's own data). */
   denyPaths: string[]
   /** Extra system instructions (Anna's persona when the agent is Anna's brain). */
   instructions?: string
@@ -29,7 +29,11 @@ export interface Launch {
 
 const claudeModes: Record<PermissionMode, string> = { plan: 'plan', ask: 'default', edit: 'acceptEdits', auto: 'acceptEdits' }
 const geminiModes: Record<PermissionMode, string> = { plan: 'default', ask: 'default', edit: 'auto_edit', auto: 'auto_edit' }
-const ruleGlob = (path: string) => `/${path.replace(/\\/g, '/').replace(/\/$/, '')}/**`
+/** Claude Code rules for a path and everything under it (`//` is an absolute path there). */
+function pathRules(path: string) {
+  const base = `/${path.replace(/\\/g, '/').replace(/\/$/, '')}`
+  return [base, `${base}/**`].flatMap(glob => [`Read(${glob})`, `Edit(${glob})`])
+}
 
 /**
  * Command-line arguments for one delegated run. Anna's mode maps onto each agent's own approval level;
@@ -40,7 +44,7 @@ export function buildLaunch(agent: DelegateAgent, input: LaunchInput): Launch {
   const provider = app && input.provider ? providerLaunch(app, input.provider) : { env: {}, args: [] }
   switch (agent) {
     case 'claude': {
-      const deny = input.denyPaths.flatMap(path => [`Read(${ruleGlob(path)})`, `Edit(${ruleGlob(path)})`])
+      const deny = input.denyPaths.flatMap(pathRules)
       return {
         args: ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio', '--permission-mode', claudeModes[input.mode], '--settings', JSON.stringify({ permissions: { deny } }), ...(input.instructions ? ['--append-system-prompt', input.instructions] : []), ...(input.sessionId ? ['--resume', input.sessionId] : [])],
         env: provider.env,
