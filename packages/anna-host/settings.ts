@@ -15,6 +15,7 @@ const settingsSchema = v.object({
   characterId: v.picklist(characters.map(character => character.id) as [CharacterId, ...CharacterId[]]),
   statusEnabled: v.boolean(),
   memoryEnabled: v.optional(v.boolean(), true),
+  reviewDelegations: v.optional(v.boolean(), true),
   model: modelSchema,
   sessionFile: v.optional(v.string()),
   modelVerified: v.optional(v.boolean()),
@@ -49,7 +50,7 @@ export function migrate(raw: Record<string, unknown>): Settings {
   return v.parse(settingsSchema, value) as Settings
 }
 
-export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'deepseek-official', model: 'deepseek-flash', baseURL: 'https://api.deepseek.com', api: 'openai-completions' } })
+export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, reviewDelegations: true, workspaces: {}, model: { provider: 'deepseek-official', model: 'deepseek-flash', baseURL: 'https://api.deepseek.com', api: 'openai-completions' } })
 
 /** The host is the sole writer. Atomic replacement prevents truncated settings after a crash. */
 export class SettingsStore {

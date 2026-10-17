@@ -37,9 +37,11 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 Pick a companion: six in all, three women and three men (Anna, Haru, Mao, Natori, Chitose, Mark), all from Live2D's free
 samples. Each has their own name, personality and way of talking; honesty, permissions and memory are the same for
 all of them. Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
-and when a companion hands a job to Claude Code or Codex itself, it takes the result back and reviews it before
-reporting (with `@claude` or `@codex` you get the agent's own report). Switch companions or brains: the
-memory and your conversations carry on.
+and whenever Claude Code or Codex does a job, whether the companion handed it over or you sent it with `@claude` or
+`@codex`, the companion takes the result back, checks the changes with its own tools (and quick tests when there are
+some), and tells you whether you can rely on it. Reviewing an `@` job costs one model turn; you can turn it off under
+“外观与能力” (Appearance & capabilities), and it is skipped when the brain itself is Claude Code or Codex. Switch
+companions or brains: the memory and your conversations carry on.
 
 ## What she can do
 

@@ -5,6 +5,7 @@ import type { RuleSet } from '../permissions/rules'
 import type { SandboxStatus } from '../permissions/sandbox'
 import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
+import type { DelegationOutcome } from './delegator'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
@@ -30,7 +31,7 @@ import { SettingsStore, validateModel } from './settings'
 export interface CredentialVault { read: () => Promise<string>, write: (key: string) => Promise<void> }
 /** A remote channel (Weixin today) that can push text to its owner outside a reply. */
 export interface Channel { notify: (text: string) => Promise<boolean> }
-interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string> }
+interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string>, /** The user pressed stop. */ stopped?: boolean, /** The companion is checking a collaborator's result. */ reviewing?: boolean }
 export interface HostOptions {
   kernel?: KernelFactory
   sandbox?: SandboxStatus
@@ -245,9 +246,14 @@ export class Host {
 
   private async gate(tool: string, input: Record<string, unknown>): Promise<GateVerdict> {
     const origin = this.current?.origin ?? 'desktop'
+    if (this.current?.reviewing && (tool === 'write' || tool === 'edit'))
+      return { allow: false, reason: '现在是在审阅协作者的结果：只检查，不修改文件。需要改的地方告诉用户，由用户决定。' }
     const decision = decide(tool, input, this.policyContext(origin))
     if (decision.kind === 'deny')
       return { allow: false, reason: decision.reason }
+    // A review for a remote channel never sends approval cards; it checks what it can without them.
+    if (decision.kind === 'ask' && this.current?.reviewing && origin !== 'desktop')
+      return { allow: false, reason: '这次审阅来自微信，不向用户请求确认：这一步需要确认，所以不做。用不需要确认的方式检查，并说明哪些没能核实。' }
     if (decision.kind === 'ask') {
       const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule })
       if (outcome !== 'allowed')
@@ -463,12 +469,20 @@ export class Host {
       this.refreshHistory()
       this.publish()
       let outcome: { status: 'completed' | 'failed' | 'aborted', text: string, error?: string }
+      let reviewed = false
       if (task.delegate) {
         ;(task.collaborators ??= new Set()).add(labelOf(task.delegate.agent))
         const delegated = await this.delegator.run(task.delegate.agent, task.delegate.task, { taskId: task.id, origin: task.origin, providerName: task.delegate.provider })
         kernel.remember('delegation', { task: task.text, text: delegated.text, origin: task.origin, delegation: delegated.delegation })
-        kernel.note(`[Anna 系统提示] 用户把任务交给了 ${delegated.delegation.label}：「${task.delegate.task}」。结果（${delegated.status}）：${delegated.text.slice(0, 2000)}`)
         outcome = { status: delegated.status, text: delegated.text, error: delegated.status === 'failed' ? delegated.error ?? delegated.text : undefined }
+        if (delegated.status === 'completed' && !task.stopped && this.store.value.reviewDelegations && kernel.capabilities.id === 'pi') {
+          const review = await this.review(kernel, task, delegated, key)
+          reviewed = review.status === 'completed'
+          outcome = review
+        }
+        else {
+          kernel.note(`[Anna 系统提示] 用户把任务交给了 ${delegated.delegation.label}：「${task.delegate.task}」。结果（${delegated.status}）：${delegated.text.slice(0, 2000)}`)
+        }
       }
       else {
         outcome = await kernel.prompt(task.text, { origin: task.origin })
@@ -479,7 +493,7 @@ export class Host {
         kernel.note(`[Anna 系统提示] 用户中断了任务「${task.text.slice(0, 200)}」。这是用户的决定：之后不要主动接着做，也不要“顺带”把它做完。只有用户明确说继续时才继续；下一条消息按它本身来回应。`)
       if (changes.length || outcome.status !== 'completed')
         await this.journal.record({ taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators] }).catch(() => {})
-      if (outcome.status === 'completed' && !task.delegate)
+      if (outcome.status === 'completed' && (!task.delegate || reviewed))
         await this.markVerified()
       if (outcome.text)
         this.presence.flushStream(outcome.text)
@@ -524,6 +538,44 @@ export class Host {
     }
   }
 
+  /**
+   * After an @mention delegation, the companion checks the result with her own tools before the user relies on it.
+   * The prompt is hidden from the transcript; her verdict follows the collaborator's report. Files stay untouched.
+   */
+  private async review(kernel: AgentKernel, task: Task, delegated: DelegationOutcome, key: string): Promise<{ status: 'completed' | 'aborted', text: string }> {
+    const label = delegated.delegation.label
+    const changes = await this.checkpoints.changes(task.id)
+    let budget = 12000
+    const diffs = changes.map((change) => {
+      const patch = change.patch.slice(0, Math.max(0, budget))
+      budget -= patch.length
+      return patch.length < change.patch.length ? `${patch}\n…（已截断，请自己读文件）` : patch
+    }).filter(Boolean)
+    const prompt = [
+      `[Anna 系统提示] 用户用 @ 把任务直接交给了 ${label}，它说已经完成。用户看不到这条提示。在用户依赖这个结果之前，请你亲自审阅它，再告诉用户能不能放心用。`,
+      `用户的要求：「${delegated.delegation.task}」`,
+      `${label} 的汇报：\n${delegated.text.slice(0, 6000)}`,
+      changes.length ? `Anna 记录到的文件改动：${changes.map(change => `${change.path}（${change.status}）`).join('、')}\n${diffs.join('\n')}` : 'Anna 没有记录到任何文件改动。',
+      '用你自己的工具核实：读改动后的文件，工作区是 git 仓库时可以看 git status / git diff；有现成又很快的测试、类型检查就跑一下，耗时长的不要跑。审阅只检查，不修改任何文件。',
+      ...(task.origin === 'desktop' ? [] : ['这个任务来自微信，审阅时不能请用户确认：需要确认的步骤会被拒绝，只做不需要确认的检查。']),
+      `最后用几句话告诉用户：${label} 有没有做到用户要的、你核实了什么、发现的问题和没能核实的部分，以及结论（可以放心用 / 需要注意什么 / 不建议直接用）。不要复述它的整段汇报。`,
+    ].join('\n\n')
+    task.reviewing = true
+    this.presence.set('reviewing', `看看 ${label} 交回来的结果…`)
+    try {
+      const outcome = await kernel.prompt(prompt, { origin: task.origin, hidden: true })
+      if (outcome.status === 'aborted')
+        return { status: 'aborted', text: delegated.text }
+      if (outcome.status === 'completed' && outcome.text)
+        return { status: 'completed', text: outcome.text }
+      const reason = outcome.status === 'failed' ? this.recordFailure(this.safeError(outcome.error, key)) : '没有给出结论'
+      const notice = `没能审阅 ${label} 的结果（${reason}）。上面是它自己的汇报，还没有经过检查。`
+      kernel.remember('notice', { text: notice, origin: task.origin })
+      return { status: 'completed', text: `${delegated.text}\n\n${notice}` }
+    }
+    finally { task.reviewing = false }
+  }
+
   /** Record a failure: returns it in plain words, and remembers when the provider refused the key itself. */
   private recordFailure(diagnostic: string) {
     const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!)
@@ -548,6 +600,8 @@ export class Host {
   /** Abort the running task, cancel its approvals, and drop queued tasks. Not an error. */
   async stopWork() {
     for (const task of this.tasks.splice(0)) task.reject(new Error('任务已取消'))
+    if (this.current)
+      this.current.stopped = true
     this.approvals.cancel()
     this.delegator.stop()
     if (this.kernel && this.current)
@@ -639,6 +693,11 @@ export class Host {
         await this.hub.install(command.agent)
         await this.refreshAgents(true)
         this.presence.set('done', `${labelOf(command.agent)} 装好了。`)
+        return this.snapshot()
+      case 'review':
+        this.store.value.reviewDelegations = command.enabled
+        await this.store.save()
+        this.publish()
         return this.snapshot()
       case 'memory-forget':
         await this.memory.forget(command.id)

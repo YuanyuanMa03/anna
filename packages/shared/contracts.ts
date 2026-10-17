@@ -21,6 +21,8 @@ export interface Settings {
   characterId: CharacterId
   statusEnabled: boolean
   memoryEnabled: boolean
+  /** The companion reviews what an @mentioned agent did before reporting (costs one model turn). */
+  reviewDelegations: boolean
   model: ModelSettings
   /** Kernel session file that the next start continues. */
   sessionFile?: string
@@ -152,6 +154,7 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'undo', taskId: string, force?: boolean }
   | { type: 'memory', enabled: boolean }
   | { type: 'memory-forget', id: string }
+  | { type: 'review', enabled: boolean }
   | { type: 'agents-refresh' }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }

@@ -56,6 +56,8 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
         <li v-for="item in snapshot.memories" :key="item.id"><span>{{ item.text }}</span><button class="link" @click="emit('command', { type: 'memory-forget', id: item.id })">忘记</button></li>
       </ul>
 
+      <div class="plugin-row"><div><h3>审阅派出的活</h3><p>用 @claude、@codex 派活后，伙伴会亲自检查改动（能很快跑完的测试也会跑），再告诉你结果能不能放心用。每次多一轮模型调用；大脑换成 Claude Code 或 Codex 时不审阅。</p></div><button :aria-pressed="snapshot.settings.reviewDelegations" @click="emit('command', { type: 'review', enabled: !snapshot.settings.reviewDelegations })">{{ snapshot.settings.reviewDelegations ? '不再审阅' : '开启审阅' }}</button></div>
+
       <div class="plugin-row"><div><h3>Anna Status</h3><p>读取版本、内核、模型、权限与插件。</p><span>{{ snapshot.plugins.includes('anna-status') ? '实际已加载' : '未加载' }}</span></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.statusEnabled" @click="emit('command', { type: 'plugin', enabled: !snapshot.settings.statusEnabled })">{{ snapshot.settings.statusEnabled ? '禁用状态工具' : '启用状态工具' }}</button></div>
       <p class="muted small">大脑：{{ snapshot.kernel.label }}（可在“模型与设置”里换成 Claude Code 或 Codex）· 系统：{{ snapshot.platform.os }} / {{ snapshot.platform.shell }}<br>插件：{{ snapshot.plugins.join('、') || '未启动' }}<br>实际工具注册表：{{ snapshot.tools.join('、') || '无' }}<br>运行时：{{ snapshot.state }}</p>
       <p v-if="error" class="error">{{ error }}</p>

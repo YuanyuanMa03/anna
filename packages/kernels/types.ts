@@ -77,7 +77,8 @@ export interface AgentKernel {
   readonly plugins: string[]
   readonly modelInfo?: { id: string, thinking: string, contextWindow: number }
   start: () => Promise<void>
-  prompt: (text: string, meta: { origin: Origin }) => Promise<TurnOutcome>
+  /** `hidden`: Anna's own prompt (e.g. a review request); the model sees it, the transcript does not. */
+  prompt: (text: string, meta: { origin: Origin, hidden?: boolean }) => Promise<TurnOutcome>
   steer: (text: string) => Promise<void>
   /** Add context the model sees but the user's transcript does not show (e.g. a permission-mode change). */
   note: (text: string) => void
