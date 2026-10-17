@@ -31,7 +31,8 @@ fetch() {
 }
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+# Keep the real exit status: a cleanup trap must not turn a failure into success.
+trap 'status=$?; rm -rf "$WORK"; exit $status' EXIT
 fetch "$BASE/latest.json" "$WORK/latest.json" || fail "无法获取版本信息 $BASE/latest.json"
 
 # latest.json lists one asset per line: "darwin-arm64": { "url": "…", "sha256": "…" }
@@ -42,7 +43,7 @@ URL="$(printf '%s' "$LINE" | sed -n 's/.*"url": *"\([^"]*\)".*/\1/p')"
 SHA="$(printf '%s' "$LINE" | sed -n 's/.*"sha256": *"\([0-9a-fA-F]\{64\}\)".*/\1/p')"
 [ -n "$URL" ] && [ -n "$SHA" ] || fail "版本信息格式不正确"
 
-echo "正在下载 Anna $VERSION（$KEY）…"
+echo "正在下载 Anna ${VERSION}（${KEY}）…"
 ARCHIVE="$WORK/anna-archive"
 fetch "$URL" "$ARCHIVE" || fail "下载失败 $URL"
 if command -v shasum >/dev/null 2>&1; then ACTUAL="$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)"; else ACTUAL="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"; fi
@@ -79,8 +80,8 @@ Icon=$DEST/resources/app/dist/renderer/favicon.png
 Type=Application
 Categories=Development;Utility;
 DESKTOP
-  echo "Anna $VERSION 已安装到 $DEST（命令：anna）"
+  echo "Anna $VERSION 已安装到 ${DEST}（命令：anna）"
   missing=""
   for dep in bwrap socat rg; do command -v "$dep" >/dev/null 2>&1 || missing="$missing $dep"; done
-  [ -z "$missing" ] || echo "提示：缺少$missing。安装 bubblewrap、socat、ripgrep 后，Anna 才能在沙箱里运行命令。"
+  [ -z "$missing" ] || echo "提示：缺少${missing}。安装 bubblewrap、socat、ripgrep 后，Anna 才能在沙箱里运行命令。"
 fi

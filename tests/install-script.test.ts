@@ -25,7 +25,8 @@ async function release(corruptChecksum = false) {
   await writeFile(join(root, 'release', 'latest.json'), `{\n  "version": "0.5.0",\n  "assets": {\n    "darwin-arm64": { "url": "file://${zip}", "sha256": "${sha}" },\n    "darwin-x64": { "url": "file://${zip}", "sha256": "${sha}" }\n  }\n}\n`)
   const home = join(root, 'home')
   await mkdir(home)
-  return { root, home, env: { ...process.env, HOME: home, ANNA_RELEASE_BASE: `file://${join(root, 'release')}`, ANNA_INSTALL_ALLOW_FILE: '1', ANNA_INSTALL_NO_OPEN: '1' } }
+  // Users run this in UTF-8 locales, where bash 3.2 reads multibyte characters as part of a variable name.
+  return { root, home, env: { ...process.env, LC_ALL: 'zh_CN.UTF-8', LANG: 'zh_CN.UTF-8', HOME: home, ANNA_RELEASE_BASE: `file://${join(root, 'release')}`, ANNA_INSTALL_ALLOW_FILE: '1', ANNA_INSTALL_NO_OPEN: '1' } }
 }
 
 describe.skipIf(process.platform !== 'darwin')('install.sh on macOS', () => {
@@ -41,5 +42,23 @@ describe.skipIf(process.platform !== 'darwin')('install.sh on macOS', () => {
     const { home, env } = await release(true)
     await expect(run('/bin/bash', [script], { env })).rejects.toMatchObject({ stderr: expect.stringContaining('校验失败') })
     expect(existsSync(join(home, 'Applications', 'Anna.app'))).toBe(false)
+  })
+})
+
+describe('shell scripts survive UTF-8 locales', () => {
+  it('never put a bare $VAR directly before non-ASCII text (bash would read it as part of the name)', async () => {
+    const { readFile, readdir } = await import('node:fs/promises')
+    const scripts = ['website/public/install.sh', ...(await readdir('scripts')).filter(name => name.endsWith('.sh')).map(name => `scripts/${name}`)]
+    const offenders: string[] = []
+    for (const script of scripts) {
+      (await readFile(script, 'utf8')).split('\n').forEach((line, index) => {
+        for (const match of line.matchAll(/\$[A-Z_]\w*/gi)) {
+          const next = line.charCodeAt((match.index ?? 0) + match[0].length)
+          if (next > 127)
+            offenders.push(`${script}:${index + 1}`)
+        }
+      })
+    }
+    expect(offenders).toEqual([])
   })
 })

@@ -18,7 +18,8 @@ fi
 mkdir -p "$OUT"
 chmod 700 "$OUT"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+# Keep the real exit status: a cleanup trap must not turn a failure into success.
+trap 'status=$?; rm -rf "$WORK"; exit $status' EXIT
 cat > "$WORK/ext.cnf" <<CNF
 [req]
 distinguished_name = dn
@@ -44,4 +45,4 @@ echo "接下来 macOS 会请你输入一次登录密码，用来信任这张证�
 security add-trusted-cert -r trustRoot -p codeSign -k "$HOME/Library/Keychains/login.keychain-db" "$OUT/anna-signing.cer.pem"
 
 security find-identity -v -p codesigning | grep "\"$NAME\"" && echo "完成：之后 pnpm package:mac 会自动使用 $NAME 签名。"
-echo "CI 用的证书文件在 $OUT（请妥善保管，不要提交到仓库）。"
+echo "CI 用的证书文件在 ${OUT}（请妥善保管，不要提交到仓库）。"

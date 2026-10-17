@@ -18,7 +18,7 @@ if (-not $Asset.url.StartsWith('https://')) { Fail "下载地址必须是 HTTPS�
 $Work = Join-Path ([IO.Path]::GetTempPath()) ("anna-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $Work | Out-Null
 try {
-  Write-Host "正在下载 Anna $($Manifest.version)（$Key）…"
+  Write-Host "正在下载 Anna $($Manifest.version)（${Key}）…"
   $Archive = Join-Path $Work 'anna.zip'
   Invoke-WebRequest -UseBasicParsing $Asset.url -OutFile $Archive
   $Actual = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLowerInvariant()
@@ -39,7 +39,7 @@ try {
   $Shortcut.TargetPath = Join-Path $Dest 'Anna.exe'
   $Shortcut.WorkingDirectory = $Dest
   $Shortcut.Save()
-  Write-Host "Anna $($Manifest.version) 已安装到 $Dest，开始菜单里可以找到它。"
+  Write-Host "Anna $($Manifest.version) 已安装到 ${Dest}，开始菜单里可以找到它。"
   if (-not $env:ANNA_INSTALL_NO_OPEN) { Start-Process (Join-Path $Dest 'Anna.exe') }
 }
 finally { Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue }
