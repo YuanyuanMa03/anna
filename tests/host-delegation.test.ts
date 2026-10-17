@@ -12,21 +12,24 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 
 const fake = resolve('tests/fixtures/fake-agent.mjs')
 
-/** A host whose external agents are the protocol-faithful fake (tests/fixtures/fake-agent.mjs). */
-async function setup(script: ScriptStep[], mode: PermissionMode = 'ask') {
+/**
+ * A host whose external agents are the protocol-faithful fake (tests/fixtures/fake-agent.mjs).
+ * `review` is written to the settings (undefined keeps the default, on); `installed: false` hides the agents.
+ */
+async function setup(script: ScriptStep[], mode: PermissionMode = 'ask', options: { review?: boolean, installed?: boolean } = { review: false }) {
   const data = await mkdtemp(join(tmpdir(), 'anna-delegate-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
   await writeFile(join(workspace, 'README.md'), '# demo\n')
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend(script, data)
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
     sandbox: { available: false, reason: 'test' },
     kernel: context => createPiKernel(context, backend),
-    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
+    agents: { locate: agent => options.installed === false ? undefined : { command: process.execPath, prefix: [fake, agent] } },
   })
   await host.initialize()
   const runs = async () => (existsSync(log) ? (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line)) : [])
@@ -66,6 +69,47 @@ it('@claude: delegates, forwards its permission request to Anna\'s card, records
   await host.close()
 })
 
+it('@claude with the pi brain: the companion reviews the result in a hidden turn, read-only, before reporting', async () => {
+  const { host, workspace, events } = await setup([
+    { tools: [{ name: 'write', args: { path: 'done.txt', content: 'changed by the reviewer' } }] },
+    { tools: [{ name: 'read', args: { path: 'done.txt' } }] },
+    { text: '我看过了：done.txt 已创建，内容是 OK，可以放心用。' },
+  ], 'ask', {})
+  const sent = host.execute({ type: 'send', text: '@claude 帮我创建 done.txt' })
+  await approve(host)
+  await sent
+  // The review cannot change files; the collaborator's work stays as it left it.
+  expect(await readFile(join(workspace, 'done.txt'), 'utf8')).toBe('OK')
+  const visible = (messages: { role: string, text: string, delegation?: unknown }[]) => messages.map(message => [message.role, message.delegation ? 'delegation' : message.text])
+  const expected = [['user', '@claude 帮我创建 done.txt'], ['assistant', 'delegation'], ['assistant', '我看过了：done.txt 已创建，内容是 OK，可以放心用。']]
+  expect(visible(host.snapshot().messages!)).toEqual(expected)
+  expect(host.snapshot().result).toMatchObject({ status: 'completed', summary: '我看过了：done.txt 已创建，内容是 OK，可以放心用。', changes: [{ path: 'done.txt', status: 'added' }] })
+  const phases = events.flatMap(event => event.type === 'anna' ? [event.state.phase] : [])
+  expect(phases.indexOf('reviewing')).toBeGreaterThan(phases.indexOf('supervising'))
+  expect(events.some(event => event.type === 'tool' && event.name === 'write' && event.phase === 'result' && event.isError)).toBe(true)
+  // The hidden prompt stays hidden after a restart rebuilds the history from the session file.
+  await host.execute({ type: 'restart' })
+  expect(visible(host.snapshot().messages!)).toEqual(expected)
+  await host.close()
+})
+
+it('no review after a failed delegation, or when the user turned reviews off', async () => {
+  const failed = await setup([{ text: '不该出现的审阅。' }], 'ask', { installed: false })
+  await expect(failed.host.execute({ type: 'send', text: '@claude 帮我创建 done.txt' })).rejects.toThrow()
+  expect(failed.host.snapshot().messages!.at(-1)).toMatchObject({ delegation: { agent: 'claude', status: 'failed' } })
+  expect(failed.host.snapshot().messages!.some(message => message.text.includes('不该出现'))).toBe(false)
+  expect(failed.events.some(event => event.type === 'anna' && event.state.phase === 'reviewing')).toBe(false)
+  await failed.host.close()
+
+  const off = await setup([{ text: '不该出现的审阅。' }], 'auto', {})
+  await off.host.execute({ type: 'review', enabled: false })
+  expect(off.host.snapshot().settings.reviewDelegations).toBe(false)
+  await off.host.execute({ type: 'send', text: '@claude 帮我创建 done.txt' })
+  expect(off.host.snapshot().messages!.at(-1)).toMatchObject({ delegation: { agent: 'claude', status: 'completed' } })
+  expect(off.events.some(event => event.type === 'anna' && event.state.phase === 'reviewing')).toBe(false)
+  await off.host.close()
+})
+
 it('@codex: a declined command is reported, nothing is written', async () => {
   const { host, workspace } = await setup([], 'edit')
   const sent = host.execute({ type: 'send', text: '@codex 用命令创建 done.txt' })
@@ -103,7 +147,7 @@ it('manages agents like cc-switch: detection list, per-agent provider for delega
   await writeFile(join(claudeDir, 'settings.json'), JSON.stringify({ env: { FOO: '1' }, model: 'opus' }, null, 2))
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const secrets: Record<string, string> = {}
   const backend = await scriptedBackend([], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {

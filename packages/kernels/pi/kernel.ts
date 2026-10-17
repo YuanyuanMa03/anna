@@ -144,12 +144,14 @@ export class PiKernel implements AgentKernel {
     }
   }
 
-  async prompt(text: string, meta: { origin: Origin }): Promise<TurnOutcome> {
+  async prompt(text: string, meta: { origin: Origin, hidden?: boolean }): Promise<TurnOutcome> {
     const session = this.session
     if (!session)
       throw new Error('内核尚未启动')
     this.aborting = false
     session.sessionManager.appendCustomEntry('anna.origin', { origin: meta.origin })
+    if (meta.hidden)
+      session.sessionManager.appendCustomEntry('anna.hidden', {})
     const before = session.messages.length
     let error: string | undefined
     try { await session.prompt(text) }
@@ -183,7 +185,7 @@ export class PiKernel implements AgentKernel {
     this.session = undefined
   }
 
-  /** Visible conversation from the session branch: user messages, each turn's final reply, and interruption notes. */
+  /** Visible conversation from the session branch: user messages (not Anna's hidden prompts), each turn's final reply, and notes. */
   history(): Message[] {
     const manager = this.session?.sessionManager
     if (!manager)
@@ -191,6 +193,7 @@ export class PiKernel implements AgentKernel {
     const out: Message[] = []
     let origin: Origin = 'desktop'
     let reply: Message | undefined
+    let hideNext = false
     const flush = () => {
       if (reply?.text)
         out.push(reply); reply = undefined
@@ -210,8 +213,20 @@ export class PiKernel implements AgentKernel {
         flush()
         out.push({ role: 'assistant', text: '这一轮被中断了。随时可以继续。', origin, note: true })
       }
+      else if (entry.type === 'custom' && entry.customType === 'anna.notice') {
+        flush()
+        const record = entry.data as { text: string, origin?: Origin }
+        out.push({ role: 'assistant', text: record.text, origin: record.origin ?? origin, note: true })
+      }
+      else if (entry.type === 'custom' && entry.customType === 'anna.hidden') {
+        hideNext = true
+      }
       else if (entry.type === 'message' && entry.message.role === 'user') {
         flush()
+        if (hideNext) {
+          hideNext = false
+          continue
+        }
         out.push({ role: 'user', text: textOf((entry.message as unknown as UserLike).content), origin })
       }
       else if (entry.type === 'message' && entry.message.role === 'assistant') {

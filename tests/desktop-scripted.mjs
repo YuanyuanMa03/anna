@@ -27,6 +27,8 @@ await writeFile(script, JSON.stringify([
   { text: '**改好了**，修改了 tasks.txt，新增了 notes.md。' },
   { text: '这一句会被打断。', wait: 6000 },
   { text: '继续正常工作。' },
+  { tools: [{ name: 'read', args: { path: 'done.txt' } }], wait: 1500 },
+  { text: '我核实过了：done.txt 已创建，内容是 OK，可以放心用。' },
 ]))
 // Pretend the settings come from a previous key-configured install; the vault returns the scripted key.
 await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'scripted', baseURL: 'https://scripted.invalid', api: 'openai-completions' }, workspaces: {} }))
@@ -138,11 +140,17 @@ try {
   await page.locator('.collaborator-card[data-agent="claude"][data-state="running"]').waitFor({ timeout: 10000 })
   await page.locator('.model-canvas[data-performed="supervising"]').waitFor({ timeout: 5000 })
   await page.screenshot({ path: 'artifacts/scripted-delegation.png' })
-  const delegated = await until(page, s => s.state === 'ready' && s.messages?.at(-1)?.delegation?.agent === 'claude', 'delegation done')
+  // The companion then reviews the collaborator's result in a hidden turn and reports her own verdict.
+  await page.locator('.model-canvas[data-performed="reviewing"]').waitFor({ timeout: 10000 })
+  await page.locator('.collaborator-card[data-state="done"]').waitFor()
+  await page.screenshot({ path: 'artifacts/scripted-review.png' })
+  const reviewed = '我核实过了：done.txt 已创建，内容是 OK，可以放心用。'
+  const delegated = await until(page, s => s.state === 'ready' && s.messages?.at(-1)?.text === reviewed, 'delegation reviewed')
+  assert.equal(delegated.messages.at(-2)?.delegation?.agent, 'claude')
+  assert(!delegated.messages.some(m => m.role === 'user' && m.text.includes('Anna 系统提示')), 'review prompt leaked into the transcript')
   assert.equal(await readFile(join(workspace, 'done.txt'), 'utf8'), 'OK')
   assert.deepEqual(delegated.result.changes.map(c => c.path), ['done.txt'])
-  await page.locator('.collaborator-card[data-state="done"]').waitFor()
-  evidence.checks.push('Delegation: @claude via the fake agent, collaborator card, supervising pose, history block, changes')
+  evidence.checks.push('Delegation: @claude via the fake agent, collaborator card, supervising pose, history block, changes, hidden review with reviewing pose')
 
   // Kill the core process: main restarts it and the window reconnects without losing the session.
   const sessionId = (await snapshot(page)).sessionId
@@ -153,7 +161,8 @@ try {
   process.kill(pid, 'SIGKILL')
   await page.waitForTimeout(500)
   const recovered = await until(page, s => s.state === 'ready' && s.sessionId === sessionId, 'core recovered', 30000)
-  assert.equal(recovered.messages?.at(-1)?.delegation?.agent, 'claude')
+  assert.equal(recovered.messages?.at(-2)?.delegation?.agent, 'claude')
+  assert.equal(recovered.messages?.at(-1)?.text, reviewed)
   evidence.checks.push('Core crash: restarted by main, session and history intact')
   await page.screenshot({ path: 'artifacts/scripted-recovered.png' })
   assert.deepEqual(evidence.consoleErrors, [])
