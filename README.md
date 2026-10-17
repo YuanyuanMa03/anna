@@ -2,10 +2,11 @@
 
 # Anna
 
-**A desktop coding agent with a face.**
+**A digital life on your desktop, and an honest companion.**
 
-Anna is a Live2D character who lives on your desktop and actually gets work done. She reads your code, edits files,<br>
-runs your tests, and hands tasks to Claude Code or Codex when they're the better fit. Every step shows up on stage.
+Anna is more than an agent. She has her own face, personality and memory. She keeps you company, and she gets real<br>
+work done: reading your code, editing files, running tests, and calling in Claude Code or Codex when they fit better.<br>
+She never pretends to have done what she hasn't, and when a decision is yours, she turns and asks.
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
@@ -15,15 +16,27 @@ runs your tests, and hands tasks to Claude Code or Codex when they're the better
 
 **English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top)
 
-<img src="docs/media/approval.webp" alt="Anna asks before editing a file in Ask mode" width="880">
+<img src="docs/media/work.webp" alt="Anna finishing a real task with DeepSeek: her reply, the steps she took and the delivery card" width="880">
 
 </div>
 
-## Why Anna?
+## Meet Anna
 
-Coding agents are powerful but invisible: a scrolling terminal is easy to lose track of. Anna puts the agent loop on
-stage. You can glance over and see whether she's reading, thinking, waiting for you or done. When she needs a
-decision, an approval card appears next to her. The work comes first; the companion is the interface.
+Most AI tools are either a chat box or an invisible process in a terminal. Anna is neither. She is a character who
+lives on your desktop, works alongside you, and stays the same Anna whichever brain she runs on.
+
+- ✿ **A face of her own.** A real Live2D character. Thinking, reading, waiting for you and finishing up each have
+  their own look, and even her stance changes with the permission mode.
+- ♡ **A personality.** Kind, rational and honest. She has her own opinions and respects your final call: warm and
+  brief in small talk, conclusion first at work.
+- ❋ **She remembers you.** Long-term memory keeps your habits and preferences. You can see everything she remembers
+  and delete any of it.
+- ✓ **Honest with you.** No made-up tool results: a test she didn't run is a test she says she didn't run. Anything
+  beyond her permissions, she asks first.
+
+Switch characters or swap her brain: her personality, memory and your conversations carry on.
+
+## What she can do
 
 - 🧠 **A real agent brain.** Built on the [pi coding agent](https://github.com/earendil-works/pi) SDK: file tools,
   shell, context compaction, retries, resumable sessions. You can also swap the brain for **Claude Code** or **Codex**.
@@ -196,7 +209,7 @@ website/               landing page and the install scripts
 
 ## The journey
 
-Anna changed brains three times before she could really work.
+Anna has changed brains three times, and she's still Anna.
 
 1. **OpenClaw.** The first prototype of Anna was built on [OpenClaw](https://github.com/openclaw/openclaw).
 2. **v0.2 · DeepSeek Harness.** She moved into an Electron desktop with real Live2D models, and DSH ran the agent loop.

@@ -2,10 +2,11 @@
 
 # Anna
 
-**一个有脸的桌面 coding agent。**
+**住在你桌面上的数字生命，你的真诚伙伴。**
 
-Anna 是住在你桌面上的 Live2D 角色，会真的动手干活：读代码、改文件、跑测试。<br>
-遇到更适合 Claude Code 或 Codex 的任务，她会派给它们。每一步都演在舞台上。
+Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你聊天，<br>
+也会认真帮你做事：读代码、改文件、跑测试，需要时请 Claude Code 或 Codex 来帮忙。<br>
+她不会假装做过没做的事；需要你拍板时，她会转过来问你。
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
@@ -15,13 +16,22 @@ Anna 是住在你桌面上的 Live2D 角色，会真的动手干活：读代码�
 
 [English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top)
 
-<img src="docs/media/approval.webp" alt="谨慎模式下，Anna 改文件前先请你确认" width="880">
+<img src="docs/media/work.webp" alt="Anna 连接 DeepSeek 完成一个真实任务：回复、执行过的步骤和交付卡" width="880">
 
 </div>
 
-## 为什么做 Anna
+## 认识 Anna
 
-coding agent 很强，但看不见：终端一直滚，一不留神就跟丢了。Anna 把 agent 的工作过程搬上舞台。瞄一眼就知道她在读、在想、在等你，还是已经做完。需要你拍板时，确认卡就出现在她身边。以干活为主，陪伴是外壳。
+大多数 AI 工具，要么是一个聊天框，要么是终端里看不见的进程。Anna 两者都不是：她是住在你桌面上的角色，和你一起干活，不管换成哪个大脑，她始终是 Anna。
+
+- ✿ **有自己的样子**：真实的 Live2D 角色。思考、读文件、等你确认、完成任务，她都有不同的神态；换个权限模式，连站姿都会变。
+- ♡ **有自己的性格**：善良、理性、真诚。她有自己的观点，也尊重你的最终决定；闲聊时简短温暖，做事时先说结论。
+- ❋ **记得你**：长期记忆让她记住你的习惯和偏好。记了什么，你都能看到，也随时可以删掉。
+- ✓ **对你真诚**：不编造工具结果，没跑过的测试就说没跑过；超出权限的事，一定先问你。
+
+外观可以换，大脑可以换，但她的性格、记忆和你们之间的对话，始终是连续的。
+
+## 她能做什么
 
 - 🧠 **真正的 agent 大脑**：基于 [pi coding agent](https://github.com/earendil-works/pi) SDK，有文件工具、终端、上下文压缩、自动重试和可续接的会话。大脑也可以换成 **Claude Code** 或 **Codex**。
 - 🤝 **会派活**：像 [cc-switch](https://github.com/farion1231/cc-switch) 一样识别你电脑上已装的 coding agent。输入 `@claude 修一下那个不稳定的测试`，Claude Code 就会开工，它的授权请求出现在 *Anna 的* 确认卡上。
@@ -115,7 +125,7 @@ CI 会在 macOS、Windows、Linux 上运行以上全部检查。想用你电脑�
 
 ## 一路走来
 
-Anna 换了三次大脑，才真正能干活。
+Anna 换了三次大脑，她一直是 Anna。
 
 1. **OpenClaw**：Anna 的第一个原型基于 [OpenClaw](https://github.com/openclaw/openclaw)。
 2. **v0.2 · DeepSeek Harness**：搬进 Electron 桌面，用上真实的 Live2D 模型，由 DSH 驱动 agent 循环。
