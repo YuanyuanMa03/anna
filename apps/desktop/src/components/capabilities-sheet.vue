@@ -20,11 +20,11 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
     <section class="sheet capabilities" role="dialog" aria-modal="true" aria-label="外观与能力">
       <div class="sheet-heading"><div><span class="eyebrow">COMPOSABLE SOUL</span><h2>外观与能力</h2></div><button class="icon-button" aria-label="关闭外观与能力" @click="emit('close')">×</button></div>
 
-      <h3>外观</h3>
-      <div class="character-cards" role="group" aria-label="选择角色">
-        <button v-for="item in characters" :key="item.id" :aria-label="`选择 ${item.name}`" :aria-pressed="snapshot.settings.characterId === item.id" class="character-card" :class="[{ selected: snapshot.settings.characterId === item.id }]" @click="emit('command', { type: 'character', id: item.id })"><img :src="item.thumbnailPath" :alt="item.label"><span><strong>{{ item.name }}</strong><small>{{ item.label }}</small></span></button>
+      <h3>伙伴</h3>
+      <div class="character-cards" role="group" aria-label="选择伙伴">
+        <button v-for="item in characters" :key="item.id" :aria-label="`选择 ${item.name}`" :aria-pressed="snapshot.settings.characterId === item.id" class="character-card" :class="[{ selected: snapshot.settings.characterId === item.id }]" :disabled="locked" :title="item.persona" @click="emit('command', { type: 'character', id: item.id })"><img :src="item.thumbnailPath" :alt="item.model"><span><strong>{{ item.name }}<i :class="item.gender">{{ item.gender === 'female' ? '♀' : '♂' }}</i></strong><small>{{ item.tagline }}</small></span></button>
       </div>
-      <p class="small muted">外观切换不改变对话和人格。角色素材属于 Live2D 样例，使用前请阅读随附许可证。</p>
+      <p class="small muted">每位伙伴有自己的名字、性格和说话方式；诚实、权限和记忆这些底线大家都一样，换人后对话和记忆会延续。形象来自 Live2D 官方样例模型，使用前请阅读随附许可证。</p>
 
       <div class="plugin-row">
         <div><h3>工作文件夹</h3><p>{{ snapshot.workspace.path }}</p><span>{{ isDefault ? 'Anna 自己的默认工作区（已信任）' : snapshot.workspace.trusted ? '已信任：加载项目说明（AGENTS.md），可使用协作与放手模式' : '未信任：不加载项目说明，只能使用规划和谨慎模式' }}</span></div>
@@ -50,8 +50,8 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
         <li v-for="item in rules" :key="item.kind + item.rule"><span class="badge">{{ item.kind }}</span><code>{{ item.rule }}</code><button class="link" @click="emit('command', { type: 'rule-remove', rule: item.rule })">删除</button></li>
       </ul>
 
-      <div class="plugin-row"><div><h3>长期记忆</h3><p>Anna 记住你的偏好与约定，跨会话生效。</p></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.memoryEnabled" @click="emit('command', { type: 'memory', enabled: !snapshot.settings.memoryEnabled })">{{ snapshot.settings.memoryEnabled ? '关闭记忆' : '开启记忆' }}</button></div>
-      <p v-if="!snapshot.memories.length" class="small muted">还没有记忆。可以直接对 Anna 说“记住……”。</p>
+      <div class="plugin-row"><div><h3>长期记忆</h3><p>伙伴们共用的记忆：你的偏好与约定，跨会话、换伙伴都生效。</p></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.memoryEnabled" @click="emit('command', { type: 'memory', enabled: !snapshot.settings.memoryEnabled })">{{ snapshot.settings.memoryEnabled ? '关闭记忆' : '开启记忆' }}</button></div>
+      <p v-if="!snapshot.memories.length" class="small muted">还没有记忆。可以直接对伙伴说“记住……”。</p>
       <ul class="rule-list">
         <li v-for="item in snapshot.memories" :key="item.id"><span>{{ item.text }}</span><button class="link" @click="emit('command', { type: 'memory-forget', id: item.id })">忘记</button></li>
       </ul>

@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
+import { characters, companion } from '../character/manifest'
 import { kernels } from '../kernels/registry'
 import { decide } from '../permissions/engine'
 import { modes, stricter, trustedRegistries } from '../permissions/modes'
@@ -342,10 +343,12 @@ export class Host {
 
   private async instructions() {
     const persona = await readFile(join(this.root, 'plugins/anna-persona/persona.md'), 'utf8')
+    const character = companion(this.store.value.characterId)
+    const card = `## 角色卡：${character.name}\n${character.persona}\n（形象来自 Live2D 样例模型「${character.model}」。）`
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
     const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
-    return [persona, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : [])]
+    return [persona, card, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : [])]
   }
 
   /** pi needs a model key; an external brain (Claude Code, Codex) uses its own login. */
@@ -562,12 +565,11 @@ export class Host {
         this.approvals.decide(command.id, command.allow, command.scope)
         return this.snapshot()
       case 'character':
-        if (!['hiyori', 'haru', 'mark'].includes(command.id))
+        if (!characters.some(character => character.id === command.id))
           throw new Error('未知角色')
-        this.store.value.characterId = command.id
-        await this.store.save()
-        this.publish()
-        return this.snapshot()
+        if (command.id === this.store.value.characterId)
+          return this.snapshot()
+        return this.reconfigure(command)
       case 'stop':
         await this.stopWork()
         return this.snapshot()
@@ -742,6 +744,19 @@ export class Host {
         await this.store.save()
         if (this.canConnect(key))
           await this.connect(key)
+      }
+      else if (command.type === 'character') {
+        const previous = companion(this.store.value.characterId)
+        const next = companion(command.id)
+        const running = Boolean(this.kernel)
+        await this.close()
+        this.store.value.characterId = command.id
+        await this.store.save()
+        if (running) {
+          await this.connect(key)
+          this.kernel?.note(`[Anna 系统提示] 用户把伙伴从 ${previous.name} 换成了 ${next.name}。从现在起由你（${next.name}）接着陪用户，按你的角色卡说话；之前的回复出自 ${previous.name}。`)
+          this.presence.set('idle', next.greeting)
+        }
       }
       else if (command.type === 'new-session') {
         await this.close()

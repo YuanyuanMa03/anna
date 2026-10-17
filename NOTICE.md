@@ -8,9 +8,10 @@ The original license is in `assets/licenses/AIRI-MIT.txt`.
 The renderer uses AIRI's Pixi 6 and pixi-live2d-display foundation. The Vue stage owns the canvas, ticker, model, resize observer, and disposal.
 This project does not copy the AIRI monorepo or its agent runtime.
 
-Hiyori, Haru Greeter, and Mark are Live2D sample assets. Anna does not relicense them as MIT.
+Hiyori, Haru Greeter, Mark, Niziiro Mao, Natori Jin and Chitose are Live2D sample assets. Anna does not relicense them as MIT.
+The companions' names, personalities and lines in `packages/character/manifest.ts` are Anna's own writing; the characters' designs belong to Live2D Inc.
 Their models, textures, motions, previews, and Cubism Core are not tracked in Git. `pnpm assets` downloads them from
-this repository's `assets-v1` release and verifies each file against `docs/asset-inventory.json`.
+this repository's `assets-v1` and `assets-v2` releases and verifies each file against `docs/asset-inventory.json`.
 Their original ReadMe files and the Cubism Core license are in `assets/licenses/`.
 If you redistribute Anna or build on it, review the Live2D Free Material License and the Cubism SDK terms yourself;
 a custom model is the safest choice for commercial use.
@@ -20,6 +21,9 @@ Sources:
 - https://www.live2d.com/zh-CHS/learn/sample/momose-hiyori/
 - https://www.live2d.com/zh-CHS/learn/sample/haru-receptionist/
 - https://www.live2d.com/zh-CHS/learn/sample/mark/
+- https://www.live2d.com/zh-CHS/learn/sample/niziiro-mao/
+- https://www.live2d.com/zh-CHS/learn/sample/natori-jin/
+- https://www.live2d.com/zh-CHS/learn/sample/chitose/
 - https://www.live2d.com/learn/sample/model-terms/
 - https://www.live2d.com/eula/live2d-free-material-license-agreement_jp.html
 

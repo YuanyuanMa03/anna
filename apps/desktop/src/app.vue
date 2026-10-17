@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { characters } from '../../../packages/character/manifest'
+import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
 import { modes } from '../../../packages/permissions/modes'
 import CharacterStage from './character-stage.vue'
@@ -14,7 +14,6 @@ import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', done: '完成了', failed: '遇到问题' }
 const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', find: '查找', grep: '搜索', edit: '修改', write: '写入', bash: '终端', powershell: '终端', anna_status: '状态', anna_memory: '记忆', anna_delegate: '派活' }
-const suggestions = ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', 'Anna，你好，介绍一下你自己。']
 
 const snapshot = ref<RuntimeSnapshot>()
 const messages = ref<Message[]>([])
@@ -48,7 +47,8 @@ function resize() { wide.value = window.innerWidth > 1100 }
 let release: (() => void) | undefined
 let clock: number | undefined
 
-const character = computed(() => characters.find(c => c.id === snapshot.value?.settings.characterId) ?? characters[0])
+const character = computed(() => companion(snapshot.value?.settings.characterId))
+const suggestions = computed(() => ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', `${character.value.name}，你好，介绍一下你自己。`])
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
@@ -63,7 +63,9 @@ const connection = computed(() => {
     return snapshot.value?.credential === 'rejected' ? '密钥被拒绝' : snapshot.value?.credential === 'unverified' ? '已就绪 · 未验证' : '已连接'
   return state === 'starting' ? '正在连接' : state === 'error' ? '连接出错' : '未连接'
 })
-const lastReply = computed(() => [...messages.value].reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
+/** After a companion switch, earlier replies belong to someone else: the newcomer greets instead of repeating them. */
+const repliesFrom = ref(0)
+const lastReply = computed(() => messages.value.slice(repliesFrom.value).reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
 const subtitle = computed(() => {
   if (running.value)
     return stream.value
@@ -71,7 +73,7 @@ const subtitle = computed(() => {
     return modeLine.value.text
   if (snapshot.value?.error)
     return snapshot.value.credential === 'rejected' ? '我连不上模型：密钥被服务商拒绝了。到“模型与设置”里换一个吧。' : '这一轮没有成功，原因写在下面。'
-  return lastReply.value || (canChat.value ? '我在这儿。把要做的事交给我，或者先聊聊。' : '先给我接上一个模型，我们就能开始了。')
+  return lastReply.value || (canChat.value ? character.value.greeting : '先给我接上一个模型，我们就能开始了。')
 })
 /** Mouth moves while text streams in, while reading aloud, or while greeting a mode change. */
 const mouth = computed(() => speaking.value || (anna.value.phase === 'responding' && now.value - streamingAt.value < 400) || Boolean(modeLine.value && now.value - modeLine.value.at < 1600))
@@ -100,6 +102,8 @@ function speak(text: string) {
   utterance.lang = 'zh-CN'
   utterance.onstart = () => { speaking.value = true }
   utterance.onend = utterance.onerror = () => { speaking.value = false }
+  utterance.pitch = character.value.voice.pitch
+  utterance.rate = character.value.voice.rate
   speechSynthesis.speak(utterance)
 }
 
@@ -200,7 +204,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       </nav>
     </header>
 
-    <section class="scene" aria-label="Anna 舞台">
+    <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
         <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" @poke="drawer = 'work'" />
@@ -208,7 +212,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       </div>
 
       <div class="speech" :class="{ live: running }">
-        <span class="speaker">{{ character.name }} · Anna</span>
+        <span class="speaker">{{ character.name }}<small> · {{ character.tagline }}</small></span>
         <div ref="bubble" class="bubble" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
         <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><button v-for="item in suggestions" :key="item" @click="send(item)">{{ item }}</button></div>
       </div>
@@ -259,7 +263,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
-        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : '把要做的事交给 Anna…（@claude、@codex 可以直接派给其他 agent）'" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
+        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `把要做的事交给${character.name}…（@claude、@codex 可以直接派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
           <label><input v-model="autoSpeak" type="checkbox">朗读</label>
@@ -274,7 +278,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
         <div class="sheet-heading"><h2>{{ drawer === 'history' ? '对话记录' : drawer === 'changes' ? '这次的改动' : '工作过程' }}</h2><button class="icon-button" aria-label="关闭抽屉" @click="drawer = undefined">×</button></div>
         <div v-if="drawer === 'history'" ref="history" class="messages">
           <p v-if="!messages.length" class="muted">还没有对话。</p>
-          <article v-for="(message, index) in messages" :key="index" class="message" :class="[message.role, { note: message.note, delegated: message.delegation }]"><span>{{ message.role === 'user' ? (message.origin === 'weixin' ? '你 · 微信' : '你') : message.delegation ? `${message.delegation.label}${message.delegation.provider ? ` · ${message.delegation.provider}` : ''} · ${message.delegation.steps} 步` : 'Anna' }}</span><p v-if="message.role === 'user' || message.note">{{ message.text }}</p><details v-else-if="message.delegation" class="delegation-block" :open="index === messages.length - 1"><summary>{{ message.delegation.status === 'completed' ? '完成' : message.delegation.status === 'aborted' ? '已停下' : '没有完成' }} · {{ message.delegation.task.slice(0, 60) }}</summary><div class="rich" v-html="renderMarkdown(message.text)" /></details><div v-else class="rich" v-html="renderMarkdown(message.text)" /></article>
+          <article v-for="(message, index) in messages" :key="index" class="message" :class="[message.role, { note: message.note, delegated: message.delegation }]"><span>{{ message.role === 'user' ? (message.origin === 'weixin' ? '你 · 微信' : '你') : message.delegation ? `${message.delegation.label}${message.delegation.provider ? ` · ${message.delegation.provider}` : ''} · ${message.delegation.steps} 步` : '伙伴' }}</span><p v-if="message.role === 'user' || message.note">{{ message.text }}</p><details v-else-if="message.delegation" class="delegation-block" :open="index === messages.length - 1"><summary>{{ message.delegation.status === 'completed' ? '完成' : message.delegation.status === 'aborted' ? '已停下' : '没有完成' }} · {{ message.delegation.task.slice(0, 60) }}</summary><div class="rich" v-html="renderMarkdown(message.text)" /></details><div v-else class="rich" v-html="renderMarkdown(message.text)" /></article>
           <p class="small muted">{{ snapshot.restored ? '会话已从上次恢复' : '新会话' }} · {{ snapshot.sessionId ?? '' }}</p>
         </div>
         <div v-else-if="drawer === 'changes'" class="tool-events">

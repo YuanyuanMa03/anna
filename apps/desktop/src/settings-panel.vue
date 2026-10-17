@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Command, ModelSettings, RuntimeSnapshot } from '../../../packages/shared/contracts'
 import { computed, reactive, ref } from 'vue'
+import { companion } from '../../../packages/character/manifest'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
@@ -41,7 +42,7 @@ function selectProvider() {
           <button class="primary" :disabled="busy" type="submit">保存并连接</button>
         </form>
       </template>
-      <button :disabled="busy || (!snapshot.hasKey && snapshot.settings.kernel === 'pi')" @click="emit('command', { type: 'send', text: 'Anna，你好，介绍一下你自己。' })">测试一次真实对话</button>
+      <button :disabled="busy || (!snapshot.hasKey && snapshot.settings.kernel === 'pi')" @click="emit('command', { type: 'send', text: `${companion(snapshot.settings.characterId).name}，你好，介绍一下你自己。` })">测试一次真实对话</button>
       <p class="muted small">连接状态：{{ snapshot.state }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}<template v-if="snapshot.credential"> · 密钥{{ snapshot.credential === 'verified' ? '已验证可用' : snapshot.credential === 'rejected' ? '被服务商拒绝' : '还没验证过（发一条消息或点“测试一次真实对话”）' }}</template>{{ snapshot.model ? ` · 思考 ${snapshot.model.thinking} · 上下文 ${Math.round(snapshot.model.contextWindow / 1000)}K` : '' }}<br>会话：{{ snapshot.sessionId ?? '首次对话后保存' }}<br>{{ snapshot.restored ? '已恢复上次的 pi 会话' : '新会话' }}</p>
       <button :disabled="busy" @click="emit('command', { type: 'new-session' })">开始新会话</button>
       <p class="muted small">新会话会清空当前界面的对话，旧会话文件继续保留。长任务会自动压缩上下文。</p>

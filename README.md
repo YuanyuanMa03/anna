@@ -34,7 +34,12 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 - ✓ **Honest with you.** No made-up tool results: a test she didn't run is a test she says she didn't run. Anything
   beyond her permissions, she asks first.
 
-Switch characters or swap her brain: her personality, memory and your conversations carry on.
+Pick a companion: six in all, three women and three men (Anna, Haru, Mao, Natori, Chitose, Mark), all from Live2D's free
+samples. Each has their own name, personality and way of talking; honesty, permissions and memory are the same for
+all of them. Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
+and when a companion hands a job to Claude Code or Codex itself, it takes the result back and reviews it before
+reporting (with `@claude` or `@codex` you get the agent's own report). Switch companions or brains: the
+memory and your conversations carry on.
 
 ## What she can do
 
@@ -109,13 +114,13 @@ switch permission modes.
 | Edit workspace files | ❌ | ask | ✅ | ✅ |
 | Tests, lint, builds | ❌ | ask | ✅ | ✅ |
 | Other commands, network | ❌ | ask | ask | ✅ in sandbox |
+| Read outside the workspace (including `~/.ssh`) | ask | ask | ask | ✅ |
+| Read secret files (`.env`, private keys), by tool, command or search | ask | ask | ask | ask |
 | Risky commands, edits outside the workspace | ❌ | ask every time | ask every time | ask every time |
 | Anna's own keys and data | ❌ | ❌ | ❌ | ❌ |
 | On stage | reads her notes quietly | attentive | neutral | leans in, brisk |
 
 Approval cards offer **Deny**, **Allow once**, **Allow for this session** and **Always allow**. "Always allow"
-| Read outside the workspace (including `~/.ssh`) | ask | ask | ask | ✅ |
-| Read secret files (`.env`, private keys), by tool, command or search | ask | ask | ask | ask |
 writes a Claude Code-format rule to the workspace. Tasks that come in over WeChat always run in Ask mode. Details are in
 [docs/permissions.md](docs/permissions.md).
 
@@ -246,7 +251,7 @@ and [Claude Code](https://github.com/anthropics/claude-code) (the permission mod
 
 ## License
 
-The code is [MIT](LICENSE). The Live2D sample characters (Hiyori, Haru, Mark) and Cubism Core are **not** covered
+The code is [MIT](LICENSE). The Live2D sample characters (Hiyori, Haru, Mark, Niziiro Mao, Natori, Chitose) and Cubism Core are **not** covered
 by MIT. They are downloaded separately and remain under Live2D's own terms; see [NOTICE.md](NOTICE.md).
 
 <div align="center">

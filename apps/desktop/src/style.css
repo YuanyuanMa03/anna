@@ -255,3 +255,5 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .brain-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border-radius: 14px }
 .brain-options button small { font-size: 10px; color: var(--muted) }
 .brain-options button[aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
+.character-card strong i { font-style: normal; font-size: 11px; margin-left: 5px; color: #c37fa3 }
+.character-card strong i.male { color: #6f8fc4 }
