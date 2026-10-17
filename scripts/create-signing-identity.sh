@@ -11,7 +11,7 @@ NAME="Anna Local Signing"
 OUT="$HOME/.anna-signing"
 
 if security find-identity -v -p codesigning | grep -q "\"$NAME\""; then
-  echo "已存在可用的签名身份：$NAME"
+  echo "Signing identity already exists: $NAME"
   exit 0
 fi
 
@@ -41,8 +41,8 @@ cp "$WORK/cert.pem" "$OUT/anna-signing.cer.pem"
 chmod 600 "$OUT"/*
 
 security import "$OUT/anna-signing.p12" -k "$HOME/Library/Keychains/login.keychain-db" -P "$PASSWORD" -T /usr/bin/codesign
-echo "接下来 macOS 会请你输入一次登录密码，用来信任这张证书用于代码签名。"
+echo "macOS will now ask for your login password once, to trust this certificate for code signing."
 security add-trusted-cert -r trustRoot -p codeSign -k "$HOME/Library/Keychains/login.keychain-db" "$OUT/anna-signing.cer.pem"
 
-security find-identity -v -p codesigning | grep "\"$NAME\"" && echo "完成：之后 pnpm package:mac 会自动使用 $NAME 签名。"
-echo "CI 用的证书文件在 ${OUT}（请妥善保管，不要提交到仓库）。"
+security find-identity -v -p codesigning | grep "\"$NAME\"" && echo "Done: pnpm package:mac will now sign with $NAME."
+echo "The certificate files for CI are in $OUT (keep them safe and never commit them)."

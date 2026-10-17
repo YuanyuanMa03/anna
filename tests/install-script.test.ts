@@ -40,7 +40,7 @@ describe.skipIf(process.platform !== 'darwin')('install.sh on macOS', () => {
   })
   it('refuses a download whose checksum does not match and installs nothing', async () => {
     const { home, env } = await release(true)
-    await expect(run('/bin/bash', [script], { env })).rejects.toMatchObject({ stderr: expect.stringContaining('校验失败') })
+    await expect(run('/bin/bash', [script], { env })).rejects.toMatchObject({ stderr: expect.stringContaining('checksum mismatch') })
     expect(existsSync(join(home, 'Applications', 'Anna.app'))).toBe(false)
   })
 })
