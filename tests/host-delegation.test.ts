@@ -30,7 +30,7 @@ async function setup(script: ScriptStep[], mode: PermissionMode = 'ask') {
   })
   await host.initialize()
   const runs = async () => (existsSync(log) ? (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line)) : [])
-  return { host, workspace, events, runs }
+  return { host, data, workspace, events, runs }
 }
 async function approve(host: Host, allow = true) {
   await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000, interval: 20 })
@@ -40,7 +40,7 @@ async function approve(host: Host, allow = true) {
 }
 
 it('@claude: delegates, forwards its permission request to Anna\'s card, records changes, undoes, and resumes', async () => {
-  const { host, workspace, events, runs } = await setup([])
+  const { host, data, workspace, events, runs } = await setup([])
   const sent = host.execute({ type: 'send', text: '@claude 帮我创建 done.txt' })
   const question = await approve(host)
   expect(question).toMatchObject({ toolName: 'write', details: 'done.txt', origin: 'desktop' })
@@ -52,6 +52,8 @@ it('@claude: delegates, forwards its permission request to Anna\'s card, records
   expect(snapshot.messages!.at(-1)!.text).toContain('已创建 done.txt')
   expect(events.some(event => event.type === 'collaborator' && event.agent === 'claude')).toBe(true)
   expect(events.filter(event => event.type === 'anna').map(event => event.type === 'anna' && event.state.phase)).toContain('supervising')
+  // The task journal credits Claude Code, so a later session does not claim the change as the companion's own.
+  expect(JSON.parse(await readFile(join(data, 'journal.json'), 'utf8')).at(-1)).toMatchObject({ by: ['Claude Code'], changes: [{ path: 'done.txt', status: 'added' }] })
 
   await host.execute({ type: 'undo', taskId: snapshot.result!.taskId })
   expect(existsSync(join(workspace, 'done.txt'))).toBe(false)

@@ -43,6 +43,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .connection { font-size: 11px; color: #8e7e9d; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .connection i, .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #c6bbc9; margin-right: 7px; vertical-align: middle }
 .connection i.online, .dot.online { background: var(--good) }
+.connection i.bad { background: var(--bad) }
 .header-actions { margin-left: auto; display: flex; gap: 8px }
 .header-actions button { font-size: 12px; padding: 7px 12px; background: var(--glass) }
 .header-actions button[aria-pressed=true] { background: #ece3f5; border-color: #cdbbe0 }
@@ -117,7 +118,8 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .composer-actions button { font-size: 12px; padding: 8px 15px }
 .setup-notice { max-width: 860px; width: 100%; margin: 0 auto; font-size: 12px; padding: 9px 12px; display: flex; align-items: center; gap: 8px; background: #f2edf8; border-radius: 12px }
 .setup-notice button { margin-left: auto; font-size: 12px; padding: 6px 10px }
-.error { max-width: 860px; width: 100%; margin: 0 auto; font-size: 12px; color: var(--bad); background: #fff0f2; border: 1px solid #efdae0; padding: 10px 12px; border-radius: 12px; max-height: 120px; overflow: auto; overflow-wrap: anywhere }
+.error { max-width: 860px; width: 100%; margin: 0 auto; font-size: 12px; color: var(--bad); background: #fff0f2; border: 1px solid #efdae0; padding: 10px 12px; border-radius: 12px; max-height: 120px; overflow: auto; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px }
+.error button { margin-left: auto; flex: none; font-size: 12px; padding: 6px 10px }
 
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--paper); border-left: 1px solid var(--line); box-shadow: -20px 0 60px #49325b1c; z-index: 8; padding: 20px 22px; display: flex; flex-direction: column; min-height: 0 }
 .slide-enter-active, .slide-leave-active { transition: transform .25s ease, opacity .25s }

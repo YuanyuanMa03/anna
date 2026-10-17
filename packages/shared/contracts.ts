@@ -24,6 +24,8 @@ export interface Settings {
   model: ModelSettings
   /** Kernel session file that the next start continues. */
   sessionFile?: string
+  /** The saved model key has answered a real request (cleared when the key or model changes). */
+  modelVerified?: boolean
   workspace?: string
   workspaces: Record<string, WorkspaceSettings>
   /** Provider chosen for each external agent when Anna delegates to it (keys live in the encrypted store). */
@@ -112,6 +114,8 @@ export interface RuntimeSnapshot {
   result?: TaskResult
   model?: { id: string, thinking: string, contextWindow: number }
   kernel: { id: string, label: string }
+  /** Whether pi's model key is known to work: unverified until a real reply, rejected after an auth error. */
+  credential?: 'unverified' | 'verified' | 'rejected'
   /** The mode in force for the current workspace, after trust clamping. */
   mode: PermissionMode
   workspace: { path: string, trusted: boolean, rules: RuleSet, known: boolean }

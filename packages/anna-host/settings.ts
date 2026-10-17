@@ -17,6 +17,7 @@ const settingsSchema = v.object({
   sessionFile: v.optional(v.string()),
   workspace: v.optional(v.string()),
   workspaces: v.optional(v.record(v.string(), workspaceSchema), {}),
+  modelVerified: v.optional(v.boolean()),
   agents: v.optional(v.record(v.string(), v.object({ provider: v.optional(v.string()) }))),
   providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
 })

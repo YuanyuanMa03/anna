@@ -1,8 +1,8 @@
 import type { AnnaTool } from '../kernels/types'
 import type { MemoryItem } from '../shared/contracts'
 import { randomUUID } from 'node:crypto'
-import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { readJson, writeJson } from './json-file'
 
 const limit = 80
 
@@ -12,18 +12,8 @@ export class MemoryStore {
   constructor(private directory: string) {}
   private get file() { return join(this.directory, 'memory.json') }
 
-  async load() {
-    try { this.items = JSON.parse(await readFile(this.file, 'utf8')) as MemoryItem[] }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw error
-    }
-  }
-
-  private async save() {
-    await writeFile(`${this.file}.tmp`, JSON.stringify(this.items, null, 1), { mode: 0o600 })
-    await rename(`${this.file}.tmp`, this.file)
-  }
+  async load() { this.items = await readJson(this.file, this.items) }
+  private async save() { await writeJson(this.file, this.items) }
 
   async remember(text: string) {
     const body = text.trim().slice(0, 300)
