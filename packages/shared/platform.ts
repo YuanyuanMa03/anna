@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { posix, win32 } from 'node:path'
 
 /**
  * Where Anna keeps its data on each platform.
@@ -8,6 +8,8 @@ import { join } from 'node:path'
 export function dataDirectory(platform: NodeJS.Platform, env: NodeJS.ProcessEnv, appData: string, home = homedir()) {
   if (env.ANNA_DATA_DIR)
     return env.ANNA_DATA_DIR
+  // Join with the target platform's separator, not the host's.
+  const { join } = platform === 'win32' ? win32 : posix
   if (platform === 'win32')
     return join(appData, 'Anna')
   if (platform === 'linux')

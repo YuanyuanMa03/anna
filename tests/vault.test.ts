@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer'
 import { mkdtemp, readFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { createVault } from '../packages/shared/vault'
 
@@ -36,7 +37,9 @@ describe('vault', () => {
     const vault = createVault({ dir, safeStorage: fakeSafeStorage('basic_text'), platform: 'linux' })
     await vault.write('credential.bin', 'sk-2')
     expect(vault.mode()).toBe('file')
-    expect(((await stat(join(dir, 'credential.bin'))).mode & 0o777).toString(8)).toBe('600')
+    // Windows has no POSIX permission bits; the Linux code path still runs there.
+    if (process.platform !== 'win32')
+      expect(((await stat(join(dir, 'credential.bin'))).mode & 0o777).toString(8)).toBe('600')
     expect(await createVault({ dir, safeStorage: fakeSafeStorage('basic_text'), platform: 'linux' }).read('credential.bin')).toBe('sk-2')
   })
 

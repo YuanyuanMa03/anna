@@ -10,6 +10,9 @@ import { Host } from '../packages/anna-host/host'
 import { scriptedBackend } from '../packages/kernels/pi/backend'
 import { createPiKernel } from '../packages/kernels/pi/kernel'
 
+/** pi's shell tool: bash, or powershell on Windows. */
+const shell = process.platform === 'win32' ? 'powershell' : 'bash'
+
 /** A host with a real pi kernel driven by a scripted model. `script` is consumed across turns. */
 async function setup(script: ScriptStep[], options: { mode?: PermissionMode, trusted?: boolean } = {}) {
   const data = await mkdtemp(join(tmpdir(), 'anna-host-'))
@@ -68,14 +71,14 @@ it('ask mode: approvals with session scope stop asking for the same file; reject
   const { host, workspace } = await setup([
     { tools: [{ name: 'write', args: { path: 'a.txt', content: '1' } }] },
     { tools: [{ name: 'write', args: { path: 'a.txt', content: '2' } }] },
-    { tools: [{ name: 'bash', args: { command: 'touch b.txt' } }] },
+    { tools: [{ name: shell, args: { command: 'touch b.txt' } }] },
     { text: '写好了 a.txt，没有创建 b.txt。' },
   ], { mode: 'ask' })
   const done = host.execute({ type: 'send', text: '写文件' })
   const first = await approve(host, 'session')
   expect(first).toMatchObject({ toolName: 'write', rule: 'Edit(a.txt)' })
   const second = await approve(host, 'once', false)
-  expect(second.toolName).toBe('bash')
+  expect(second.toolName).toBe(shell)
   await done
   expect(await readFile(join(workspace, 'a.txt'), 'utf8')).toBe('2')
   expect(existsSync(join(workspace, 'b.txt'))).toBe(false)
@@ -87,7 +90,7 @@ it('plan mode refuses edits without asking; "always" rules persist per workspace
   const { host, data, workspace } = await setup([
     { tools: [{ name: 'write', args: { path: 'plan.txt', content: 'x' } }] },
     { text: '规划模式下我不改文件，方案如下。' },
-    { tools: [{ name: 'bash', args: { command: 'pnpm install left-pad' } }] },
+    { tools: [{ name: shell, args: { command: 'pnpm install left-pad' } }] },
     { text: '装好了。' },
   ], { mode: 'plan' })
   await host.execute({ type: 'send', text: '直接写' })

@@ -34,7 +34,9 @@ const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
 const packaged = process.env.ANNA_PACKAGED_APP
 const executablePath = !packaged ? electron : process.platform === 'darwin' ? join(packaged, 'Contents/MacOS/Anna') : process.platform === 'win32' ? join(packaged, 'Anna.exe') : join(packaged, 'anna')
-const desktop = await _electron.launch({ executablePath, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], cwd: packaged ? '/' : root, env: packaged ? { ...env, ANNA_ROOT: '/nonexistent/anna-source', ANNA_DEV_URL: 'http://127.0.0.1:9' } : env })
+// GitHub's Ubuntu runners block the unprivileged user namespaces Chromium's sandbox needs.
+const chromium = process.platform === 'linux' && process.env.CI ? ['--no-sandbox'] : []
+const desktop = await _electron.launch({ executablePath, args: [...chromium, ...(packaged ? [] : ['dist/host/apps/desktop/main.js'])], cwd: packaged ? '/' : root, env: packaged ? { ...env, ANNA_ROOT: '/nonexistent/anna-source', ANNA_DEV_URL: 'http://127.0.0.1:9' } : env })
 if (process.env.ANNA_TEST_VERBOSE)
   desktop.process().stderr.on('data', chunk => process.stderr.write(`[app] ${chunk}`))
 const snapshot = async page => (await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))).snapshot
