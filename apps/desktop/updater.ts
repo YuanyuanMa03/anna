@@ -1,15 +1,17 @@
 import type { UpdatePlan } from '../../packages/shared/update'
 import { execFile, spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { access, mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
-import { app } from 'electron'
+import { app, shell } from 'electron'
 import { planUpdate, swapScript, verifyDigest } from '../../packages/shared/update'
 
 const run = promisify(execFile)
-export interface UpdateState { state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'current', version?: string, notes?: string, message?: string }
+/** `manual`: Anna can't replace itself here (the .deb in /opt, or /Applications for a standard user), so the update is a new installer. */
+export interface UpdateState { state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'current', version?: string, notes?: string, message?: string, manual?: boolean }
 
 /**
  * In-app updates for the unsigned distribution: the manifest and archive are fetched by Node (no quarantine flag),
@@ -31,6 +33,17 @@ export class Updater {
     return process.platform === 'darwin' ? resolve(exe, '../../..') : dirname(exe)
   }
 
+  /** The swap script moves the installed app aside, so both it and its parent folder must be writable. */
+  private async replaceable() {
+    const current = this.installed()
+    try {
+      await access(dirname(current), constants.W_OK)
+      await access(current, constants.W_OK)
+      return true
+    }
+    catch { return false }
+  }
+
   async check(silent = false) {
     if (!app.isPackaged)
       return this.set({ state: 'current', message: '开发版不检查更新' })
@@ -41,7 +54,7 @@ export class Updater {
       if (!response.ok)
         throw new Error(`HTTP ${response.status}`)
       this.plan = planUpdate(await response.json(), app.getVersion(), process.platform, process.arch)
-      this.set(this.plan.available ? { state: 'available', version: this.plan.version, notes: this.plan.notes } : { state: 'current', version: this.plan.version, message: this.plan.reason })
+      this.set(this.plan.available ? { state: 'available', version: this.plan.version, notes: this.plan.notes, manual: !(await this.replaceable()) } : { state: 'current', version: this.plan.version, message: this.plan.reason })
     }
     catch (error) {
       if (!silent)
@@ -53,6 +66,10 @@ export class Updater {
     const plan = this.plan
     if (!plan?.available)
       throw new Error('没有可安装的更新')
+    if (!(await this.replaceable())) {
+      await shell.openExternal(`${this.base}/#download`)
+      return this.set({ state: 'available', version: plan.version, notes: plan.notes, manual: true })
+    }
     this.set({ state: 'downloading', version: plan.version })
     try {
       const response = await fetch(plan.url, { redirect: 'follow' })

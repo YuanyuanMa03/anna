@@ -76,6 +76,19 @@ companions or brains: the memory and your conversations carry on.
 
 ## Install
 
+Download an installer and double-click it:
+
+| System | Installer | First launch |
+|---|---|---|
+| macOS (Apple silicon) | [Anna-mac-arm64.dmg](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-mac-arm64.dmg) | Drag Anna into Applications. If macOS can't verify it, click "Open Anyway" in System Settings → Privacy & Security |
+| Windows 10 / 11 | [Anna-Setup-windows-x64.exe](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-Setup-windows-x64.exe) | If you see "Windows protected your PC", click "More info" → "Run anyway". No administrator rights needed |
+| Ubuntu / Debian | [Anna-linux-amd64.deb](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-linux-amd64.deb) | Double-click to install with Software, or `sudo apt install ./Anna-linux-amd64.deb` |
+
+Your system warns you once because Anna isn't notarized and has no Windows code-signing certificate (there are no
+paid accounts behind it).
+
+If you prefer a terminal, one command installs the same release without those warnings:
+
 ```bash
 # macOS / Linux
 curl -fsSL https://anna.mayuanyuan.top/install.sh | bash
@@ -87,8 +100,9 @@ irm https://anna.mayuanyuan.top/install.ps1 | iex
 ```
 
 The installer downloads the latest release, verifies its SHA-256 and installs it. No Gatekeeper or SmartScreen
-prompt appears, because files fetched by `curl` or PowerShell carry no quarantine flag. Updates are installed from
-inside the app.
+prompt appears, because files fetched by `curl` or PowerShell carry no quarantine flag. However you install it,
+updates are installed from inside the app (the `.deb` lives in a system folder, so there the update opens the download
+page and you install the new package over the old one).
 
 Anna isn't notarized: there is no paid Apple developer account. Instead, every build is signed with the same
 self-signed identity, so macOS keeps your Keychain and folder permissions across updates. The installers are short;

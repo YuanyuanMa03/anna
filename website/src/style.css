@@ -74,8 +74,7 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
 .command code::-webkit-scrollbar { display: none }
 .command button { flex: none; background: #ffffff1a; border-color: #ffffff26; color: #fff; font-size: 12px; padding: 7px 12px }
 .command button:hover { background: #ffffff33 }
-.hero-command { margin-top: 30px; max-width: 520px }
-.actions { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap }
+.actions { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap }
 .hero-shot { position: relative }
 .hero-shot::before { content: ''; position: absolute; inset: -12% 0 -14%; background: radial-gradient(ellipse, #e3d4f2a8, transparent 66%); z-index: -1 }
 .window { border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid #e3d8ea; box-shadow: var(--shadow); transform: perspective(1600px) rotateY(-4deg) rotateX(1.5deg) }
@@ -208,6 +207,10 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
 .os-tabs button { border: 0; background: transparent; font-size: 13px; padding: 7px 16px }
 .os-tabs button[aria-selected=true] { background: #fff; box-shadow: 0 2px 8px #5a437414; font-weight: 600 }
 .download .label { margin-bottom: 8px }
+.installer { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap }
+.installer .label { margin: 0 }
+.download .cli-label { margin-top: 30px }
+.first-open { font-size: 14px; color: var(--soft); line-height: 1.8; margin-top: 14px; max-width: 640px }
 .steps { counter-reset: step; display: flex; flex-direction: column; gap: 10px; margin: 26px 0 18px }
 .steps li { counter-increment: step; display: flex; gap: 12px; font-size: 14px; color: var(--soft) }
 .steps li::before { content: counter(step); flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #efe7f7; color: var(--accent); font-size: 12px; font-weight: 700 }
