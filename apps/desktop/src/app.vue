@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { MotionCue } from '../../../packages/character/manifest'
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
+import type { Anchors } from './character-stage.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
@@ -12,7 +14,7 @@ import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
 import SettingsPanel from './settings-panel.vue'
 
-const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', done: '完成了', failed: '遇到问题' }
+const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
 const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', find: '查找', grep: '搜索', edit: '修改', write: '写入', bash: '终端', powershell: '终端', anna_status: '状态', anna_memory: '记忆', anna_delegate: '派活' }
 
 const snapshot = ref<RuntimeSnapshot>()
@@ -84,7 +86,7 @@ const workspaceName = computed(() => snapshot.value?.workspace.path.split(/[\\/]
 function summarize(tool: ToolActivity) {
   try {
     const args = JSON.parse(tool.text) as Record<string, unknown>
-    return String(args.path ?? args.command ?? args.pattern ?? args.text ?? '').split('\n')[0]!.slice(0, 80)
+    return String(args.path ?? args.command ?? args.pattern ?? args.task ?? args.text ?? '').split('\n')[0]!.slice(0, 80)
   }
   catch { return tool.text.slice(0, 80) }
 }
@@ -100,11 +102,64 @@ function speak(text: string) {
   speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text.slice(0, 600))
   utterance.lang = 'zh-CN'
-  utterance.onstart = () => { speaking.value = true }
-  utterance.onend = utterance.onerror = () => { speaking.value = false }
   utterance.pitch = character.value.voice.pitch
   utterance.rate = character.value.voice.rate
+  utterance.onstart = () => { speaking.value = true }
+  utterance.onend = utterance.onerror = () => { speaking.value = false }
   speechSynthesis.speak(utterance)
+}
+
+// ── Stage interaction: words come from her mouth, cards from her hand ─────────
+const anchors = ref<Anchors>({})
+const cue = ref<{ kind: MotionCue, at: number }>()
+const tail = ref('')
+const tethers = ref<{ d: string, kind: 'approval' | 'review' }[]>([])
+const propsColumn = ref<HTMLElement>()
+function play(kind: MotionCue) { cue.value = { kind, at: Date.now() } }
+
+/** A tapered speech tail from the bubble's nearest edge to her mouth. */
+function tailPath(box: DOMRect, mouth: { x: number, y: number }) {
+  const left = mouth.x < box.left
+  const edgeX = left ? box.left + 8 : box.right - 8
+  const edgeY = Math.min(Math.max(mouth.y, box.top + 26), box.bottom - 26)
+  const tipX = mouth.x + (left ? 26 : -26)
+  const midX = (edgeX + tipX) / 2
+  return `M ${edgeX} ${edgeY - 11} Q ${midX} ${edgeY - 4} ${tipX} ${mouth.y} Q ${midX} ${edgeY + 8} ${edgeX} ${edgeY + 11} Z`
+}
+/** A soft curve from her hand to the card she is holding out or reading. */
+function handPath(box: DOMRect, hand: { x: number, y: number }) {
+  const x = box.left + 2
+  const y = Math.min(Math.max(hand.y, box.top + 18), box.bottom - 18)
+  return `M ${hand.x} ${hand.y} C ${hand.x + (x - hand.x) * 0.45} ${hand.y}, ${x - (x - hand.x) * 0.35} ${y}, ${x} ${y}`
+}
+function onAnchors(next: Anchors) {
+  anchors.value = next
+  const box = bubble.value?.getBoundingClientRect()
+  tail.value = next.mouth && box && subtitle.value ? tailPath(box, next.mouth) : ''
+  const lines: { d: string, kind: 'approval' | 'review' }[] = []
+  const held = propsColumn.value?.querySelector('.approval-request') ?? (anna.value.phase === 'reviewing' ? propsColumn.value?.querySelector('.collaborator-card') : null)
+  if (next.hand && held)
+    lines.push({ d: handPath(held.getBoundingClientRect(), next.hand), kind: held.classList.contains('approval-request') ? 'approval' : 'review' })
+  tethers.value = lines
+}
+/** Cards appear out of her hand and settle into place. */
+function fromHand(element: Element, done: () => void) {
+  const hand = anchors.value.hand
+  const box = element.getBoundingClientRect()
+  if (!hand || matchMedia('(prefers-reduced-motion: reduce)').matches)
+    return done()
+  const dx = hand.x - (box.left + box.width / 2)
+  const dy = hand.y - (box.top + box.height / 2)
+  element.animate([{ transform: `translate(${dx}px, ${dy}px) scale(0.12)`, opacity: 0 }, { transform: `translate(${dx * 0.15}px, ${dy * 0.15}px) scale(1.03)`, opacity: 1, offset: 0.7 }, { transform: 'none', opacity: 1 }], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = done
+}
+/** A new reply grows out of her mouth. */
+function fromMouth() {
+  const mouth = anchors.value.mouth
+  const element = bubble.value?.parentElement
+  if (!mouth || !element || matchMedia('(prefers-reduced-motion: reduce)').matches)
+    return
+  const box = element.getBoundingClientRect()
+  element.animate([{ transformOrigin: `${mouth.x - box.left}px ${mouth.y - box.top}px`, transform: 'scale(0.08)', opacity: 0 }, { transformOrigin: `${mouth.x - box.left}px ${mouth.y - box.top}px`, transform: 'none', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.2,.9,.25,1.15)' })
 }
 
 async function run(command: Command) {
@@ -185,6 +240,26 @@ onMounted(async () => {
     settingsOpen.value = true
 })
 watch(() => messages.value.length, () => { void scrollHistory() })
+watch(() => anna.value.phase, (phase, previous) => {
+  if (phase === 'responding' && previous !== 'responding')
+    fromMouth()
+  if (phase === 'reviewing' && previous !== 'reviewing')
+    play('review')
+})
+watch(() => snapshot.value?.approvals.length ?? 0, (count, previous) => {
+  if (count > (previous ?? 0))
+    play('present')
+})
+watch(() => snapshot.value?.result?.taskId, () => {
+  const result = snapshot.value?.result
+  if (result?.ok && result.status === 'completed' && result.changes.length)
+    play('celebrate')
+})
+watch(() => character.value.id, (_, previous) => {
+  if (previous)
+    repliesFrom.value = messages.value.length
+  window.setTimeout(() => play('greet'), 1200)
+})
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
 onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
 </script>
@@ -207,7 +282,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" @poke="drawer = 'work'" />
+        <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase" :style="{ left: `${(wide ? 0.62 : 0.4) * 100}%` }"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 
@@ -217,7 +292,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
         <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><button v-for="item in suggestions" :key="item" @click="send(item)">{{ item }}</button></div>
       </div>
 
-      <aside class="props" aria-label="Anna 手上的事">
+      <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
         <div v-if="needsTrust" class="card trust-card" role="alert">
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>
@@ -229,13 +304,15 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
           </div>
         </div>
 
-        <div v-if="collaborator" class="card collaborator-card" :data-agent="collaborator.agent" :data-state="collaborator.state">
-          <span class="eyebrow">协作者 · {{ collaborator.state === 'running' ? '工作中' : collaborator.state === 'done' ? '完成' : '没有完成' }}</span>
-          <strong><i class="agent-dot" />{{ collaborator.label }}<small v-if="collaborator.provider"> · {{ collaborator.provider }}</small></strong>
-          <span class="small muted">{{ collaborator.line }}<template v-if="collaborator.step"> · 第 {{ collaborator.step }} 步</template></span>
-        </div>
+        <Transition :css="false" @enter="fromHand">
+          <div v-if="collaborator" class="card collaborator-card" :data-agent="collaborator.agent" :data-state="collaborator.state">
+            <span class="eyebrow">协作者 · {{ collaborator.state === 'running' ? '工作中' : collaborator.state === 'done' ? '完成' : '没有完成' }}</span>
+            <strong><i class="agent-dot" />{{ collaborator.label }}<small v-if="collaborator.provider"> · {{ collaborator.provider }}</small></strong>
+            <span class="small muted">{{ collaborator.line }}<template v-if="collaborator.step"> · 第 {{ collaborator.step }} 步</template></span>
+          </div>
+        </Transition>
 
-        <ApprovalCard v-for="approval in snapshot.approvals" :key="approval.id" :approval="approval" @decide="(allow, scope) => decide(approval.id, allow, scope)" />
+        <TransitionGroup :css="false" @enter="fromHand"><ApprovalCard v-for="approval in snapshot.approvals" :key="approval.id" :approval="approval" @decide="(allow, scope) => decide(approval.id, allow, scope)" /></TransitionGroup>
 
         <div v-if="running || callTools.length" class="card activity-card">
           <span class="eyebrow">{{ running ? '正在做' : '刚才做了' }}</span>
@@ -245,7 +322,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
           <button class="link" @click="drawer = 'work'">查看完整过程 →</button>
         </div>
 
-        <ResultCard v-if="snapshot.result && !running" :result="snapshot.result" :error="error" @changes="showChanges" @undo="undo" />
+        <Transition :css="false" @enter="fromHand"><ResultCard v-if="snapshot.result && !running" :key="snapshot.result.taskId" :result="snapshot.result" :error="error" @changes="showChanges" @undo="undo" /></Transition>
 
         <div v-if="snapshot.queue.length" class="card queue-card"><span class="eyebrow">排队中</span><p v-for="(item, index) in snapshot.queue" :key="index" class="small">{{ index + 1 }}. {{ item.slice(0, 60) }}</p></div>
 
@@ -256,6 +333,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
         </button>
       </aside>
     </section>
+
+    <svg class="stage-overlay" aria-hidden="true"><path v-if="tail" class="speech-tail" :d="tail" /><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>

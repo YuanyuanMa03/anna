@@ -255,5 +255,15 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .brain-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border-radius: 14px }
 .brain-options button small { font-size: 10px; color: var(--muted) }
 .brain-options button[aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
+
+/* ── Stage interaction: speech tail and hand tethers ──────────────── */
+.stage-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; overflow: visible }
+.speech-tail { fill: var(--paper); stroke: var(--line); stroke-width: 1; filter: drop-shadow(0 6px 10px #5f487514) }
+.app-shell[data-phase=responding] .speech-tail { stroke: #d7c7e6 }
+.tether { fill: none; stroke: var(--mode, var(--accent)); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 2 7; opacity: .55; animation: tether-flow 1.4s linear infinite }
+.tether.review { stroke: var(--accent); stroke-dasharray: 1 6; opacity: .45 }
+@keyframes tether-flow { to { stroke-dashoffset: -18 } }
+.speaker small { letter-spacing: 0; color: var(--muted) }
+@media (prefers-reduced-motion: reduce) { .tether { animation: none } }
 .character-card strong i { font-style: normal; font-size: 11px; margin-left: 5px; color: #c37fa3 }
 .character-card strong i.male { color: #6f8fc4 }

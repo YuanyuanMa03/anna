@@ -78,7 +78,7 @@ export interface MemoryItem { id: string, text: string, createdAt: string }
 export interface FileChange { path: string, status: 'added' | 'modified' | 'deleted', added: number, removed: number, patch: string }
 
 /** What the stage performs. Derived from real runtime events only; the model never sets it. */
-export type AnnaPhase = 'offline' | 'idle' | 'thinking' | 'responding' | 'inspecting' | 'editing' | 'running' | 'testing' | 'waiting' | 'compacting' | 'retrying' | 'supervising' | 'done' | 'failed'
+export type AnnaPhase = 'offline' | 'idle' | 'thinking' | 'responding' | 'inspecting' | 'editing' | 'running' | 'testing' | 'waiting' | 'compacting' | 'retrying' | 'supervising' | 'reviewing' | 'done' | 'failed'
 export interface AnnaState { phase: AnnaPhase, line: string, step: number, target?: string }
 /** Deliverable summary for one finished task. */
 export interface TaskResult {
