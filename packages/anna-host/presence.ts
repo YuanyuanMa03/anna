@@ -29,6 +29,8 @@ export function describeTool(tool: string, input: Record<string, unknown>): { ph
   return { phase: 'running', line: `正在使用 ${tool}` }
 }
 
+const agentLabels: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI', opencode: 'OpenCode', pi: 'Pi' }
+
 export interface TurnStats { files: Set<string>, commands: number, failedTools: number, tests?: 'passed' | 'failed', step: number }
 export type PresenceOutput = { type: 'anna', state: AnnaState } | { type: 'stream', text: string } | { type: 'tool', activity: ToolActivity }
 
@@ -86,7 +88,8 @@ export class Presence {
       case 'thinking':
         if (this.supervising)
           break
-        if (this.state.phase !== 'thinking' && this.state.phase !== 'waiting')
+        // Reading a collaborator's result is thinking too; keep the reviewing pose until she speaks or acts.
+        if (this.state.phase !== 'thinking' && this.state.phase !== 'waiting' && this.state.phase !== 'reviewing')
           this.set('thinking', '让我想想…')
         break
       case 'text': {
@@ -123,7 +126,11 @@ export class Presence {
         if (call && describeTool(call.name, call.input).phase === 'testing')
           this.stats.tests = event.isError ? 'failed' : 'passed'
         this.emit({ type: 'tool', activity: { name: event.name, phase: 'result', callId: event.id, text: clip(event.output), isError: event.isError } })
-        if (!this.supervising)
+        if (this.supervising)
+          break
+        if (call?.name === 'anna_delegate' && !event.isError)
+          this.set('reviewing', `看看 ${agentLabels[String(call.input.agent)] ?? '协作者'} 交回来的结果…`)
+        else
           this.set('thinking', event.isError ? '这一步没成功，我看看…' : '想想下一步…')
         break
       }

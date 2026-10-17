@@ -31,6 +31,8 @@ export const poses: Record<AnnaPhase, Pose> = {
   testing: { ...base, gazeX: 0.75, gazeY: -0.15, headX: 14, headY: -4, body: 6, brow: -0.3, smile: 0 },
   // Watching a collaborator work: half turned toward its card, an occasional slow nod.
   supervising: { ...base, gazeX: 0.7, gazeY: -0.05, headX: 12, headZ: -3, body: 2, smile: 0.3, bob: 1.2 },
+  // Reading what a collaborator handed back: eyes on the card in her hand, scanning, a thoughtful tilt.
+  reviewing: { ...base, gazeX: 0.45, gazeY: -0.5, headX: 8, headY: -9, headZ: -4, body: 2, brow: 0.25, scan: 0.22, smile: 0.05 },
   waiting: { ...base, gazeX: 0, gazeY: 0.1, headX: -4, headZ: -9, body: -2, brow: 0.7, smile: 0.25 },
   compacting: { ...base, gazeY: -0.2, headZ: 5, eyeOpen: 0.55, smile: 0.1 },
   retrying: { ...base, gazeX: -0.3, gazeY: 0.2, headZ: 6, brow: 0.4, smile: -0.1 },
@@ -39,7 +41,7 @@ export const poses: Record<AnnaPhase, Pose> = {
 }
 
 /** Higher wins immediately; equal or lower waits for the current pose's minimum dwell. */
-const priority: Record<AnnaPhase, number> = { offline: 0, idle: 1, done: 2, thinking: 3, responding: 4, compacting: 4, inspecting: 5, editing: 5, running: 5, testing: 5, supervising: 5, retrying: 6, failed: 7, waiting: 9 }
+const priority: Record<AnnaPhase, number> = { offline: 0, idle: 1, done: 2, thinking: 3, responding: 4, compacting: 4, inspecting: 5, editing: 5, running: 5, testing: 5, supervising: 5, reviewing: 5, retrying: 6, failed: 7, waiting: 9 }
 const dwellMs = 700
 /** Outcome poses relax back to idle after this long. */
 const settleMs = 4000

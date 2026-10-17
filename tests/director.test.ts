@@ -39,3 +39,18 @@ describe('mode stances and gestures', () => {
     expect(gestureOffset({ kind: 'nod', start: 0 }, 2000)).toBeUndefined()
   })
 })
+
+describe('reviewing a collaborator', () => {
+  it('looks down at the card in her hand and holds the pose while she thinks', async () => {
+    const { Presence } = await import('../packages/anna-host/presence')
+    const states: string[] = []
+    const presence = new Presence(output => output.type === 'anna' && states.push(output.state.phase))
+    presence.handle({ type: 'tool-start', id: '1', name: 'anna_delegate', input: { agent: 'codex', task: 'x' } })
+    presence.handle({ type: 'tool-end', id: '1', name: 'anna_delegate', output: 'done', isError: false })
+    presence.handle({ type: 'thinking' })
+    expect(presence.state).toMatchObject({ phase: 'reviewing', line: '看看 Codex 交回来的结果…' })
+    presence.handle({ type: 'text', text: '审过了。' })
+    expect(states.at(-1)).toBe('responding')
+    expect(poses.reviewing.scan).toBeGreaterThan(0)
+  })
+})
