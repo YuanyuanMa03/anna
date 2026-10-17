@@ -37,7 +37,7 @@ const network = [
 
 /** Inspect commands: [pattern, flags that turn the command into a writer or executor]. */
 const inspectors: [RegExp, RegExp?][] = [
-  [/^(?:ls|pwd|cat|head|tail|wc|file|stat|du|df|which|whoami|date|uname|basename|dirname|realpath|true|false|nl|less|more)\b/],
+  [/^(?:ls|pwd|cd|pushd|popd|cat|head|tail|wc|file|stat|du|df|which|whoami|date|uname|basename|dirname|realpath|true|false|nl|less|more)\b/],
   [/^(?:echo|printf)\b/],
   [/^tree\b/, /\s-o\b|--output/],
   [/^diff\b/, /--output|--to-file|--from-file/],
@@ -56,26 +56,138 @@ const verifiers = [
   /^(?:pnpm|npx|bunx|yarn)\s+(?:exec\s+)?(?:vitest|tsc|eslint|vue-tsc|jest|prettier\s+--check)\b/,
   /^(?:vitest|jest|pytest|tsc|vue-tsc|eslint|ruff|mypy|pyright|swift\s+test|xcodebuild\s+test)\b/,
   /^python3?\s+-m\s+(?:pytest|unittest|mypy|ruff|compileall)\b/,
+  /^(?:node\s+--test|deno\s+test|bun\s+test)\b/,
   /^(?:cargo\s+(?:test|check|build|clippy|fmt\s+--check)|go\s+(?:test|vet|build))\b/,
   /^(?:make|just)\s+(?:test|check|lint|build)\b/,
   /^dotnet\s+(?:test|build)\b/,
 ]
 
-/** Split on control operators; undefined when the line uses constructs we will not reason about. */
+const opaque = /^(?:xargs|eval|exec|source|\.|env|nohup|time|timeout|nice|watch|tee|sh|bash|zsh|fish|dash|pwsh|powershell|cmd|python3?\s+-c|node\s+(?:-e|-p|--eval|--print)|bun\s+-e|deno\s+eval|perl|ruby\s+-e)(?:\s|$)/
+
+/**
+ * Split a shell line into simple commands on `&&`, `||`, `;`, `|`, `|&`, `&` and newlines, honouring quotes.
+ * Undefined when the line uses constructs we will not reason about: substitutions, redirections, subshells,
+ * variable assignments, wrappers that run their arguments, a dangling operator or an unclosed quote.
+ * Like Claude Code, an unparseable line never matches an allow rule and is never read-only.
+ */
 export function segments(command: string): string[] | undefined {
-  const text = command.trim()
-  if (!text)
+  const text = command.trim().replace(/\s\d?>\s*\/dev\/null|\s2>&1|\s\d?>\s*\$null/g, ' ')
+  if (!text || text.length > 10000)
     return undefined
-  const cleaned = text.replace(/\s\d?>\s*\/dev\/null|\s2>&1|\s\d?>\s*\$null/g, ' ')
-  if (/\$\(|`|<\(|>\(|[<>]|\$\{|\\\n/.test(cleaned))
+  const parts: string[] = []
+  let current = ''
+  let quote: '' | '\'' | '"' = ''
+  let operator = ''
+  const cut = (op: string) => {
+    if (!current.trim() && op !== '\n')
+      return false
+    if (current.trim())
+      parts.push(current.trim())
+    current = ''
+    operator = op
+    return true
+  }
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!
+    const next = text[index + 1]
+    if (quote === '\'') {
+      if (char === '\'')
+        quote = ''
+      current += char
+      continue
+    }
+    if (char === '\\') {
+      if (next === undefined || next === '\n')
+        return undefined
+      current += char + next
+      index++
+      continue
+    }
+    if (char === '`' || (char === '$' && (next === '(' || next === '{')))
+      return undefined
+    if (quote === '"') {
+      if (char === '"')
+        quote = ''
+      current += char
+      continue
+    }
+    if (char === '\'' || char === '"') {
+      quote = char
+      current += char
+      continue
+    }
+    if ('<>(){}'.includes(char))
+      return undefined
+    const pair = char + (next ?? '')
+    if (pair === '&&' || pair === '||' || pair === '|&') {
+      if (!cut(pair))
+        return undefined
+      index++
+    }
+    else if (char === '|' || char === ';' || char === '&' || char === '\n') {
+      if (!cut(char))
+        return undefined
+    }
+    else {
+      current += char
+      if (char.trim())
+        operator = ''
+    }
+  }
+  if (quote || ['&&', '||', '|', '|&'].includes(operator))
     return undefined
-  if (/(?:^|\s)[A-Z_]\w*=/i.test(cleaned) || /(?:^|[;&|]\s*)(?:xargs|eval|exec|source|\.|env|nohup|time|watch|tee|sh|bash|zsh|fish|pwsh|powershell|cmd|python3?\s+-c|node\s+-e|perl|ruby\s+-e)\b/.test(cleaned))
+  if (current.trim())
+    parts.push(current.trim())
+  if (!parts.length || parts.some(part => /^[A-Z_]\w*=/i.test(part) || opaque.test(part)))
     return undefined
-  return cleaned.split(/\s*(?:&&|\|\||[;|&\n])\s*/).map(part => part.trim()).filter(Boolean)
+  return parts
+}
+
+/** A conservative split for lines `segments` rejects: deny and ask rules still match any piece of them. */
+export function looseParts(command: string) {
+  return command.split(/&&|\|\||\|&|[;|&\n`(){}]|\$\(|<\(|>\(/).map(part => part.trim().replace(/^['"]+|['"]+$/g, '').trim()).filter(Boolean)
+}
+
+/** Leading assignments and wrappers that run their argument (`timeout 30`, `nice`, `nohup`, bare `xargs`). */
+export function stripWrappers(part: string) {
+  let text = part.trim()
+  for (let previous = ''; previous !== text;) {
+    previous = text
+    text = text.replace(/^[A-Z_]\w*=(?:"[^"]*"|'[^']*'|\S)*\s+/i, '').replace(/^(?:timeout\s+(?:-\S+\s+)*\S+|nice(?:\s+-n\s*\S+|\s+-\d+)?|nohup|time|command(?!\s+-[vV])|builtin|noglob|stdbuf(?:\s+-\S+)*|xargs)\s+/, '')
+  }
+  return text
+}
+
+/** Shell words with quotes removed: `grep -r "a b" src` → grep, -r, a b, src. */
+export function shellWords(part: string) {
+  return (part.match(/(?:"[^"]*"|'[^']*'|\\.|[^\s"'\\])+/g) ?? []).map(word => word.replace(/"([^"]*)"|'([^']*)'|\\(.)/g, '$1$2$3'))
+}
+
+/** A part that expands a variable other than $HOME cannot be judged from its text. */
+function expandsVariables(part: string) {
+  return /\$(?!HOME\b)[\w@*#?$!-]/.test(part.replace(/'[^']*'/g, ''))
 }
 
 function inspects(part: string) {
-  return inspectors.some(([pattern, unsafe]) => pattern.test(part) && !(unsafe?.test(part)))
+  return !expandsVariables(part) && inspectors.some(([pattern, unsafe]) => pattern.test(part) && !(unsafe?.test(part)))
+}
+
+function kindOf(part: string): CommandClass {
+  return inspects(part) ? 'inspect' : verifiers.some(pattern => pattern.test(part)) ? 'verify' : network.some(pattern => pattern.test(part)) ? 'network' : 'change'
+}
+
+/** Classify one simple command (a part from `segments`). */
+export function classifyPart(part: string): CommandClass {
+  return dangerous.some(pattern => pattern.test(part)) ? 'danger' : kindOf(part)
+}
+
+/**
+ * Classify one part as it runs inside its whole command line. As in Claude Code, git after a `cd` runs that
+ * directory's hooks and config, so it is not read-only there.
+ */
+export function classifyIn(parts: string[], part: string): CommandClass {
+  const kind = classifyPart(part)
+  return kind === 'inspect' && /^git\s/.test(part) && parts.some(other => /^(?:cd|pushd)\s/.test(other)) ? 'change' : kind
 }
 
 /** Classify a shell line by its most consequential part. */
@@ -86,21 +198,121 @@ export function classify(command: string): CommandClass {
   const parts = segments(text)
   if (!parts)
     return network.some(pattern => pattern.test(text)) ? 'network' : 'change'
-  let worst: CommandClass = 'inspect'
-  for (const part of parts) {
-    const kind: CommandClass = inspects(part) ? 'inspect' : verifiers.some(pattern => pattern.test(part)) ? 'verify' : network.some(pattern => pattern.test(part)) ? 'network' : 'change'
-    if (commandRank[kind] > commandRank[worst])
-      worst = kind
-  }
-  return worst
+  return parts.map(part => classifyIn(parts, part)).reduce<CommandClass>((worst, next) => commandRank[next] > commandRank[worst] ? next : worst, 'inspect')
 }
 
-/** Rule key used for "allow for this session/workspace": the program and its subcommand, e.g. `pnpm install`. */
-export function commandPrefix(command: string) {
-  return command.trim().split(/\s+/).slice(0, 2).join(' ')
+/**
+ * The rule "always allow" offers for one simple command, in Claude Code's form: the program and its subcommand
+ * followed by ` *` (`Bash(pnpm install *)`). Undefined when the second word is a flag or a quoted argument, since a
+ * rule like `Bash(git *)` or `Bash(printf 'Delegated:*)` would allow far more than the card showed.
+ */
+export function commandRule(part: string) {
+  const words = part.trim().split(/\s+/)
+  const [program, sub] = words
+  if (!program || !/^[\w@.+/-]+$/.test(program))
+    return undefined
+  if (sub === undefined)
+    return `Bash(${program})`
+  return /^[a-z][\w.:@/+-]*$/i.test(sub) ? `Bash(${program} ${sub} *)` : undefined
 }
 
 export function isVerification(command: string) {
   const parts = segments(command) ?? [command.trim()]
   return parts.some(part => verifiers.some(pattern => pattern.test(part)))
+}
+
+/** What a content search reads: the folders it walks and whether it skips hidden and ignored files. */
+export interface SearchScope { targets: string[], hidden: boolean, ignored: boolean, include: string[], exclude: string[] }
+
+const valueFlags: Record<string, { short: string, long: string[] }> = {
+  grep: { short: 'efmABCdD', long: ['regexp', 'file', 'max-count', 'after-context', 'before-context', 'context', 'directories', 'devices', 'include', 'exclude', 'exclude-dir', 'exclude-from', 'label', 'color', 'colour', 'binary-files'] },
+  rg: { short: 'efgtTmABCjMEdr', long: ['regexp', 'file', 'glob', 'iglob', 'type', 'type-not', 'max-count', 'after-context', 'before-context', 'context', 'threads', 'max-columns', 'encoding', 'replace', 'max-depth', 'sort', 'sortr', 'type-add', 'ignore-file', 'max-filesize', 'path-separator', 'color', 'colors', 'context-separator', 'field-match-separator', 'pre', 'pre-glob'] },
+  ag: { short: 'GgmABCp', long: ['file-search-regex', 'max-count', 'after', 'before', 'context', 'path-to-ignore', 'depth', 'ignore', 'ignore-dir'] },
+  git: { short: 'efABCm', long: ['max-depth', 'after-context', 'before-context', 'context', 'max-count', 'threads'] },
+}
+
+/**
+ * A recursive content search in one simple command: `grep -r`, `rg`, `ag` or `git grep`. Undefined for anything
+ * else (including `grep` on named files, whose paths are checked directly).
+ */
+export function searchScope(part: string): SearchScope | undefined {
+  const words = shellWords(part)
+  const tool = words[0] === 'egrep' || words[0] === 'fgrep' ? 'grep' : words[0]
+  if (tool === 'git') {
+    if (words[1] !== 'grep')
+      return undefined
+    words.splice(0, 1)
+  }
+  if (!tool || !(tool in valueFlags))
+    return undefined
+  const spec = valueFlags[tool === 'git' ? 'git' : tool]!
+  const scope: SearchScope = { targets: [], hidden: tool === 'grep' || tool === 'git', ignored: tool === 'grep', include: [], exclude: [] }
+  let recursive = tool !== 'grep'
+  let pattern = false
+  let unrestricted = 0
+  const positional: string[] = []
+  const option = (name: string, value: string | undefined) => {
+    if (name === 'e' || name === 'f' || name === 'regexp' || name === 'file')
+      pattern = true
+    if (name === 'include' || ((name === 'g' || name === 'glob' || name === 'iglob') && !value?.startsWith('!')))
+      scope.include.push(value ?? '')
+    if (name === 'exclude' || ((name === 'g' || name === 'glob' || name === 'iglob') && value?.startsWith('!')))
+      scope.exclude.push(value?.replace(/^!/, '') ?? '')
+    if ((name === 'd' && tool === 'grep') || name === 'directories')
+      recursive ||= value === 'recurse'
+  }
+  for (let index = 1; index < words.length; index++) {
+    const word = words[index]!
+    if (word === '--') {
+      positional.push(...words.slice(index + 1))
+      break
+    }
+    if (word.startsWith('--')) {
+      const [name, value] = word.slice(2).split(/=(.*)/s) as [string, string | undefined]
+      const takes = spec.long.includes(name) && value === undefined
+      option(name, takes ? words[++index] : value)
+      if (name === 'recursive' || name === 'dereference-recursive')
+        recursive = true
+      if (name === 'hidden' || name === 'all-hidden')
+        scope.hidden = true
+      if (name === 'no-ignore' || name === 'no-ignore-vcs' || name === 'skip-vcs-ignores' || name === 'untracked' || name === 'no-index')
+        scope.ignored = true
+      if (name === 'unrestricted')
+        unrestricted++
+      if (name === 'files' && tool === 'rg')
+        return undefined
+      continue
+    }
+    if (word.startsWith('-') && word.length > 1) {
+      for (let at = 1; at < word.length; at++) {
+        const flag = word[at]!
+        if (spec.short.includes(flag)) {
+          option(flag, at + 1 < word.length ? word.slice(at + 1) : words[++index])
+          break
+        }
+        if (flag === 'r' || flag === 'R')
+          recursive = true
+        if (flag === 'u')
+          unrestricted++
+        if (flag === '.' && tool === 'rg')
+          scope.hidden = true
+        if (flag === 'U' && tool === 'ag')
+          scope.ignored = true
+      }
+      continue
+    }
+    positional.push(word)
+  }
+  if (!recursive)
+    return undefined
+  if (tool === 'ag' && unrestricted)
+    unrestricted = 2
+  if (unrestricted >= 1)
+    scope.ignored = true
+  if (unrestricted >= 2)
+    scope.hidden = true
+  scope.targets = pattern ? positional : positional.slice(1)
+  if (!scope.targets.length)
+    scope.targets = ['.']
+  return scope
 }

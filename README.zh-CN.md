@@ -35,7 +35,7 @@ Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你
 
 - 🧠 **真正的 agent 大脑**：基于 [pi coding agent](https://github.com/earendil-works/pi) SDK，有文件工具、终端、上下文压缩、自动重试和可续接的会话。大脑也可以换成 **Claude Code** 或 **Codex**。
 - 🤝 **会派活**：像 [cc-switch](https://github.com/farion1231/cc-switch) 一样识别你电脑上已装的 coding agent。输入 `@claude 修一下那个不稳定的测试`，Claude Code 就会开工，它的授权请求出现在 *Anna 的* 确认卡上。
-- 🛡️ **Claude Code 式权限模式**：规划、谨慎、协作、放手，每种模式有自己的 Live2D 站姿。规则沿用 Claude Code 格式（`Bash(pnpm test:*)`、`Edit(src/**)`），凭据目录永远碰不到。
+- 🛡️ **Claude Code 式权限模式**：规划、谨慎、协作、放手，每种模式有自己的 Live2D 站姿。规则沿用 Claude Code 的格式和匹配方式（`Bash(pnpm test *)`、`Edit(src/**)`），Anna 自己的密钥和数据永远碰不到。
 - 📦 **真正的系统沙箱**：终端命令通过 Anthropic 的 [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) 运行在 Seatbelt（macOS）或 bubblewrap（Linux）里。只能写工作区，每个新域名都要你同意才能联网。
 - ↩️ **改动可查看、可撤销**：每个任务结束都有交付卡，可以看 diff，也可以一键撤销。
 - 🔀 **服务商切换**：内置 cc-switch 的预设（Claude、Codex、Gemini 的各家端点）。可以只对某一次派活生效，也可以应用到全局；全局修改会先备份，支持一键恢复。
@@ -80,8 +80,10 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每�
 | 改工作区文件 | ❌ | 问 | ✅ | ✅ |
 | 测试、lint、构建 | ❌ | 问 | ✅ | ✅ |
 | 其他命令、联网 | ❌ | 问 | 问 | ✅ 在沙箱内 |
+| 读工作区之外（包括 `~/.ssh`） | 问 | 问 | 问 | ✅ |
+| 读密钥文件（`.env`、私钥），无论用工具、命令还是搜索 | 问 | 问 | 问 | 问 |
 | 高风险命令、工作区外修改 | ❌ | 逐次问 | 逐次问 | 逐次问 |
-| `~/.ssh`、`~/.aws`、钥匙串、Anna 自己的数据 | ❌ | ❌ | ❌ | ❌ |
+| Anna 自己的密钥和数据 | ❌ | ❌ | ❌ | ❌ |
 | 舞台表现 | 安静地看笔记 | 专注 | 中性 | 前倾、节奏快 |
 
 确认卡有四个选项：**拒绝**、**仅允许一次**、**本次会话都允许**、**总是允许**。“总是允许”会把一条 Claude Code 格式的规则写进这个工作区。微信派来的任务始终按“谨慎”执行。详见 [docs/permissions.md](docs/permissions.md)。

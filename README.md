@@ -44,7 +44,7 @@ Switch characters or swap her brain: her personality, memory and your conversati
   [cc-switch](https://github.com/farion1231/cc-switch) does. Type `@claude fix the flaky test` and Claude Code does
   the job, while its permission prompts land on *Anna's* approval cards.
 - 🛡️ **Claude Code-style permission modes.** Plan, Ask, Edit and Auto, each with its own Live2D stance. Rules use
-  the Claude Code format (`Bash(pnpm test:*)`, `Edit(src/**)`), and credential folders are always off-limits.
+  the Claude Code format and matching (`Bash(pnpm test *)`, `Edit(src/**)`), and Anna's own keys and data are always off-limits.
 - 📦 **An OS sandbox for real.** Shell commands run under Seatbelt (macOS) or bubblewrap (Linux) through
   Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime). They can write only to the workspace,
   and every new domain needs your approval.
@@ -110,10 +110,12 @@ switch permission modes.
 | Tests, lint, builds | ❌ | ask | ✅ | ✅ |
 | Other commands, network | ❌ | ask | ask | ✅ in sandbox |
 | Risky commands, edits outside the workspace | ❌ | ask every time | ask every time | ask every time |
-| `~/.ssh`, `~/.aws`, keychains, Anna's own data | ❌ | ❌ | ❌ | ❌ |
+| Anna's own keys and data | ❌ | ❌ | ❌ | ❌ |
 | On stage | reads her notes quietly | attentive | neutral | leans in, brisk |
 
 Approval cards offer **Deny**, **Allow once**, **Allow for this session** and **Always allow**. "Always allow"
+| Read outside the workspace (including `~/.ssh`) | ask | ask | ask | ✅ |
+| Read secret files (`.env`, private keys), by tool, command or search | ask | ask | ask | ask |
 writes a Claude Code-format rule to the workspace. Tasks that come in over WeChat always run in Ask mode. Details are in
 [docs/permissions.md](docs/permissions.md).
 

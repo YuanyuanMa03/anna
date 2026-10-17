@@ -37,8 +37,9 @@ Anna uses other agents in two ways. Both are built on the adapters in `packages/
 | Edit | `acceptEdits` | `on-request` + `workspace-write` |
 | Auto | `acceptEdits` | `on-request` + `workspace-write` |
 
-In Auto mode, risky requests still go through Anna's gate and everything else is allowed. Credential folders are passed
-to Claude Code as deny rules through `--settings`.
+In Auto mode, risky requests still go through Anna's gate and everything else is allowed. Anna's data directory is passed
+to Claude Code as deny rules through `--settings`. Codex's sandbox policies only limit writes, so Codex can still read
+it; see the known limits in [permissions.md](permissions.md#known-limits).
 
 ## Adding an agent
 

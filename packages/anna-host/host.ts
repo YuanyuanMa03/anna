@@ -13,7 +13,7 @@ import process from 'node:process'
 import { kernels } from '../kernels/registry'
 import { decide } from '../permissions/engine'
 import { modes, stricter, trustedRegistries } from '../permissions/modes'
-import { canonical, resolveToolPath, sensitivePaths } from '../permissions/paths'
+import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
 import { AgentsHub } from './agents-hub'
@@ -101,7 +101,7 @@ export class Host {
       emit: event => this.emit(event),
       locate: agent => this.hub.locate(agent),
       provider: (agent, name) => this.hub.choice(agent, name),
-      denyPaths: () => [...sensitivePaths(), ...this.protectedPaths()],
+      denyPaths: () => this.protectedPaths(),
     })
     this.approvals = new ApprovalBroker((question) => {
       this.publish()
@@ -203,7 +203,7 @@ export class Host {
   // ── Permission gate ─────────────────────────────────────────────────────────
 
   private protectedPaths() {
-    return ['credential.bin', 'weixin-credential.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'checkpoints'].map(name => join(this.data, name))
+    return ['credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
@@ -242,7 +242,7 @@ export class Host {
     if (decision.kind === 'ask') {
       const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule })
       if (outcome !== 'allowed')
-        return { allow: false, reason: outcome === 'cancelled' ? '用户中断了这次任务。' : '用户没有批准这次操作。请说明替代方案，或询问用户想怎么做。', stop: outcome === 'cancelled' }
+        return { allow: false, reason: outcome === 'cancelled' ? '用户中断了这次任务。' : '用户在确认卡上拒绝了这次操作，这是用户本人的决定。不要换个写法、拆开命令或换个工具再试，也不要建议用户怎样更容易被放行；说明不做这一步的影响，再问用户想怎么做。', stop: outcome === 'cancelled' }
     }
     if ((tool === 'write' || tool === 'edit') && this.current && typeof input.path === 'string') {
       const path = resolveToolPath(input.path, this.workspacePath)
@@ -335,7 +335,7 @@ export class Host {
     const persona = await readFile(join(this.root, 'plugins/anna-persona/persona.md'), 'utf8')
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
-    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
+    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
     return [persona, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : [])]
   }
 
@@ -371,7 +371,7 @@ export class Host {
       emit: event => this.presence.handle(event),
       mode: () => this.effectiveMode(),
       locate: agent => this.hub.locate(agent),
-      denyPaths: [...sensitivePaths(), ...this.protectedPaths()],
+      denyPaths: this.protectedPaths(),
     })
     try {
       await kernel.start()

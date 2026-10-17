@@ -95,7 +95,7 @@ try {
   await page.getByRole('button', { name: '仅允许一次', exact: true }).click()
   const done = await until(page, s => s.state === 'ready' && s.result?.taskId, 'task done')
   assert.deepEqual(done.result.changes.map(c => `${c.status}:${c.path}`).sort(), ['added:notes.md', 'modified:tasks.txt'])
-  assert.deepEqual(done.sessionRules, ['Edit(tasks.txt)'])
+  assert.deepEqual(done.sessionRules, ['Edit(./tasks.txt)'])
   await page.locator('.result-card').waitFor()
   assert.match(await page.locator('.bubble strong').first().textContent(), /改好了/)
   await page.screenshot({ path: 'artifacts/scripted-result.png' })

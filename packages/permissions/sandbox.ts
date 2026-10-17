@@ -4,7 +4,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
-import { sensitivePaths } from './paths'
+import { withRealPaths } from './paths'
 
 export interface SandboxStatus { available: boolean, reason?: string }
 export type NetworkAsk = (host: string, port: number | undefined) => Promise<boolean>
@@ -15,9 +15,22 @@ function cacheDirs(home = homedir()) {
 }
 
 /**
- * OS-level isolation for shell commands (Seatbelt on macOS, bubblewrap on Linux) via @anthropic-ai/sandbox-runtime.
- * Writes are confined to the workspace, temp and package caches; secrets are unreadable; every network host goes
- * through `askNetwork`. The manager is process-wide, so one Anna runtime owns it at a time.
+ * The sandbox's file rules, as in Claude Code's default: commands read most of the machine and write only the
+ * workspace, temp and package caches. Anna's own data is neither readable nor writable. Every path is listed as written
+ * and as resolved: Seatbelt checks the resolved path, so denying only a symlink would leave its target readable.
+ */
+export function sandboxFilesystem(workspace: string, protectedPaths: string[], home = homedir()): SandboxRuntimeConfig['filesystem'] {
+  return {
+    denyRead: withRealPaths(protectedPaths),
+    allowWrite: withRealPaths([workspace, tmpdir(), '/tmp', ...cacheDirs(home)]),
+    denyWrite: withRealPaths(protectedPaths),
+  }
+}
+
+/**
+ * OS-level isolation for shell commands (Seatbelt on macOS, bubblewrap on Linux) via @anthropic-ai/sandbox-runtime,
+ * with the file rules above; every network host goes through `askNetwork`. The manager is process-wide, so one Anna
+ * runtime owns it at a time.
  */
 export class CommandSandbox {
   private started = false
@@ -38,14 +51,7 @@ export class CommandSandbox {
 
   async start(workspace: string, protectedPaths: string[], askNetwork: NetworkAsk) {
     await this.stop()
-    const config: SandboxRuntimeConfig = {
-      network: { allowedDomains: [], deniedDomains: [] },
-      filesystem: {
-        denyRead: [...sensitivePaths(), ...protectedPaths],
-        allowWrite: [workspace, tmpdir(), '/tmp', ...cacheDirs()],
-        denyWrite: [...protectedPaths],
-      },
-    } as SandboxRuntimeConfig
+    const config = { network: { allowedDomains: [], deniedDomains: [] }, filesystem: sandboxFilesystem(workspace, protectedPaths) } as SandboxRuntimeConfig
     await SandboxManager.initialize(config, async ({ host, port }) => askNetwork(host, port))
     this.started = true
     // Some systems ship the sandbox tools but forbid them (e.g. Ubuntu's unprivileged user-namespace policy).

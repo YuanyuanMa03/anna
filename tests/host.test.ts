@@ -76,13 +76,13 @@ it('ask mode: approvals with session scope stop asking for the same file; reject
   ], { mode: 'ask' })
   const done = host.execute({ type: 'send', text: '写文件' })
   const first = await approve(host, 'session')
-  expect(first).toMatchObject({ toolName: 'write', rule: 'Edit(a.txt)' })
+  expect(first).toMatchObject({ toolName: 'write', rule: 'Edit(./a.txt)' })
   const second = await approve(host, 'once', false)
   expect(second.toolName).toBe(shell)
   await done
   expect(await readFile(join(workspace, 'a.txt'), 'utf8')).toBe('2')
   expect(existsSync(join(workspace, 'b.txt'))).toBe(false)
-  expect(host.snapshot().sessionRules).toEqual(['Edit(a.txt)'])
+  expect(host.snapshot().sessionRules).toEqual(['Edit(./a.txt)'])
   await host.close()
 })
 
