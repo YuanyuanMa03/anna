@@ -1,78 +1,369 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import type { AnnaPhase, PermissionMode } from '../../packages/shared/contracts'
+import type { Lang } from './copy'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import CharacterStage from '../../apps/desktop/src/character-stage.vue'
 import { characters } from '../../packages/character/manifest'
+import { copy, modeOrder, modes } from './copy'
 
-const scenes = [
-  { id: 'daily', label: '聊聊日常', icon: '✧', title: '今天，也给自己一点空间。', prompt: '今天有点累，感觉好多事情都没做好。', response: '那先坐一会儿吧。累的时候，没必要急着给今天打分。\n\n我们先找一件已经完成的小事，好吗？哪怕只是按时吃了饭，也算认真照顾了自己。剩下的事，我们一件一件来。', action: '和她说说今天', receipt: '日常陪伴 · 认真听，也有自己的想法' },
-  { id: 'work', label: '整理工作', icon: '▤', title: '把一团思绪，变成下一步。', prompt: '明天要交方案，还要改官网、整理会议记录。我不知道从哪里开始。', response: '先把最接近截止时间的方案放在前面。\n\n① 今天：列出方案提纲，圈出需要补齐的资料。\n② 明早：完成初稿，再留半小时检查。\n③ 之后：把会议记录里的行动项，整理成官网修改清单。\n\n在桌面端选择工作文件夹，我可以帮你读文件、写清单，一起把计划落实。', action: '一起理清工作', receipt: '桌面端工作模式 · 读取文件 → 整理 → 写入结果' },
-  { id: 'code', label: '一起写代码', icon: '⌘', title: '遇到难题，一起找出原因。', prompt: '我的待办列表点击“完成”后，页面却没有更新。该怎么查？', response: '先确认：点击事件有没有触发，任务状态有没有更新，页面有没有用到这份状态。\n\n如果你用 Vue，可以从响应式状态开始检查。比如：\nconst done = ref(false)\ndone.value = !done.value\n\n在桌面端选择项目文件夹后，我可以读取代码、修改文件，再运行项目已有的检查。执行结果会显示在工具活动中。', action: '一起排查问题', receipt: '桌面端开发工具 · 文件读写 / 终端 / 单次授权' },
+const repo = 'https://github.com/YuanyuanMa03/anna'
+
+function initialLang(): Lang {
+  try {
+    const saved = localStorage.getItem('anna-lang')
+    if (saved === 'zh' || saved === 'en')
+      return saved
+  }
+  catch {}
+  return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+}
+const lang = ref<Lang>(initialLang())
+const t = computed(() => copy[lang.value])
+watch(lang, (value) => {
+  document.documentElement.lang = copy[value].meta.lang
+  document.title = copy[value].meta.title
+  try {
+    localStorage.setItem('anna-lang', value)
+  }
+  catch {}
+}, { immediate: true })
+
+// ── Demo: a scripted task that obeys the same policy table as the app ──
+type Kind = 'inspect' | 'edit' | 'network' | 'verify'
+type Decision = 'allow' | 'ask' | 'deny'
+type Status = 'running' | 'waiting' | 'done' | 'denied' | 'blocked'
+interface Step { kind: Kind, tool: 'read' | 'write' | 'edit' | 'shell', target: string, phase: AnnaPhase, change?: { path: string, status: 'added' | 'modified', stat: string } }
+interface Entry { step: Step, status: Status }
+
+const policy: Record<PermissionMode, Record<Kind, Decision>> = {
+  plan: { inspect: 'allow', edit: 'deny', network: 'deny', verify: 'deny' },
+  ask: { inspect: 'allow', edit: 'ask', network: 'ask', verify: 'ask' },
+  edit: { inspect: 'allow', edit: 'allow', network: 'ask', verify: 'allow' },
+  auto: { inspect: 'allow', edit: 'allow', network: 'allow', verify: 'allow' },
+}
+const tasks: { actor: 'anna' | 'claude', steps: Step[] }[] = [
+  { actor: 'anna', steps: [
+    { kind: 'inspect', tool: 'read', target: 'tasks.txt', phase: 'inspecting' },
+    { kind: 'edit', tool: 'write', target: 'notes.md', phase: 'editing', change: { path: 'notes.md', status: 'added', stat: '+12 −0' } },
+    { kind: 'network', tool: 'shell', target: 'pnpm add dayjs', phase: 'running', change: { path: 'package.json', status: 'modified', stat: '+1 −0' } },
+    { kind: 'verify', tool: 'shell', target: 'pnpm test', phase: 'testing' },
+  ] },
+  { actor: 'claude', steps: [
+    { kind: 'inspect', tool: 'read', target: 'src/todo.ts', phase: 'supervising' },
+    { kind: 'edit', tool: 'edit', target: 'src/todo.ts', phase: 'supervising', change: { path: 'src/todo.ts', status: 'modified', stat: '+3 −1' } },
+    { kind: 'verify', tool: 'shell', target: 'pnpm test', phase: 'supervising' },
+  ] },
 ]
-const selected = ref(0)
-const scene = computed(() => scenes[selected.value])
+
+const mode = ref<PermissionMode>('ask')
+const taskIndex = ref(0)
+const task = computed(() => tasks[taskIndex.value]!)
 const characterIndex = ref(0)
-const character = computed(() => characters[characterIndex.value])
-const started = ref(false)
-const replying = ref(false)
-const showReply = ref(false)
-const speaking = ref(false)
-const voiceEnabled = ref(false)
-const voiceStatus = ref('')
+const character = computed(() => characters[characterIndex.value]!)
+const phase = ref<AnnaPhase>('idle')
+const line = ref('')
+const entries = ref<Entry[]>([])
+const running = ref(false)
+const finished = ref(false)
+const undone = ref(false)
+const pending = ref<Entry>()
+let answer: ((allow: boolean) => void) | undefined
+let run = 0
+
+const changes = computed(() => entries.value.filter(entry => entry.status === 'done' && entry.step.change).map(entry => entry.step.change!))
+const bubble = computed(() => line.value || t.value.demo.lines.idle)
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+function reset() {
+  run++
+  answer?.(false)
+  answer = undefined
+  pending.value = undefined
+  running.value = false
+  finished.value = false
+  undone.value = false
+  entries.value = []
+  phase.value = 'idle'
+  line.value = ''
+}
+async function start() {
+  reset()
+  const id = run
+  const alive = () => id === run
+  running.value = true
+  const lines = t.value.demo.lines
+  const delegated = task.value.actor === 'claude'
+  phase.value = delegated ? 'supervising' : 'thinking'
+  line.value = delegated ? lines.supervising : lines.thinking
+  await sleep(1100)
+  let denied = 0
+  for (const step of task.value.steps) {
+    if (!alive())
+      return
+    const decision = policy[mode.value][step.kind]
+    const entry: Entry = { step, status: 'running' }
+    entries.value.push(entry)
+    const live = entries.value.at(-1)!
+    if (decision === 'deny') {
+      live.status = 'blocked'
+      await sleep(500)
+      continue
+    }
+    if (decision === 'ask') {
+      live.status = 'waiting'
+      pending.value = live
+      phase.value = 'waiting'
+      line.value = lines.waiting
+      const allow = await new Promise<boolean>(resolve => (answer = resolve))
+      if (!alive())
+        return
+      pending.value = undefined
+      if (!allow) {
+        live.status = 'denied'
+        denied++
+        await sleep(350)
+        continue
+      }
+      live.status = 'running'
+    }
+    phase.value = step.phase
+    line.value = delegated ? lines.supervising : ''
+    await sleep(mode.value === 'auto' ? 750 : 1050)
+    if (!alive())
+      return
+    live.status = 'done'
+  }
+  const files = changes.value.length
+  phase.value = 'done'
+  line.value = mode.value === 'plan' && !delegated ? lines.plan : delegated ? lines.claude(files, denied) : lines.done(files, denied)
+  running.value = false
+  finished.value = true
+}
+function decide(allow: boolean) {
+  const resolve = answer
+  answer = undefined
+  resolve?.(allow)
+}
+function undo() {
+  undone.value = true
+  line.value = t.value.demo.undone
+}
+watch([mode, taskIndex], reset)
+watch(lang, () => {
+  if (!running.value && !finished.value)
+    line.value = ''
+})
+onBeforeUnmount(reset)
+
+// ── Install commands ──
+type Os = 'mac' | 'linux' | 'win'
+const ua = navigator.userAgent
+const os = ref<Os>(/Windows/i.test(ua) ? 'win' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'linux' : 'mac')
+const commands: Record<Os, string> = {
+  mac: 'curl -fsSL https://anna.mayuanyuan.top/install.sh | bash',
+  linux: 'curl -fsSL https://anna.mayuanyuan.top/install.sh | bash',
+  win: 'irm https://anna.mayuanyuan.top/install.ps1 | iex',
+}
+const copied = ref('')
+async function copyCommand(command: string) {
+  try {
+    await navigator.clipboard.writeText(command)
+    copied.value = command
+    setTimeout(() => copied.value = '', 1800)
+  }
+  catch {}
+}
+
 const support = ref<HTMLDialogElement>()
 const payment = ref<'wechat' | 'alipay'>('wechat')
-let timer: ReturnType<typeof setTimeout> | undefined
-function stopVoice() {
-  if ('speechSynthesis' in window)
-    speechSynthesis.cancel(); speaking.value = false
-}
-function reset() { clearTimeout(timer); stopVoice(); started.value = false; replying.value = false; showReply.value = false; voiceStatus.value = '' }
-function choose(index: number) { reset(); selected.value = index }
-function speak() {
-  stopVoice()
-  if (!('speechSynthesis' in window)) { voiceStatus.value = '当前浏览器不支持朗读，可以直接阅读对话。'; return }
-  const utterance = new SpeechSynthesisUtterance(scene.value.response)
-  utterance.lang = 'zh-CN'
-  utterance.rate = 0.95
-  const voice = speechSynthesis.getVoices().find(item => item.lang.startsWith('zh'))
-  if (voice)
-    utterance.voice = voice
-  utterance.onstart = () => { speaking.value = true; voiceStatus.value = '正在朗读预设回复' }
-  utterance.onend = () => { speaking.value = false; voiceStatus.value = '' }
-  utterance.onerror = () => { speaking.value = false; voiceStatus.value = '朗读未完成。请检查设备声音或浏览器语音支持。' }
-  speechSynthesis.speak(utterance)
-}
-function play() {
-  reset(); started.value = true; replying.value = true
-  timer = setTimeout(() => {
-    replying.value = false; showReply.value = true; if (voiceEnabled.value)
-      speak()
-  }, 850)
-}
-onBeforeUnmount(reset)
+const year = new Date().getFullYear()
 </script>
 
 <template>
-  <header class="nav"><a href="#" class="wordmark" aria-label="Anna 首页">Anna<span>你的桌面 AI 伙伴</span></a><nav aria-label="主导航"><a href="#experience">试试 Anna</a><a href="#abilities">她能做什么</a><a href="#download">下载</a></nav><button class="support-link" @click="support?.showModal()">请她喝杯咖啡 <span>↗</span></button></header>
+  <header class="nav">
+    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.4</span></a>
+    <nav :aria-label="t.nav.home">
+      <a href="#meet">{{ t.nav.meet }}</a>
+      <a href="#demo">{{ t.nav.demo }}</a>
+      <a href="#features">{{ t.nav.features }}</a>
+      <a href="#modes">{{ t.nav.modes }}</a>
+      <a href="#download">{{ t.nav.download }}</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="lang" :aria-label="lang === 'zh' ? 'Switch to English' : '切换到中文'" @click="lang = lang === 'zh' ? 'en' : 'zh'">{{ lang === 'zh' ? 'EN' : '中' }}</button>
+      <a class="github" :href="repo" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg><span>GitHub</span></a>
+    </div>
+  </header>
+
   <main>
-    <section class="hero section-width"><div class="hero-copy"><p class="eyebrow"><span class="live-dot" /> A LITTLE COMPANY. A LOT OF POSSIBILITY.</p><h1>陪你聊，<br>也陪你把<br><em>事情做好。</em></h1><p class="hero-description">有温度的 AI 伙伴，也是能读文件、写代码、推进工作的桌面助手。<br>让一个人的日常，多一个认真回应。</p><div class="hero-actions"><a class="button primary" href="#experience">试试 Anna <span>↗</span></a><a class="button secondary" href="#download">下载桌面版 <span>↓</span></a></div><p class="platforms">macOS · Windows <span>自己的模型，自己的工作空间</span></p></div><div class="product-hero"><div class="product-frame"><div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>Anna · 桌面应用实拍</span><span class="frame-star">✧</span></div><img class="product-screenshot" src="/media/anna-desktop.webp" alt="Anna 实际桌面界面：左侧 Live2D 角色，右侧对话、模型设置和工具活动" fetchpriority="high" width="1280" height="860"></div><div class="floating-note"><span>✦</span><div><strong>不止停留在对话框里</strong><small>陪伴 · 文件 · 代码 · 微信连接</small></div></div><div class="hero-small-note">MEET ANNA, MAKE ROOM FOR POSSIBILITY.</div></div></section>
-    <div class="intro-strip section-width"><span>一个 Anna，多一点可能。</span><p>会动的角色 <b>／</b> 真实的工具 <b>／</b> 由你掌握的工作空间</p></div>
-    <section id="experience" class="experience section-width"><div class="section-heading"><div><p class="eyebrow">A MOMENT WITH ANNA</p><h2>先打个招呼，<em>再慢慢熟悉。</em></h2></div><p>不用下载，先感受一下和 Anna 相处。<br>点击角色、移动鼠标，也可以打开语音朗读。</p></div><div class="demo-shell"><div class="demo-stage"><div class="stage-label"><span class="live-dot" /> LIVE2D · 真实角色渲染</div><div class="model-area"><CharacterStage :character="character" :speaking="speaking" /></div><div class="character-picker" aria-label="选择演示角色"><button v-for="(item, index) in characters" :key="item.id" :aria-pressed="characterIndex === index" @click="characterIndex = index"><img :src="item.thumbnailPath" :alt="item.name"><span>{{ item.name }}</span></button></div><p class="stage-note">移动鼠标看看她 · 点击角色互动</p></div><div class="demo-conversation"><div class="scene-tabs" role="tablist" aria-label="演示场景"><button v-for="(item, index) in scenes" :id="`tab-${item.id}`" :key="item.id" role="tab" :aria-selected="selected === index" aria-controls="scene-panel" @click="choose(index)"><span>{{ item.icon }}</span>{{ item.label }}</button></div><div id="scene-panel" class="scene-panel" role="tabpanel" :aria-labelledby="`tab-${scene.id}`"><p class="demo-disclosure">预设剧情演示 · 不连接真实模型</p><h3>{{ scene.title }}</h3><div class="demo-messages" aria-live="polite"><div class="bubble anna"><span>Anna</span><p>嗨，我是 Anna。<br>今天想一起做点什么？</p></div><div v-if="started" class="bubble you"><span>你</span><p>{{ scene.prompt }}</p></div><div v-if="replying" class="typing" role="status">Anna 正在回应 <span>···</span></div><div v-if="showReply" class="bubble anna response"><span>Anna</span><p>{{ scene.response }}</p></div><button v-if="!started" class="prompt-button" @click="play">{{ scene.prompt }} <span>↗</span></button></div><p v-if="showReply" class="demo-receipt">✓ {{ scene.receipt }}</p></div><div class="demo-controls"><button class="button primary" @click="play">{{ started ? '再体验一次' : scene.action }} <span>↗</span></button><label><input v-model="voiceEnabled" type="checkbox">语音朗读</label><button v-if="showReply" class="voice-button" @click="speaking ? stopVoice() : speak()">{{ speaking ? '停止朗读' : '朗读回复' }}</button></div><p v-if="voiceStatus" class="voice-status" role="status">{{ voiceStatus }}</p><p class="demo-footnote">对话是预先编写的示例。真实问答与文件操作，请下载桌面端并连接模型。声音由浏览器提供。</p></div></div></section>
-    <section id="abilities" class="abilities section-width">
-      <div class="section-heading"><div><p class="eyebrow">COMPANY, WITH CAPABILITY</p><h2>有回应，<em>也有行动。</em></h2></div><p>从一句“你好”，到一份完成的工作。<br>你提出想法，Anna 和你一起往前走。</p></div><div class="ability-grid">
-        <article class="ability-card"><span class="ability-icon">▤</span><h3>把工作，理出头绪</h3><p>选择一个文件夹，让 Anna 读取文本、整理任务、写出结果。过程与文件，都留在你的工作区。</p><div class="file-visual"><div><span class="file-icon">TXT</span> 会议记录.txt <small>读取</small></div><span class="flow-arrow">↓</span><div><span class="file-icon purple">MD</span> 下一步行动.md <small>写入</small></div><p>每一步都有实际工具活动可查看</p></div></article><article class="ability-card">
-          <span class="ability-icon">⌘</span><h3>把问题，一起解决</h3><p>阅读项目代码、编辑文件、运行终端命令。基于 DeepSeek Harness，把开发任务带进同一个对话。</p><div class="code-visual">
-            <div><i /><span>一个小小的开始</span></div><pre>// 和 Anna 一起，往前一步
-const nextStep = {
-  read: '理解项目',
-  build: '完成修改',
-  check: '验证结果'
-}</pre><small>工具请求超出当前权限时，单独确认</small>
-          </div>
-        </article><article class="ability-card"><span class="ability-icon green">◉</span><h3>在微信里，继续聊</h3><p>桌面端打开微信连接，扫描 ClawBot 二维码。只响应绑定账号，沿用 Anna 的模型和工作区。</p><div class="wechat-visual"><div class="mini-message">Anna，帮我理一下今天的任务。</div><div class="mini-message reply">我在。我们从最重要的一件开始。</div><p><span class="live-dot" /> 扫码入口在桌面端</p><small>需账号开放 ClawBot，Anna 保持运行<br>工具授权在桌面确认</small></div></article>
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" />{{ t.hero.eyebrow }}</p>
+        <h1><span>{{ t.hero.title[0] }}</span><br><em><span>{{ t.hero.title[1] }}</span></em></h1>
+        <p class="lede">{{ t.hero.desc }}</p>
+        <div class="command hero-command">
+          <code>{{ commands[os] }}</code>
+          <button @click="copyCommand(commands[os])">{{ copied === commands[os] ? t.download.copied : t.download.copy }}</button>
+        </div>
+        <div class="actions">
+          <a class="button primary" href="#demo">{{ t.hero.watch }} <span>↓</span></a>
+          <a class="button" :href="repo" target="_blank" rel="noopener">{{ t.hero.github }} <span>↗</span></a>
+        </div>
+      </div>
+      <figure class="hero-shot">
+        <div class="window">
+          <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.hero.shot }}</span></div>
+          <img src="/media/work.webp" :alt="t.hero.shot" width="1600" height="1040" fetchpriority="high">
+        </div>
+        <figcaption class="chip chip-a"><i class="mode-dot edit" />{{ t.hero.chips[0] }}</figcaption>
+        <div class="chip chip-b">{{ t.hero.chips[1] }}</div>
+      </figure>
+    </section>
+
+    <div class="strip wrap">
+      <strong>{{ t.strip.lead }}</strong>
+      <ul><li v-for="item in t.strip.items" :key="item">{{ item }}</li></ul>
+    </div>
+
+    <section id="meet" class="meet wrap">
+      <div class="heading">
+        <div><p class="eyebrow">{{ t.meet.eyebrow }}</p><h2>{{ t.meet.title[0] }}<br><em>{{ t.meet.title[1] }}</em></h2></div>
+        <p>{{ t.meet.desc }}</p>
+      </div>
+      <div class="traits">
+        <article v-for="item in t.meet.traits" :key="item.title"><span>{{ item.icon }}</span><h3>{{ item.title }}</h3><p>{{ item.body }}</p></article>
       </div>
     </section>
-    <section class="steps section-width"><p class="eyebrow">YOUR SPACE, YOUR PACE</p><h2>让 Anna 来到你的桌面。</h2><div><article><b>01</b><h3>下载，打开 Anna</h3><p>挑选喜欢的角色，给桌面多一点生气。</p></article><article><b>02</b><h3>连接你的模型</h3><p>填写服务商地址与 API Key，开始真实对话。模型费用由服务商收取。</p></article><article><b>03</b><h3>选一个工作文件夹</h3><p>需要她动手时开启工作模式。想轻松聊聊，也随时可以切回陪伴。</p></article></div></section>
-    <section id="download" class="download section-width"><div class="download-main"><p class="eyebrow">MAKE YOURSELF AT HOME</p><h2>下一次打开电脑，<br><em>有 Anna 在。</em></h2><p>桌面预览版 · 免费下载 · 连接自己的模型</p><div class="install-commands"><p class="install-label">macOS / Linux：在终端运行</p><pre class="install-command"><code>curl -fsSL https://anna.mayuanyuan.top/install.sh | bash</code></pre><p class="install-label">Windows：在 PowerShell 运行</p><pre class="install-command"><code>irm https://anna.mayuanyuan.top/install.ps1 | iex</code></pre></div><p class="download-note">一行命令会下载最新版本、校验 SHA-256 并安装，不会出现“无法验证开发者”的拦截；之后 Anna 会在应用内自动更新。Anna 没有经过 Apple 公证；代码和安装脚本都是开源的，可以先打开看看再运行。</p><a class="text-link" href="https://github.com/YuanyuanMa03/anna">开源代码、版本记录与校验文件 ↗</a></div><aside class="coffee-card"><span class="coffee-art">☕</span><p class="eyebrow">A LITTLE THANK YOU</p><h3>坐下来，<br>喝杯咖啡吧。</h3><p>如果 Anna 给你带来了一点陪伴，<br>欢迎请开发者喝一杯咖啡。<br>每一份心意，都是继续创造的动力。</p><button class="button secondary" @click="support?.showModal()">支持 Anna <span>♡</span></button><small>微信 / 支付宝 · 完全自愿</small></aside></section>
-  </main><footer class="footer section-width"><a class="wordmark" href="#">Anna</a><p>认真陪伴，一起完成。<span>© {{ new Date().getFullYear() }} Anna</span></p><a href="#experience">再和 Anna 待一会儿 ↗</a></footer>
-  <dialog ref="support" class="support-dialog"><div class="support-heading"><div><p class="eyebrow">THANK YOU FOR BEING HERE</p><h2>请开发者喝杯咖啡</h2></div><button aria-label="关闭打赏弹窗" @click="support?.close()">×</button></div><p>打赏完全自愿，金额由你决定。谢谢你的心意。</p><div class="payment-tabs"><button :aria-pressed="payment === 'wechat'" @click="payment = 'wechat'">微信支付</button><button :aria-pressed="payment === 'alipay'" @click="payment = 'alipay'">支付宝</button></div><img class="payment-image" :src="`/media/${payment}.webp`" :alt="`${payment === 'wechat' ? '微信' : '支付宝'}打赏收款二维码`"><p>使用{{ payment === 'wechat' ? '微信' : '支付宝' }}扫一扫，或保存图片后识别。</p><a class="text-link" :href="`/media/${payment}.webp`" :download="`Anna-${payment}.webp`">保存完整收款码 ↓</a></dialog>
+
+    <section id="demo" class="demo wrap">
+      <div class="heading">
+        <div><p class="eyebrow">{{ t.demo.eyebrow }}</p><h2>{{ t.demo.title[0] }}<br><em>{{ t.demo.title[1] }}</em></h2></div>
+        <p>{{ t.demo.desc }}</p>
+      </div>
+      <div class="demo-shell" :data-mode="mode" :data-phase="phase">
+        <div class="demo-stage">
+          <div class="halo" />
+          <div class="model"><CharacterStage :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
+          <div class="bubble" aria-live="polite"><span>{{ character.name }} · Anna</span><p>{{ bubble }}</p></div>
+          <div class="ribbon"><b>{{ modes[mode].name[lang] }}</b>{{ modes[mode].stance[lang] }}</div>
+          <div class="picker" :aria-label="t.demo.characters">
+            <button v-for="(item, index) in characters" :key="item.id" :aria-pressed="characterIndex === index" :title="item.name" @click="characterIndex = index"><img :src="item.thumbnailPath" :alt="item.name"></button>
+          </div>
+        </div>
+        <div class="demo-panel">
+          <div class="mode-switch" role="radiogroup" :aria-label="t.nav.modes">
+            <button v-for="item in modeOrder" :key="item" role="radio" :aria-checked="mode === item" :data-mode="item" @click="mode = item"><i class="mode-dot" :class="item" />{{ modes[item].name[lang] }}<small>{{ modes[item].hint[lang] }}</small></button>
+          </div>
+          <div class="task-pick">
+            <span class="label">{{ t.demo.task }}</span>
+            <button v-for="(item, index) in t.demo.tasks" :key="item" :aria-pressed="taskIndex === index" @click="taskIndex = index">{{ item }}</button>
+          </div>
+          <ol class="log">
+            <li v-for="(entry, index) in entries" :key="index" :data-status="entry.status">
+              <span class="who">{{ t.demo.actor[task.actor] }}</span>
+              <b>{{ t.demo.tools[entry.step.tool] }}</b><code>{{ entry.step.target }}</code>
+              <em>{{ t.demo.status[entry.status] }}</em>
+            </li>
+          </ol>
+          <div v-if="pending" class="approval">
+            <p class="eyebrow">{{ t.demo.asking }} · {{ t.demo.actor[task.actor] }}</p>
+            <h3>{{ t.demo.tools[pending.step.tool] }} <code>{{ pending.step.target }}</code></h3>
+            <div><button @click="decide(false)">{{ t.demo.deny }}</button><button class="primary" @click="decide(true)">{{ t.demo.approve }}</button></div>
+          </div>
+          <div v-if="finished && changes.length" class="delivery" :class="{ undone }">
+            <p class="eyebrow">{{ t.demo.delivery }}</p>
+            <div v-for="change in changes" :key="change.path" class="change"><span :class="change.status">{{ change.status === 'added' ? t.demo.added : t.demo.modified }}</span><code>{{ change.path }}</code><small>{{ change.stat }}</small></div>
+            <button :disabled="undone" @click="undo">{{ undone ? '✓' : t.demo.undo }}</button>
+          </div>
+          <div class="demo-actions">
+            <button class="button primary" :disabled="running" @click="start">{{ running ? t.demo.busy : finished ? t.demo.again : t.demo.start }} <span>↗</span></button>
+          </div>
+          <p class="fine">{{ t.demo.disclosure }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features wrap">
+      <article v-for="(item, index) in t.showcase" :key="item.eyebrow" class="showcase" :class="{ flip: index % 2 === 1 }">
+        <div class="showcase-copy">
+          <p class="eyebrow">{{ item.eyebrow }}</p>
+          <h2>{{ item.title }}</h2>
+          <p>{{ item.body }}</p>
+          <ul><li v-for="point in item.points" :key="point">{{ point }}</li></ul>
+        </div>
+        <img :src="item.image" :alt="item.alt" loading="lazy" width="1600" height="965">
+      </article>
+      <div class="grid">
+        <article v-for="item in t.grid" :key="item.title"><span>{{ item.icon }}</span><h3>{{ item.title }}</h3><p>{{ item.body }}</p></article>
+      </div>
+    </section>
+
+    <section id="modes" class="modes wrap">
+      <div class="heading">
+        <div><p class="eyebrow">{{ t.modesSection.eyebrow }}</p><h2>{{ t.modesSection.title[0] }}<br><em>{{ t.modesSection.title[1] }}</em></h2></div>
+        <p>{{ t.modesSection.desc }}</p>
+      </div>
+      <div class="mode-cards">
+        <article v-for="item in modeOrder" :key="item" :data-mode="item">
+          <header><i class="mode-dot" :class="item" /><h3>{{ modes[item].name[lang] }}</h3><small>{{ modes[item].hint[lang] }}</small></header>
+          <p class="stance">{{ modes[item].stance[lang] }}</p>
+          <dl>
+            <template v-for="(row, index) in t.modesSection.rows" :key="row"><dt>{{ row }}</dt><dd>{{ modes[item].cells[index]![lang] }}</dd></template>
+          </dl>
+          <a href="#demo" @click="mode = item">{{ t.modesSection.try }} →</a>
+        </article>
+      </div>
+      <p class="always">🔒 {{ t.modesSection.always }} <code>Bash(pnpm test:*)</code><code>Edit(src/**)</code><code>Network(*.github.com)</code></p>
+    </section>
+
+    <section class="journey wrap">
+      <p class="eyebrow">{{ t.journey.eyebrow }}</p>
+      <h2>{{ t.journey.title }}</h2>
+      <ol>
+        <li v-for="item in t.journey.items" :key="item.name"><span>{{ item.tag }}</span><h3>{{ item.name }}</h3><p>{{ item.text }}</p></li>
+      </ol>
+    </section>
+
+    <section id="download" class="download wrap">
+      <div class="download-main">
+        <p class="eyebrow">{{ t.download.eyebrow }}</p>
+        <h2>{{ t.download.title[0] }}<br><em>{{ t.download.title[1] }}</em></h2>
+        <div class="os-tabs" role="tablist">
+          <button v-for="item in (['mac', 'linux', 'win'] as const)" :key="item" role="tab" :aria-selected="os === item" @click="os = item">{{ item === 'mac' ? 'macOS' : item === 'linux' ? 'Linux' : 'Windows' }}</button>
+        </div>
+        <p class="label">{{ t.download.hint[os] }}</p>
+        <div class="command"><code>{{ commands[os] }}</code><button @click="copyCommand(commands[os])">{{ copied === commands[os] ? t.download.copied : t.download.copy }}</button></div>
+        <ol class="steps"><li v-for="step in t.download.steps" :key="step">{{ step }}</li></ol>
+        <p class="fine">{{ t.download.note }}</p>
+        <div class="links">
+          <a :href="repo" target="_blank" rel="noopener">{{ t.download.links.source }} ↗</a>
+          <a :href="`${repo}/releases`" target="_blank" rel="noopener">{{ t.download.links.releases }} ↗</a>
+          <a :href="`${repo}/blob/main/website/public/${os === 'win' ? 'install.ps1' : 'install.sh'}`" target="_blank" rel="noopener">{{ t.download.links.script }} ↗</a>
+        </div>
+      </div>
+      <aside class="coffee">
+        <span class="cup">☕</span>
+        <p class="eyebrow">{{ t.coffee.eyebrow }}</p>
+        <h3>{{ t.coffee.title[0] }}<br>{{ t.coffee.title[1] }}</h3>
+        <p>{{ t.coffee.body }}</p>
+        <button class="button" @click="support?.showModal()">{{ t.coffee.button }} <span>♡</span></button>
+        <small>{{ t.coffee.small }}</small>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="footer wrap">
+    <a class="wordmark" href="#">anna</a>
+    <p>{{ t.footer.tagline }}<span>{{ t.footer.license }} © {{ year }}</span></p>
+    <a :href="repo" target="_blank" rel="noopener">GitHub ↗</a>
+  </footer>
+
+  <dialog ref="support" class="support-dialog">
+    <div class="support-heading"><div><p class="eyebrow">{{ t.dialog.eyebrow }}</p><h2>{{ t.dialog.title }}</h2></div><button :aria-label="t.dialog.close" @click="support?.close()">×</button></div>
+    <p>{{ t.dialog.body }}</p>
+    <div class="payment-tabs"><button :aria-pressed="payment === 'wechat'" @click="payment = 'wechat'">{{ t.dialog.wechat }}</button><button :aria-pressed="payment === 'alipay'" @click="payment = 'alipay'">{{ t.dialog.alipay }}</button></div>
+    <img class="payment-image" :src="`/media/${payment}.webp`" :alt="payment === 'wechat' ? t.dialog.wechat : t.dialog.alipay">
+    <p>{{ t.dialog.scan(payment === 'wechat' ? t.dialog.wechat : t.dialog.alipay) }}</p>
+    <a class="text-link" :href="`/media/${payment}.webp`" :download="`Anna-${payment}.webp`">{{ t.dialog.save }}</a>
+  </dialog>
 </template>

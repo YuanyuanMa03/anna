@@ -20,7 +20,8 @@
     "build:website": "node scripts/build-website.mjs",
     "dev:website": "vite --config website/vite.config.ts",
     "package:linux": "node scripts/package-linux.mjs",
-    "test:scripted": "node tests/desktop-scripted.mjs"
+    "test:scripted": "node tests/desktop-scripted.mjs",
+    "deploy:website": "pnpm build:website && pnpm dlx --allow-build=esbuild --allow-build=workerd --allow-build=sharp wrangler@4.42.0 deploy --config website/wrangler.jsonc"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.77",
