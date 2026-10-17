@@ -35,8 +35,8 @@ const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: 
 const packaged = process.env.ANNA_PACKAGED_APP
 const executablePath = !packaged ? electron : process.platform === 'darwin' ? join(packaged, 'Contents/MacOS/Anna') : process.platform === 'win32' ? join(packaged, 'Anna.exe') : join(packaged, 'anna')
 // GitHub's Ubuntu runners block the unprivileged user namespaces Chromium's sandbox needs, and have no GPU:
-// render WebGL (the Live2D canvas) in software.
-const chromium = process.platform === 'linux' && process.env.CI ? ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []
+// render WebGL (the Live2D canvas) in software. The packaged app's launcher decides about the sandbox on its own.
+const chromium = process.platform === 'linux' && process.env.CI ? [...(packaged ? [] : ['--no-sandbox']), '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []
 const desktop = await _electron.launch({ executablePath, args: [...chromium, ...(packaged ? [] : ['dist/host/apps/desktop/main.js'])], cwd: packaged ? '/' : root, env: packaged ? { ...env, ANNA_ROOT: '/nonexistent/anna-source', ANNA_DEV_URL: 'http://127.0.0.1:9' } : env })
 if (process.env.ANNA_TEST_VERBOSE)
   desktop.process().stderr.on('data', chunk => process.stderr.write(`[app] ${chunk}`))
@@ -53,6 +53,13 @@ async function until(page, predicate, label, timeout = 20000) {
   }
 }
 try {
+  // ANNA_EXPECT_SANDBOX=1|0: check whether the app runs with Chromium's sandbox (the Linux launcher's choice).
+  if (process.env.ANNA_EXPECT_SANDBOX) {
+    const sandboxed = !(await desktop.evaluate(({ app }) => app.commandLine.hasSwitch('no-sandbox')))
+    assert.equal(sandboxed, process.env.ANNA_EXPECT_SANDBOX === '1', `Chromium sandbox ${sandboxed ? 'on' : 'off'}`)
+    evidence.sandboxed = sandboxed
+    evidence.checks.push(`Chromium sandbox ${sandboxed ? 'on' : 'off'}, as expected`)
+  }
   const page = await desktop.firstWindow()
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()

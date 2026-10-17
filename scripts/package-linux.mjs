@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
 
-/** Portable Linux build: a directory with the `anna` executable, packed as tar.gz. Sandbox needs bubblewrap, socat and ripgrep. */
+/** Portable Linux build: a directory with the `anna` launcher and the `anna-bin` Electron binary, packed as tar.gz. Sandbox needs bubblewrap, socat and ripgrep. */
 async function main() {
   if (process.platform !== 'linux')
     throw new Error('Build the Linux package on Linux')
@@ -23,7 +23,9 @@ async function main() {
     if (entry !== 'node_modules')
       await rm(join(runtime, entry), { recursive: true, force: true })
   }
-  await rename(join(app, 'electron'), join(app, 'anna'))
+  // `anna` is a launcher that keeps Chromium's sandbox when the system allows it (see scripts/linux-launcher.sh).
+  await rename(join(app, 'electron'), join(app, 'anna-bin'))
+  await cp(resolve('scripts/linux-launcher.sh'), join(app, 'anna'))
   await chmod(join(app, 'anna'), 0o755)
   for (const path of ['dist/host', 'dist/renderer', 'plugins/anna-persona/persona.md', 'LICENSE', 'NOTICE.md']) {
     await mkdir(dirname(join(runtime, path)), { recursive: true })

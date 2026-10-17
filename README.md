@@ -74,6 +74,12 @@ Anna isn't notarized: there is no paid Apple developer account. Instead, every b
 self-signed identity, so macOS keeps your Keychain and folder permissions across updates. The installers are short;
 [read them first](website/public/install.sh) if you like.
 
+On Linux, Anna installs into `~/.local/share/anna-app` with an `anna` command and a desktop entry. Ubuntu 23.10 and
+later block the unprivileged user namespaces that Chromium's sandbox needs. On those systems the `anna` launcher
+starts without that sandbox (and says so) instead of failing to start. To keep the sandbox, install with
+`curl -fsSL https://anna.mayuanyuan.top/install.sh | ANNA_INSTALL_APPARMOR=1 bash`, which uses sudo to add a small
+AppArmor profile for Anna. Details are in [docs/architecture.md](docs/architecture.md#linux-chromium-sandbox).
+
 On first launch, open **Model & Settings** and add a provider: DeepSeek works out of the box, and any HTTPS endpoint
 speaking the OpenAI or Anthropic protocol works too. Keys are encrypted with the OS keychain (Keychain, DPAPI or
 libsecret). Then pick a folder, tell Anna you trust it, and give her a task. Press <kbd>Shift</kbd>+<kbd>Tab</kbd> to

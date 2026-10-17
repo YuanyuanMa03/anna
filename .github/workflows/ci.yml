@@ -46,3 +46,50 @@ jobs:
         with:
           name: acceptance-${{ matrix.os }}
           path: artifacts/
+  # Ubuntu 24.04 restricts the user namespaces Chromium's sandbox needs: launch the packaged app the way users do.
+  linux-package:
+    name: Linux package (Chromium sandbox)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
+      - name: Download the Live2D character assets
+        run: pnpm assets
+      - run: pnpm package:linux
+      - run: sysctl kernel.apparmor_restrict_unprivileged_userns
+      - name: Packaged app without an AppArmor profile (launcher falls back to --no-sandbox)
+        env:
+          ANNA_PACKAGED_APP: ${{ github.workspace }}/dist/linux/Anna
+          ANNA_EXPECT_SANDBOX: '0'
+        run: xvfb-run -a pnpm test:scripted
+      - name: Install with install.sh and the AppArmor profile
+        env:
+          ANNA_INSTALL_ALLOW_FILE: '1'
+          ANNA_INSTALL_APPARMOR: '1'
+        run: |
+          RELEASE="$RUNNER_TEMP/release"
+          mkdir -p "$RELEASE"
+          ARCHIVE="$(ls "$PWD"/dist/linux/Anna-*-linux-x64.tar.gz)"
+          SHA="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
+          printf '{\n  "version": "ci",\n  "assets": {\n    "linux-x64": { "url": "file://%s", "sha256": "%s" }\n  }\n}\n' "$ARCHIVE" "$SHA" > "$RELEASE/latest.json"
+          ANNA_RELEASE_BASE="file://$RELEASE" bash website/public/install.sh
+          sudo cat /etc/apparmor.d/anna-$(id -u)
+      - name: Installed app with the AppArmor profile (Chromium sandbox on)
+        env:
+          ANNA_PACKAGED_APP: /home/runner/.local/share/anna-app
+          ANNA_EXPECT_SANDBOX: '1'
+        run: xvfb-run -a pnpm test:scripted
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-linux-package
+          path: artifacts/
