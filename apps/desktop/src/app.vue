@@ -23,7 +23,7 @@ const settingsOpen = ref(false)
 const pluginsOpen = ref(false)
 const agentsOpen = ref(false)
 const collaborator = ref<{ agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }>()
-const update = ref<{ state: string, version?: string, notes?: string, message?: string }>()
+const update = ref<{ state: string, version?: string, notes?: string, message?: string, manual?: boolean }>()
 const weixinOpen = ref(false)
 const drawer = ref<'history' | 'work' | 'changes' | undefined>()
 const changes = ref<FileChange[]>([])
@@ -338,7 +338,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
 
     <footer class="dock">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
-      <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">更新并重启</button></div>
+      <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">

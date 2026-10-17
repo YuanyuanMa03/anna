@@ -159,6 +159,13 @@ onBeforeUnmount(reset)
 type Os = 'mac' | 'linux' | 'win'
 const ua = navigator.userAgent
 const os = ref<Os>(/Windows/i.test(ua) ? 'win' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'linux' : 'mac')
+const osNames: Record<Os, string> = { mac: 'macOS', linux: 'Linux', win: 'Windows' }
+// Installer names carry no version, so these links always point at the newest release.
+const installers: Record<Os, string> = {
+  mac: `${repo}/releases/latest/download/Anna-mac-arm64.dmg`,
+  linux: `${repo}/releases/latest/download/Anna-linux-amd64.deb`,
+  win: `${repo}/releases/latest/download/Anna-Setup-windows-x64.exe`,
+}
 const commands: Record<Os, string> = {
   mac: 'curl -fsSL https://anna.mayuanyuan.top/install.sh | bash',
   linux: 'curl -fsSL https://anna.mayuanyuan.top/install.sh | bash',
@@ -201,12 +208,9 @@ const year = new Date().getFullYear()
         <p class="eyebrow"><span class="dot" />{{ t.hero.eyebrow }}</p>
         <h1><span>{{ t.hero.title[0] }}</span><br><em><span>{{ t.hero.title[1] }}</span></em></h1>
         <p class="lede">{{ t.hero.desc }}</p>
-        <div class="command hero-command">
-          <code>{{ commands[os] }}</code>
-          <button @click="copyCommand(commands[os])">{{ copied === commands[os] ? t.download.copied : t.download.copy }}</button>
-        </div>
         <div class="actions">
-          <a class="button primary" href="#demo">{{ t.hero.watch }} <span>↓</span></a>
+          <a class="button primary" :href="installers[os]">{{ t.download.button(osNames[os]) }} <span>↓</span></a>
+          <a class="button" href="#download">{{ t.hero.others }}</a>
           <a class="button" :href="repo" target="_blank" rel="noopener">{{ t.hero.github }} <span>↗</span></a>
         </div>
       </div>
@@ -329,15 +333,20 @@ const year = new Date().getFullYear()
         <p class="eyebrow">{{ t.download.eyebrow }}</p>
         <h2>{{ t.download.title[0] }}<br><em>{{ t.download.title[1] }}</em></h2>
         <div class="os-tabs" role="tablist">
-          <button v-for="item in (['mac', 'linux', 'win'] as const)" :key="item" role="tab" :aria-selected="os === item" @click="os = item">{{ item === 'mac' ? 'macOS' : item === 'linux' ? 'Linux' : 'Windows' }}</button>
+          <button v-for="item in (['mac', 'linux', 'win'] as const)" :key="item" role="tab" :aria-selected="os === item" @click="os = item">{{ osNames[item] }}</button>
         </div>
-        <p class="label">{{ t.download.hint[os] }}</p>
-        <div class="command"><code>{{ commands[os] }}</code><button @click="copyCommand(commands[os])">{{ copied === commands[os] ? t.download.copied : t.download.copy }}</button></div>
+        <div class="installer">
+          <a class="button primary" :href="installers[os]">{{ t.download.button(osNames[os]) }} <span>↓</span></a>
+          <span class="label">{{ t.download.file[os] }}</span>
+        </div>
+        <p class="first-open">{{ t.download.open[os] }}</p>
         <ol class="steps"><li v-for="step in t.download.steps" :key="step">{{ step }}</li></ol>
+        <p class="label cli-label">{{ t.download.cli }} {{ t.download.hint[os] }}</p>
+        <div class="command"><code>{{ commands[os] }}</code><button @click="copyCommand(commands[os])">{{ copied === commands[os] ? t.download.copied : t.download.copy }}</button></div>
         <p class="fine">{{ t.download.note }}</p>
         <div class="links">
           <a :href="repo" target="_blank" rel="noopener">{{ t.download.links.source }} ↗</a>
-          <a :href="`${repo}/releases`" target="_blank" rel="noopener">{{ t.download.links.releases }} ↗</a>
+          <a :href="`${repo}/releases/latest`" target="_blank" rel="noopener">{{ t.download.links.releases }} ↗</a>
           <a :href="`${repo}/blob/main/website/public/${os === 'win' ? 'install.ps1' : 'install.sh'}`" target="_blank" rel="noopener">{{ t.download.links.script }} ↗</a>
         </div>
       </div>

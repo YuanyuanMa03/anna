@@ -1,7 +1,7 @@
 {
   "name": "anna",
   "type": "module",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
@@ -16,10 +16,12 @@
     "package:dmg": "node scripts/create-dmg.mjs",
     "install:mac": "python3 scripts/install-mac.py",
     "package:windows": "node scripts/package-windows.mjs",
+    "package:windows-installer": "node scripts/package-windows-installer.mjs",
     "test:unconfigured": "node tests/unconfigured.mjs",
     "build:website": "node scripts/build-website.mjs",
     "dev:website": "vite --config website/vite.config.ts",
     "package:linux": "node scripts/package-linux.mjs",
+    "package:deb": "node scripts/package-deb.mjs",
     "test:scripted": "node tests/desktop-scripted.mjs",
     "deploy:website": "pnpm build:website && pnpm dlx --allow-build=esbuild --allow-build=workerd --allow-build=sharp wrangler@4.42.0 deploy --config website/wrangler.jsonc"
   },

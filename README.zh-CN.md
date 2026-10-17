@@ -56,6 +56,18 @@ Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你
 
 ## 安装
 
+下载安装包，双击安装：
+
+| 系统 | 安装包 | 第一次打开 |
+|---|---|---|
+| macOS（Apple 芯片） | [Anna-mac-arm64.dmg](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-mac-arm64.dmg) | 把 Anna 拖进“应用程序”。如果提示“无法验证”，到 系统设置 → 隐私与安全性 点“仍要打开” |
+| Windows 10 / 11 | [Anna-Setup-windows-x64.exe](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-Setup-windows-x64.exe) | 如果出现“Windows 已保护你的电脑”，点“更多信息”→“仍要运行”。不需要管理员权限 |
+| Ubuntu / Debian | [Anna-linux-amd64.deb](https://github.com/YuanyuanMa03/anna/releases/latest/download/Anna-linux-amd64.deb) | 双击用“软件”安装，或 `sudo apt install ./Anna-linux-amd64.deb` |
+
+系统会提醒一次，是因为 Anna 没有经过 Apple 公证，Windows 版也没有代码签名证书（作者没有付费账号）。
+
+习惯命令行的话，一行命令也能装，而且不会出现上面的提醒：
+
 ```bash
 # macOS / Linux
 curl -fsSL https://anna.mayuanyuan.top/install.sh | bash
@@ -66,7 +78,7 @@ curl -fsSL https://anna.mayuanyuan.top/install.sh | bash
 irm https://anna.mayuanyuan.top/install.ps1 | iex
 ```
 
-安装脚本会下载最新版本、校验 SHA-256，然后完成安装。用 `curl` 或 PowerShell 下载的文件不带隔离标记，所以不会弹出 Gatekeeper 或 SmartScreen 的拦截。之后的更新在应用内完成。
+安装脚本会下载最新版本、校验 SHA-256，然后完成安装。用 `curl` 或 PowerShell 下载的文件不带隔离标记，所以不会弹出 Gatekeeper 或 SmartScreen 的拦截。不管用哪种方式装，之后的更新都在应用内完成（`.deb` 装在系统目录里，更新时会打开下载页，下载新的安装包覆盖安装即可）。
 
 Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每个版本都用同一个自签名身份签名，所以升级后钥匙串和文件夹授权都会保留。安装脚本很短，可以[先读一遍](website/public/install.sh)再运行。
 

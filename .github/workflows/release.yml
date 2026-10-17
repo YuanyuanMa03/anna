@@ -1,7 +1,9 @@
 name: Release
 # Tag vX.Y.Z → build macOS / Windows / Linux, sign macOS with the self-signed "Anna Local Signing" identity
 # (secrets ANNA_SIGNING_P12 = base64 .p12, ANNA_SIGNING_PASSWORD; see scripts/create-signing-identity.sh),
-# publish a GitHub release with the archives and latest.json for install.sh / install.ps1 / the in-app updater.
+# publish a GitHub release with the installers (.dmg, Setup .exe, .deb), the archives, and latest.json for
+# install.sh / install.ps1 / the in-app updater.
+# Run it by hand on a branch to build and test the packages without publishing anything.
 on:
   push:
     tags: ['v*']
@@ -17,15 +19,24 @@ jobs:
           - os: macos-latest
             key: darwin-arm64
             script: package:mac
-            artifact: dist/macos/Anna-*-mac-arm64.zip
+            installer: package:dmg
+            artifact: |
+              dist/macos/Anna-*-mac-arm64.zip
+              dist/macos/Anna-mac-arm64.dmg
           - os: windows-latest
             key: win32-x64
             script: package:windows
-            artifact: dist/windows/Anna-*-windows-x64.zip
+            installer: package:windows-installer
+            artifact: |
+              dist/windows/Anna-*-windows-x64.zip
+              dist/windows/Anna-Setup-windows-x64.exe
           - os: ubuntu-latest
             key: linux-x64
             script: package:linux
-            artifact: dist/linux/Anna-*-linux-x64.tar.gz
+            installer: package:deb
+            artifact: |
+              dist/linux/Anna-*-linux-x64.tar.gz
+              dist/linux/Anna-linux-amd64.deb
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     env:
@@ -60,12 +71,54 @@ jobs:
           sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/anna.pem"
           security find-identity -v -p codesigning "$KEYCHAIN"
       - run: pnpm ${{ matrix.script }}
+      - name: Install NSIS (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) { choco install nsis -y --no-progress }
+      - run: pnpm ${{ matrix.installer }}
+      # Install each installer the way a user would (silently here), check what lands where, then remove it again.
+      - name: Test the DMG (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/dmg" dist/macos/Anna-mac-arm64.dmg
+          test -L "$RUNNER_TEMP/dmg/Applications"
+          codesign --verify --deep --strict "$RUNNER_TEMP/dmg/Anna.app"
+          ls "$RUNNER_TEMP/dmg"
+          hdiutil detach "$RUNNER_TEMP/dmg"
+      - name: Test the setup and uninstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath dist\windows\Anna-Setup-windows-x64.exe -ArgumentList '/S'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Anna'
+          foreach ($path in @("$app\Anna.exe", "$app\resources\app\dist\renderer\anna.ico", (Join-Path ([Environment]::GetFolderPath('Programs')) 'Anna.lnk'))) {
+            if (-not (Test-Path $path)) { throw "missing after install: $path" }
+          }
+          $uninstall = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna').QuietUninstallString
+          Start-Process -Wait -FilePath (Join-Path $env:LOCALAPPDATA 'Programs\Anna Uninstaller\Uninstall Anna.exe') -ArgumentList '/S'
+          Start-Sleep -Seconds 3
+          if (Test-Path "$app\Anna.exe") { throw 'Anna.exe is still there after uninstalling' }
+          if (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna') { throw 'the uninstall entry is still registered' }
+          Write-Host "installed, then uninstalled with: $uninstall"
+      - name: Test the .deb (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ./dist/linux/Anna-linux-amd64.deb
+          test "$(readlink -f /usr/bin/anna)" = /opt/Anna/anna
+          test "$(stat -c '%u %a' /opt/Anna/chrome-sandbox)" = '0 4755'
+          test -f /usr/share/applications/anna.desktop
+          test -f /usr/share/icons/hicolor/512x512/apps/anna.png
+          ls -l /etc/apparmor.d/anna-deb || true
+          sudo apt-get remove -y -q anna
+          test ! -e /opt/Anna/anna && test ! -e /etc/apparmor.d/anna-deb
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.key }}
           path: ${{ matrix.artifact }}
   publish:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +134,9 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
+            release/**/*.dmg
+            release/**/*.exe
+            release/**/*.deb
             release/**/*.zip
             release/**/*.tar.gz
             release/latest.json
