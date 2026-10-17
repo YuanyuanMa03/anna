@@ -55,12 +55,22 @@ const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
 /** pi needs a model key; an external brain uses its own login. */
 const canChat = computed(() => Boolean(snapshot.value && (snapshot.value.hasKey || snapshot.value.settings.kernel !== 'pi')))
 const needsTrust = computed(() => Boolean(snapshot.value && snapshot.value.settings.workspace && !snapshot.value.workspace.known))
+const connected = computed(() => snapshot.value?.state === 'ready' || snapshot.value?.state === 'running')
+/** Honest connection label: a saved key is only "connected" once a real reply came back. */
+const connection = computed(() => {
+  const state = snapshot.value?.state
+  if (connected.value)
+    return snapshot.value?.credential === 'rejected' ? '密钥被拒绝' : snapshot.value?.credential === 'unverified' ? '已就绪 · 未验证' : '已连接'
+  return state === 'starting' ? '正在连接' : state === 'error' ? '连接出错' : '未连接'
+})
 const lastReply = computed(() => [...messages.value].reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
 const subtitle = computed(() => {
   if (running.value)
     return stream.value
   if (modeLine.value && now.value - modeLine.value.at < 4500)
     return modeLine.value.text
+  if (snapshot.value?.error)
+    return snapshot.value.credential === 'rejected' ? '我连不上模型：密钥被服务商拒绝了。到“模型与设置”里换一个吧。' : '这一轮没有成功，原因写在下面。'
   return lastReply.value || (canChat.value ? '我在这儿。把要做的事交给我，或者先聊聊。' : '先给我接上一个模型，我们就能开始了。')
 })
 /** Mouth moves while text streams in, while reading aloud, or while greeting a mode change. */
@@ -179,7 +189,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
     <header class="topbar">
       <div class="brand">anna<span>v0.4</span></div>
-      <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: snapshot.state === 'ready' || snapshot.state === 'running' }" />{{ snapshot.state === 'ready' || snapshot.state === 'running' ? '已连接' : snapshot.state === 'starting' ? '正在连接' : snapshot.state === 'error' ? '连接出错' : '未连接' }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
+      <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <nav class="header-actions">
         <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
         <button :aria-pressed="drawer === 'work'" @click="drawer = drawer === 'work' ? undefined : 'work'">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
@@ -208,7 +218,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>
           <pre>{{ snapshot.workspace.path }}</pre>
-          <p class="small">信任后，Anna 会加载其中的 AGENTS.md 等项目说明，并可以使用“协作”和“放手”模式。来源不明的仓库可能包含诱导 AI 的指令，建议只信任你自己的项目。</p>
+          <p class="small">信任后，Anna 会加载其中的 AGENTS.md 等项目说明，并可以使用“协作”和“放手”模式。“先只读看看”会进入规划模式，之后可以随时切换。来源不明的仓库可能包含诱导 AI 的指令，建议只信任你自己的项目。</p>
           <div class="card-actions">
             <button :disabled="configuring" @click="run({ type: 'trust', trusted: false })">先只读看看</button>
             <button class="primary" :disabled="configuring" @click="run({ type: 'trust', trusted: true })">信任并开始</button>
@@ -246,7 +256,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <footer class="dock">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">更新并重启</button></div>
-      <div v-if="error || snapshot.error" class="error" role="alert">{{ error || snapshot.error }}</div>
+      <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : '把要做的事交给 Anna…（@claude、@codex 可以直接派给其他 agent）'" :disabled="configuring" @keydown.enter.exact.prevent="send()" />

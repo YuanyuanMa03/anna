@@ -1,4 +1,5 @@
 import type { ScriptStep } from '../packages/kernels/pi/backend'
+import type { AgentKernel, KernelContext, TurnOutcome } from '../packages/kernels/types'
 import type { AnnaEvent, PermissionMode } from '../packages/shared/contracts'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
@@ -186,3 +187,103 @@ it.skipIf(process.platform === 'win32' || process.env.CI_NO_SANDBOX === '1')('au
   expect(existsSync(escape)).toBe(false)
   await host.close()
 }, 30000)
+
+/** What a pi session file says to the model, as one string (notes are part of the model's context). */
+async function sessionText(host: Host) { return readFile(host.snapshot().settings.sessionFile!, 'utf8') }
+
+it('a stopped task stays stopped: the model is told not to pick it up again, and the journal records it', async () => {
+  const { host, data } = await setup([
+    { text: '这一句会被打断', wait: 4000 },
+    { text: '好的。' },
+  ])
+  const running = host.execute({ type: 'send', text: '把 coupon.js 实现完整' })
+  await vi.waitUntil(() => host.snapshot().state === 'running', { timeout: 3000, interval: 10 })
+  await new Promise(r => setTimeout(r, 300))
+  await host.execute({ type: 'stop' })
+  await running
+  await host.execute({ type: 'send', text: '你是谁' })
+  expect(await sessionText(host)).toMatch(/用户中断了任务「把 coupon\.js 实现完整」[^"]*不要主动接着做/)
+  const journal = JSON.parse(await readFile(join(data, 'journal.json'), 'utf8'))
+  expect(journal).toEqual([expect.objectContaining({ status: 'aborted', request: '把 coupon.js 实现完整' })])
+  await host.close()
+}, 15000)
+
+it('a new session is briefed with what Anna changed earlier in this workspace, including undos', async () => {
+  const { host } = await setup([
+    { tools: [{ name: 'edit', args: { path: 'tasks.txt', edits: [{ oldText: 'alpha', newText: 'ALPHA' }] } }] },
+    { text: '改好了。' },
+    { tools: [{ name: 'write', args: { path: 'extra.md', content: 'x' } }] },
+    { text: '写好了。' },
+    { text: '新会话你好。' },
+  ])
+  await host.execute({ type: 'send', text: '修正 tasks' })
+  await host.execute({ type: 'send', text: '加一个 extra.md' })
+  await host.execute({ type: 'undo', taskId: host.snapshot().result!.taskId })
+  const before = host.snapshot().settings.sessionFile
+  await host.execute({ type: 'new-session' })
+  await host.execute({ type: 'send', text: 'tasks.txt 是谁改的？' })
+  expect(host.snapshot().settings.sessionFile).not.toBe(before)
+  const text = await sessionText(host)
+  expect(text).toMatch(/这是一个新会话/)
+  expect(text).toMatch(/完成 ·「修正 tasks」；改动：tasks\.txt（修改）\\n/)
+  expect(text).toMatch(/改动已被用户撤销 ·「加一个 extra\.md」/)
+  // The visible conversation stays clean: the brief is context, not a message.
+  expect(host.snapshot().messages!.map(message => message.text)).toEqual(['tasks.txt 是谁改的？', '新会话你好。'])
+  await host.close()
+}, 15000)
+
+it('"just look first" on a new folder starts in Plan mode', async () => {
+  const { host, workspace } = await setup([{ text: '好。' }], { trusted: false })
+  await host.execute({ type: 'workspace', path: workspace })
+  await host.execute({ type: 'trust', trusted: false })
+  expect(host.snapshot()).toMatchObject({ mode: 'plan', workspace: { trusted: false, known: true } })
+  await host.close()
+})
+
+/** A kernel whose turns return canned outcomes, for provider failures the scripted model cannot produce. */
+function cannedKernel(outcomes: TurnOutcome[]) {
+  return (context: KernelContext): AgentKernel => ({
+    capabilities: { id: 'pi', label: 'canned', steering: false, sessions: false, shell: 'bash' },
+    sessionId: 'canned',
+    restored: false,
+    tools: [],
+    plugins: [],
+    start: async () => {},
+    prompt: async () => {
+      context.emit({ type: 'thinking' })
+      return outcomes.shift() ?? { status: 'completed', text: '好。' }
+    },
+    steer: async () => {},
+    note: () => {},
+    remember: () => {},
+    abort: async () => {},
+    close: async () => {},
+    history: () => [],
+  })
+}
+
+it('a key is only "verified" after a real reply, and an auth failure says so in plain words', async () => {
+  const data = await mkdtemp(join(tmpdir(), 'anna-key-'))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspaces: {} }))
+  const host = new Host(resolve('.'), data, { read: async () => 'sk-wrong', write: async () => {} }, () => {}, {
+    sandbox: { available: false, reason: 'test' },
+    kernel: cannedKernel([
+      { status: 'failed', text: '', error: '401: {"message":"Authentication Fails, Your api key: ****rong is invalid","type":"authentication_error"}' },
+      { status: 'completed', text: '你好。' },
+    ]),
+  })
+  await host.initialize()
+  await host.execute({ type: 'connect' })
+  expect(host.snapshot()).toMatchObject({ state: 'ready', credential: 'unverified' })
+  await host.execute({ type: 'send', text: '你好' }).catch(() => {})
+  const failed = host.snapshot()
+  expect(failed.credential).toBe('rejected')
+  expect(failed.error).toMatch(/^API Key 无效或已过期/)
+  await host.execute({ type: 'send', text: '再试' })
+  expect(host.snapshot()).toMatchObject({ credential: 'verified', error: undefined })
+  expect(JSON.parse(await readFile(join(data, 'settings.json'), 'utf8')).modelVerified).toBe(true)
+  // A new key starts unverified again.
+  await host.execute({ type: 'configure', model: host.snapshot().settings.model, key: 'sk-new' })
+  expect(host.snapshot().credential).toBe('unverified')
+  await host.close()
+})

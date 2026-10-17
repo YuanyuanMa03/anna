@@ -20,14 +20,16 @@ import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
 import { delegateAgents, Delegator, labelOf, parseMention } from './delegator'
+import { TaskJournal } from './journal'
 import { MemoryStore } from './memory'
+import { describeModelError } from './model-errors'
 import { Presence } from './presence'
 import { SettingsStore, validateModel } from './settings'
 
 export interface CredentialVault { read: () => Promise<string>, write: (key: string) => Promise<void> }
 /** A remote channel (Weixin today) that can push text to its owner outside a reply. */
 export interface Channel { notify: (text: string) => Promise<boolean> }
-interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string } }
+interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string> }
 export interface HostOptions {
   kernel?: KernelFactory
   sandbox?: SandboxStatus
@@ -49,6 +51,9 @@ export class Host {
   private presence: Presence
   private checkpoints: Checkpoints
   private memory: MemoryStore
+  private journal: TaskJournal
+  /** Set when the provider rejected the key in this run; cleared by the next successful turn or a new key. */
+  private keyRejected = false
   private sandbox = new CommandSandbox()
   private sandboxStatus: SandboxStatus = { available: false, reason: '尚未检测' }
   private state: RuntimeSnapshot['state'] = 'stopped'
@@ -74,6 +79,7 @@ export class Host {
     this.store = new SettingsStore(data)
     this.checkpoints = new Checkpoints(join(data, 'checkpoints'))
     this.memory = new MemoryStore(data)
+    this.journal = new TaskJournal(data)
     this.presence = new Presence((output) => {
       if (output.type === 'anna')
         this.emit({ type: 'anna', state: output.state })
@@ -114,6 +120,7 @@ export class Host {
     await this.store.load()
     await this.store.character()
     await this.memory.load()
+    await this.journal.load()
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
@@ -182,6 +189,7 @@ export class Host {
       result: this.result,
       model: this.kernel?.modelInfo,
       kernel: { id: this.store.value.kernel, label: kernels[this.store.value.kernel].label },
+      credential: this.store.value.kernel !== 'pi' ? undefined : this.keyRejected ? 'rejected' : this.store.value.modelVerified ? 'verified' : 'unverified',
       mode: this.effectiveMode('desktop'),
       workspace: { path: this.workspacePath, trusted: ws.trusted, rules: ws.rules, known: ws.known },
       sessionRules: [...this.sessionRules],
@@ -299,6 +307,7 @@ export class Host {
           if (outcome !== 'allowed')
             return `用户没有同意交给 ${labelOf(agent)}。请自己处理，或询问用户。`
         }
+        ;(current.collaborators ??= new Set()).add(labelOf(agent))
         const outcome = await this.delegator.run(agent, task, { taskId: current.id, origin: current.origin })
         this.kernel?.remember('delegation', { task, text: outcome.text, origin: current.origin, delegation: outcome.delegation, nested: true })
         return `[${labelOf(agent)} 的结果，状态：${outcome.status}]\n${outcome.text}`
@@ -377,6 +386,9 @@ export class Host {
       await kernel.start()
       this.kernel = kernel
       this.notedMode = undefined
+      const brief = kernel.restored ? '' : this.journal.brief(this.workspacePath)
+      if (brief)
+        kernel.note(brief)
       this.store.value.sessionFile = kernel.sessionFile
       await this.store.save()
       this.refreshHistory()
@@ -449,6 +461,7 @@ export class Host {
       this.publish()
       let outcome: { status: 'completed' | 'failed' | 'aborted', text: string, error?: string }
       if (task.delegate) {
+        ;(task.collaborators ??= new Set()).add(labelOf(task.delegate.agent))
         const delegated = await this.delegator.run(task.delegate.agent, task.delegate.task, { taskId: task.id, origin: task.origin, providerName: task.delegate.provider })
         kernel.remember('delegation', { task: task.text, text: delegated.text, origin: task.origin, delegation: delegated.delegation })
         kernel.note(`[Anna 系统提示] 用户把任务交给了 ${delegated.delegation.label}：「${task.delegate.task}」。结果（${delegated.status}）：${delegated.text.slice(0, 2000)}`)
@@ -459,6 +472,12 @@ export class Host {
       }
       const changes = await this.checkpoints.seal(task.id)
       const stats = this.presence.stats
+      if (outcome.status === 'aborted')
+        kernel.note(`[Anna 系统提示] 用户中断了任务「${task.text.slice(0, 200)}」。这是用户的决定：之后不要主动接着做，也不要“顺带”把它做完。只有用户明确说继续时才继续；下一条消息按它本身来回应。`)
+      if (changes.length || outcome.status !== 'completed')
+        await this.journal.record({ taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators] }).catch(() => {})
+      if (outcome.status === 'completed' && !task.delegate)
+        await this.markVerified()
       if (outcome.text)
         this.presence.flushStream(outcome.text)
       const ok = outcome.status === 'completed' && stats.tests !== 'failed'
@@ -479,7 +498,7 @@ export class Host {
       this.store.value.sessionFile = kernel.sessionFile
       await this.store.save()
       this.state = 'ready'
-      this.error = outcome.status === 'failed' ? this.safeError(outcome.error, key).split('\n')[0]!.slice(0, 350) : undefined
+      this.error = outcome.status === 'failed' ? this.recordFailure(this.safeError(outcome.error, key)) : undefined
       this.refreshHistory()
       this.emit({ type: 'result', result: this.result })
       if (outcome.status !== 'aborted')
@@ -493,13 +512,34 @@ export class Host {
     catch (error) {
       const diagnostic = this.safeError(error, key)
       await writeFile(join(this.data, 'last-error.log'), diagnostic, { mode: 0o600 }).catch(() => {})
-      this.error = diagnostic.split('\n')[0]!.slice(0, 350)
+      this.error = this.recordFailure(diagnostic)
       this.state = this.kernel ? 'ready' : 'error'
       this.presence.set('failed', '出了点问题。')
       this.refreshHistory()
       this.publish()
       task.reject(new Error(this.error))
     }
+  }
+
+  /** Record a failure: returns it in plain words, and remembers when the provider refused the key itself. */
+  private recordFailure(diagnostic: string) {
+    const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!)
+    if (keyRejected && this.store.value.kernel === 'pi') {
+      this.keyRejected = true
+      if (this.store.value.modelVerified) {
+        this.store.value.modelVerified = false
+        void this.store.save()
+      }
+    }
+    return message.slice(0, 350)
+  }
+
+  private async markVerified() {
+    this.keyRejected = false
+    if (this.store.value.kernel !== 'pi' || this.store.value.modelVerified)
+      return
+    this.store.value.modelVerified = true
+    await this.store.save()
   }
 
   /** Abort the running task, cancel its approvals, and drop queued tasks. Not an error. */
@@ -567,6 +607,7 @@ export class Host {
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
+        await this.journal.markUndone(command.taskId).catch(() => {})
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)
         this.publish()
@@ -642,6 +683,9 @@ export class Host {
         await this.close()
         await this.vault.write(key)
         this.hasKey = true
+        if (command.key.trim() || JSON.stringify(model) !== JSON.stringify(this.store.value.model))
+          this.store.value.modelVerified = false
+        this.keyRejected = false
         this.store.value.model = model
         await this.store.save()
         await this.connect(key)
@@ -666,7 +710,9 @@ export class Host {
       }
       else if (command.type === 'trust') {
         const ws = this.workspaceSettings()
-        this.store.value.workspaces[this.workspacePath] = { trusted: command.trusted, mode: command.trusted ? (ws.known ? ws.mode : 'edit') : stricter(ws.mode, 'ask'), rules: ws.rules }
+        // "Just look first" on a new folder means read-only: Plan, until the user switches.
+        const mode = command.trusted ? (ws.known ? ws.mode : 'edit') : ws.known ? stricter(ws.mode, 'ask') : 'plan'
+        this.store.value.workspaces[this.workspacePath] = { trusted: command.trusted, mode, rules: ws.rules }
         await this.store.save()
         await this.close()
         if (this.canConnect(key))
@@ -713,7 +759,7 @@ export class Host {
     catch (error) {
       const diagnostic = this.safeError(error, key)
       await writeFile(join(this.data, 'last-error.log'), diagnostic, { mode: 0o600 }).catch(() => {})
-      this.error = diagnostic.split('\n')[0]!.slice(0, 350)
+      this.error = this.recordFailure(diagnostic)
       this.state = this.kernel ? 'ready' : 'error'
       this.publish()
       throw new Error(this.error)

@@ -62,7 +62,8 @@ apply to them too. Before each delegation, the workspace is snapshotted for diff
 
 ## Permissions (`packages/permissions/`)
 
-See [permissions.md](permissions.md). `engine.decide()` is a pure function:
+See [permissions.md](permissions.md). `engine.decide()` has no side effects; it only reads the file system (symlinks,
+folder checks, `.gitignore` while looking for secret files in a search):
 
 - **In:** the mode, rules, workspace, whether a sandbox exists, and the tool call.
 - **Out:** `allow`, `ask` or `deny`.
@@ -132,6 +133,7 @@ asserts that Chromium's sandbox is on.
 | `delegations.json` | session ids for continuing delegations |
 | `checkpoints/<taskId>/` | file snapshots taken before edits, for undo |
 | `memory.json` | long-term memory, viewable and deletable in the UI |
+| `journal.json` | the last 40 tasks per workspace (request, status, changed files, collaborators, undo), briefed to a new session |
 | `pi-agent/auth.json` | always `{}`; keys stay in memory |
 
 The data directory is `~/.local/share/anna-dsh` on macOS (kept from earlier releases), `$XDG_DATA_HOME/anna` on Linux
