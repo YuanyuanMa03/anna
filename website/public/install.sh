@@ -67,6 +67,8 @@ else
   mkdir -p "$WORK/unpacked" "$BIN" "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
   tar -xzf "$ARCHIVE" -C "$WORK/unpacked"
   [ -x "$WORK/unpacked/Anna/anna" ] || fail "the package does not contain Anna/anna"
+  # anna is a launcher; the running process is anna-bin (or anna, for older installs).
+  pkill -x anna-bin >/dev/null 2>&1 || true
   pkill -x anna >/dev/null 2>&1 || true
   rm -rf "$DEST"
   mv "$WORK/unpacked/Anna" "$DEST"
@@ -81,6 +83,41 @@ Type=Application
 Categories=Development;Utility;
 DESKTOP
   echo "Anna $VERSION installed to $DEST (command: anna)"
+  # Ubuntu 23.10+ lets only programs with an AppArmor profile use the unprivileged user namespaces that Chromium's
+  # sandbox needs. Without one, the anna launcher starts with --no-sandbox; this profile keeps the sandbox on.
+  if [ "$(cat "${ANNA_USERNS_SYSCTL:-/proc/sys/kernel/apparmor_restrict_unprivileged_userns}" 2>/dev/null)" = 1 ]; then
+    APPARMOR_DIR="${ANNA_APPARMOR_DIR:-/etc/apparmor.d}"
+    PROFILE="$APPARMOR_DIR/anna-$(id -u)"
+    # AppArmor matches the resolved path of the executable.
+    REAL_BIN="$(cd "$DEST" && pwd -P)/anna-bin"
+    cat > "$WORK/apparmor-profile" <<APPARMOR
+# Lets Anna (installed by install.sh for user $(id -un)) create the user namespaces Chromium's sandbox needs.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile anna-$(id -u) "$REAL_BIN" flags=(unconfined) {
+  userns,
+
+  include if exists <local/anna-$(id -u)>
+}
+APPARMOR
+    if cmp -s "$WORK/apparmor-profile" "$PROFILE"; then
+      :
+    elif [ "${ANNA_INSTALL_APPARMOR:-}" = 1 ]; then
+      echo "Adding the AppArmor profile $PROFILE (needs sudo)..."
+      if sudo install -m 0644 "$WORK/apparmor-profile" "$PROFILE" && sudo apparmor_parser -r "$PROFILE"; then
+        echo "AppArmor profile added: Anna runs with Chromium's sandbox."
+      else
+        # A profile file that is not loaded would make the launcher keep a sandbox that cannot start.
+        sudo rm -f "$PROFILE" || true
+        echo "Note: could not add the AppArmor profile, so Anna starts without Chromium's sandbox." >&2
+      fi
+    else
+      echo "Note: this system restricts user namespaces, so Anna starts without Chromium's sandbox. To keep it, rerun with"
+      echo "  curl -fsSL $BASE/install.sh | ANNA_INSTALL_APPARMOR=1 bash"
+      echo "which adds an AppArmor profile for $REAL_BIN using sudo."
+    fi
+  fi
   missing=""
   for dep in bwrap socat rg; do command -v "$dep" >/dev/null 2>&1 || missing="$missing $dep"; done
   [ -z "$missing" ] || echo "Note: missing$missing. Install bubblewrap, socat and ripgrep so Anna can run commands in its sandbox."

@@ -92,6 +92,35 @@ previous pose comes back only after all of them are resolved.
 The halo and mode badge colors follow the mode: Plan is blue, Ask amber, Edit lavender and Auto green. While another
 agent works, Anna switches to a "supervising" pose.
 
+## Linux: Chromium sandbox
+
+Chromium's own process sandbox (separate from the bubblewrap sandbox that confines shell commands) needs either
+unprivileged user namespaces or a root-owned setuid `chrome-sandbox`. Ubuntu 23.10+ sets
+`kernel.apparmor_restrict_unprivileged_userns=1`: only programs with an AppArmor profile that allows `userns` get
+them. Without one, Electron aborts at startup.
+
+The Linux package therefore ships `Anna/anna` as a small launcher (`scripts/linux-launcher.sh`) next to the Electron
+binary `Anna/anna-bin`. The `anna` command, the desktop entry and the updater all start the launcher, which runs
+`anna-bin` with the sandbox when any of these holds:
+
+1. `unshare --user --map-root-user true` succeeds (most distributions, or Ubuntu with the restriction turned off);
+2. `chrome-sandbox` is setuid root (an administrator set it up by hand);
+3. an `anna-*` profile in `/etc/apparmor.d` names this `anna-bin`.
+
+Otherwise it adds `--no-sandbox` and prints how to fix it. Starting is better than a crash, and the renderer only
+loads Anna's own bundled pages. Agent commands still run under bubblewrap, and the permission gate is unchanged.
+
+`install.sh` never uses sudo unless asked. When the restriction is on, it prints the opt-in. With
+`ANNA_INSTALL_APPARMOR=1`, it writes `/etc/apparmor.d/anna-<uid>`, which allows `userns` for the resolved path of
+that user's `anna-bin`, and loads it with `apparmor_parser -r`. This is the same kind of profile Ubuntu ships for
+Chrome and other Electron apps. The binary sits in a user-writable directory, so the profile gives that user's own
+programs no more than they had before Ubuntu 23.10. We don't set the setuid bit on `chrome-sandbox` ourselves: a
+setuid-root file in a user-writable directory is a worse trade.
+
+CI packages the Linux build on Ubuntu 24.04 and runs the scripted acceptance against it twice: once straight from
+the package (the `--no-sandbox` fallback), and once installed by `install.sh` with the AppArmor profile, which
+asserts that Chromium's sandbox is on.
+
 ## Data
 
 | File | Contents |
