@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 /**
  * Command classes, from least to most consequential.
  * - inspect: only reads (ls, git status, rg …)
@@ -158,8 +160,13 @@ export function stripWrappers(part: string) {
   return text
 }
 
-/** Shell words with quotes removed: `grep -r "a b" src` → grep, -r, a b, src. */
-export function shellWords(part: string) {
+/**
+ * Shell words with quotes removed: `grep -r "a b" src` → grep, -r, a b, src. On Windows the shell is PowerShell,
+ * where a backslash is a path separator rather than an escape, so `C:\Users\a` stays one word.
+ */
+export function shellWords(part: string, platform: NodeJS.Platform = process.platform) {
+  if (platform === 'win32')
+    return (part.match(/(?:"[^"]*"|'[^']*'|[^\s"'])+/g) ?? []).map(word => word.replace(/"([^"]*)"|'([^']*)'/g, '$1$2'))
   return (part.match(/(?:"[^"]*"|'[^']*'|\\.|[^\s"'\\])+/g) ?? []).map(word => word.replace(/"([^"]*)"|'([^']*)'|\\(.)/g, '$1$2$3'))
 }
 
@@ -235,8 +242,8 @@ const valueFlags: Record<string, { short: string, long: string[] }> = {
  * A recursive content search in one simple command: `grep -r`, `rg`, `ag` or `git grep`. Undefined for anything
  * else (including `grep` on named files, whose paths are checked directly).
  */
-export function searchScope(part: string): SearchScope | undefined {
-  const words = shellWords(part)
+export function searchScope(part: string, platform: NodeJS.Platform = process.platform): SearchScope | undefined {
+  const words = shellWords(part, platform)
   const tool = words[0] === 'egrep' || words[0] === 'fgrep' ? 'grep' : words[0]
   if (tool === 'git') {
     if (words[1] !== 'grep')
