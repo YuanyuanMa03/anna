@@ -84,7 +84,8 @@
 ## 2. Distribution without an Apple developer account
 
 - **Signing identity.** Every build is signed with a self-signed code-signing certificate, "Anna Local Signing". This
-  keeps Keychain and folder permissions across updates.
+  keeps folder permissions across updates. It does not keep Keychain access: without an Apple team ID, macOS
+  partitions the safeStorage entry by each build's cdhash, so a new build asks for the login password once.
 - **Install:**
   - macOS: `curl -fsSL …/install.sh | bash` installs to `~/Applications`. Files downloaded by curl carry no quarantine
     flag, so Gatekeeper shows no prompt.

@@ -80,7 +80,7 @@ irm https://anna.mayuanyuan.top/install.ps1 | iex
 
 安装脚本会下载最新版本、校验 SHA-256，然后完成安装。用 `curl` 或 PowerShell 下载的文件不带隔离标记，所以不会弹出 Gatekeeper 或 SmartScreen 的拦截。不管用哪种方式装，之后的更新都在应用内完成（`.deb` 装在系统目录里，更新时会打开下载页，下载新的安装包覆盖安装即可）。
 
-Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每个版本都用同一个自签名身份签名，所以升级后钥匙串和文件夹授权都会保留。安装脚本很短，可以[先读一遍](website/public/install.sh)再运行。
+Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每个版本都用同一个自签名身份签名，所以升级后文件夹授权会保留。钥匙串更严格：没有 Apple 团队 ID 时，保存密钥的钥匙串条目只认每个版本的代码哈希，所以每次升级后新版本第一次读取密钥时，macOS 会请你输入一次登录密码。点“始终允许”后，这个版本就不会再问。安装脚本很短，可以[先读一遍](website/public/install.sh)再运行。
 
 第一次启动时，在“模型与设置”里配置服务商：DeepSeek 开箱即用，任何兼容 OpenAI 或 Anthropic 协议的 HTTPS 端点也可以用。密钥由系统凭据库加密保存（Keychain、DPAPI 或 libsecret）。然后选择一个文件夹，告诉 Anna 你信任它，就可以派活了。按 <kbd>Shift</kbd>+<kbd>Tab</kbd> 切换权限模式。
 
