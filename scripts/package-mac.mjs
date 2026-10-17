@@ -17,7 +17,7 @@ async function main() {
   execFileSync('pnpm', ['build'], { stdio: 'inherit' })
   await mkdir(output, { recursive: true })
   await rm(stage, { recursive: true, force: true })
-  execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--offline', stage], { stdio: 'inherit' })
+  execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', stage], { stdio: 'inherit' })
   await rm(app, { recursive: true, force: true })
   execFileSync('/usr/bin/ditto', [resolve(dirname(electron), '../..'), app])
   const resources = join(app, 'Contents/Resources')
