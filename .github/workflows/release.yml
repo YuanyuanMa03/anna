@@ -1,0 +1,90 @@
+name: Release
+# Tag vX.Y.Z → build macOS / Windows / Linux, sign macOS with the self-signed "Anna Local Signing" identity
+# (secrets ANNA_SIGNING_P12 = base64 .p12, ANNA_SIGNING_PASSWORD; see scripts/create-signing-identity.sh),
+# publish a GitHub release with the archives and latest.json for install.sh / install.ps1 / the in-app updater.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            key: darwin-arm64
+            script: package:mac
+            artifact: dist/macos/Anna-*-mac-arm64.zip
+          - os: windows-latest
+            key: win32-x64
+            script: package:windows
+            artifact: dist/windows/Anna-*-windows-x64.zip
+          - os: ubuntu-latest
+            key: linux-x64
+            script: package:linux
+            artifact: dist/linux/Anna-*-linux-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      HAS_SIGNING: ${{ secrets.ANNA_SIGNING_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore licensed character assets
+        shell: bash
+        run: |
+          curl -fsSL -o assets.zip 'https://github.com/YuanyuanMa03/anna-downloads/releases/download/v0.2.0/anna-character-assets.zip'
+          unzip -oq assets.zip -d .
+      - name: Import the Anna signing identity (macOS)
+        if: runner.os == 'macOS' && env.HAS_SIGNING == 'true'
+        env:
+          ANNA_SIGNING_P12: ${{ secrets.ANNA_SIGNING_P12 }}
+          ANNA_SIGNING_PASSWORD: ${{ secrets.ANNA_SIGNING_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/anna.keychain-db"
+          echo "$ANNA_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/anna.p12"
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          security import "$RUNNER_TEMP/anna.p12" -k "$KEYCHAIN" -P "$ANNA_SIGNING_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-certificate -c "Anna Local Signing" -p "$KEYCHAIN" > "$RUNNER_TEMP/anna.pem"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/anna.pem"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+      - run: pnpm ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.key }}
+          path: ${{ matrix.artifact }}
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+      - name: Write latest.json
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          node scripts/release-manifest.mjs "https://github.com/${{ github.repository }}/releases/download/$TAG" \
+            darwin-arm64=$(ls release/darwin-arm64/*.zip) win32-x64=$(ls release/win32-x64/*.zip) linux-x64=$(ls release/linux-x64/*.tar.gz)
+          cp website/public/latest.json release/latest.json
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/**/*.zip
+            release/**/*.tar.gz
+            release/latest.json
+          generate_release_notes: true

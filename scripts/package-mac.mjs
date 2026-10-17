@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { cp, mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
 
@@ -24,7 +25,7 @@ async function main() {
   const runtime = join(resources, 'app')
   await mkdir(runtime, { recursive: true })
   await cp(join(stage, 'node_modules'), join(runtime, 'node_modules'), { recursive: true, verbatimSymlinks: true })
-  for (const path of ['dist/host', 'dist/renderer', 'profiles/anna', 'plugins/anna-persona/persona.md', 'LICENSE', 'NOTICE.md']) {
+  for (const path of ['dist/host', 'dist/renderer', 'plugins/anna-persona/persona.md', 'LICENSE', 'NOTICE.md']) {
     await mkdir(dirname(join(runtime, path)), { recursive: true })
     await cp(join(root, path), join(runtime, path), { recursive: true })
   }
@@ -64,8 +65,14 @@ for p in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):
     }
   }
   await verifyLinks(app)
-  execFileSync('/usr/bin/python3', [join(root, 'scripts/sign-local.py'), app], { stdio: 'inherit' })
-  const report = { app, version: original.version, arch: 'arm64', electron: '44.7.0', dsh: original.dependencies['@deepseek-ai/dsh'], signing: 'ad-hoc', notarized: false, containedSymlinks: links }
+  const signing = JSON.parse(execFileSync('/usr/bin/python3', [join(root, 'scripts/sign-local.py'), app]).toString())
+  // The zip is what install.sh and the in-app updater download (curl/Node add no quarantine flag).
+  const zip = join(output, `Anna-${original.version}-mac-${process.arch}.zip`)
+  await rm(zip, { force: true })
+  execFileSync('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip])
+  const digest = createHash('sha256').update(await readFile(zip)).digest('hex')
+  await writeFile(`${zip}.sha256`, `${digest}  ${basename(zip)}\n`)
+  const report = { app, zip, sha256: digest, version: original.version, arch: process.arch, electron: '44.7.0', runtime: 'pi', signing: signing.signing, certificate: signing.certificate, notarized: false, containedSymlinks: links }
   await writeFile(join(output, 'package-report.json'), JSON.stringify(report, null, 2))
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
 }

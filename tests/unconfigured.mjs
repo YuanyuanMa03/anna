@@ -10,7 +10,7 @@ async function main() {
   await mkdir('artifacts', { recursive: true })
   const data = await mkdtemp(resolve('.data/unconfigured-'))
   const packaged = process.env.ANNA_PACKAGED_APP
-  const desktop = await _electron.launch({ executablePath: packaged ? `${packaged}/Contents/MacOS/Anna` : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_CDP: '' } })
+  const desktop = await _electron.launch({ executablePath: packaged ? process.platform === 'win32' ? `${packaged}/Anna.exe` : `${packaged}/Contents/MacOS/Anna` : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_CDP: '' } })
   try {
     const page = await desktop.firstWindow()
     await page.getByRole('button', { name: '配置模型', exact: true }).waitFor()
@@ -18,6 +18,9 @@ async function main() {
     assert(reply.ok)
     assert.equal(reply.snapshot.state, 'unconfigured')
     assert.deepEqual(reply.snapshot.messages, [])
+    // First run opens the model settings directly; closing it leaves the setup prompt on the stage.
+    await page.getByRole('dialog', { name: '模型与设置' }).waitFor()
+    await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await page.getByRole('button', { name: '配置模型', exact: true }).click()
     await page.getByRole('dialog', { name: '模型与设置' }).waitFor()
     assert.equal(await page.getByRole('textbox', { name: 'API Key', exact: true }).inputValue(), '')

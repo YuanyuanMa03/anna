@@ -6,3 +6,6 @@ artifacts/
 assets/characters/
 assets/live2dcubismcore.min.js
 __pycache__/
+
+.DS_Store
+website/dist/

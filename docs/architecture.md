@@ -1,40 +1,68 @@
-# Anna 与 DSH 的边界
+# Anna v0.4 架构
 
-Renderer 仅访问 Preload 暴露的固定 Anna Bridge。它不能直接访问 Node、密钥或 DSH 服务。
-Electron Main 通过 Eventa 接收产品命令，验证调用窗口并交给 Host。
-Host 是配置及进程的单一所有者，不实现 Agent Loop。
+```
+┌──────────── Electron main ─────────────┐        ┌──────────────── Anna core（utilityProcess）────────────────┐
+│ 窗口、菜单、对话框、系统通知            │  RPC   │ Host：串行任务队列 · 权限闸门 · 审批 · 检查点 · 记忆      │
+│ 系统凭据库（safeStorage）只在这里解密   │◄──────►│   │            │                                          │
+│ 核心崩溃 → 自动重启（每分钟最多 3 次）  │        │   ▼            ▼                                          │
+└───────────────▲────────────────────────┘        │ AgentKernel   Presence（内核事件 → 舞台状态/交付统计）     │
+                │ Eventa IPC（受限 preload）       │ （pi 今天；    Channels（微信 ClawBot）                     │
+┌───────────────┴────────────────────────┐        │  Claude Code/  CommandSandbox（Seatbelt / bubblewrap）      │
+│ Renderer：Live2D 舞台 + 导演 + 卡片     │        │  Codex 规划中）                                            │
+└────────────────────────────────────────┘        └────────────────────────────────────────────────────────────┘
+```
 
-`Runtime` 使用正式 `DeepSeekHarness`。其 `client` 是正式 `HarnessClient`，通过 stdio JSON-RPC 驱动 DSH。
-SDK 使用 Electron 的受支持 Node 模式启动 `dsh --profile anna`。
-DSH 从 Anna 独立 Home 中装配 `sdk-minimal` 与产品 Patch。
-Patch 加载两个 Anna Cordis 插件，移除面向模型的 shell 和文件操作工具。
-启动后由实际插件凭据和工具注册表确认组合结果。
+## 进程
 
-Host 通过 `EventAdapter` 将 DSH 的持久事件转换为稳定产品事件。
-工具调用通过 DSH `callId` 与 `toolCallId` 配对。
-版本相关事件解析只存在于 `packages/dsh-client/`，前端不导入 DSH。
+- **main**（`apps/desktop/main.ts`）负责窗口、菜单、文件夹选择、系统通知，以及系统凭据库。它只做加解密，不跑智能体。
+- **core**（`apps/desktop/core.ts`）是 Electron `utilityProcess`。Host、内核、沙箱代理和微信渠道都跑在这里。长任务、上下文压缩和大段搜索不会卡住窗口；core 崩溃后由 main 重启，会话从内核的 JSONL 文件恢复。
+- 两边通过 `packages/shared/rpc.ts` 通信。core 退出后，旧连接上的新请求会立即失败，不会无限等待。
+- core 读取密钥要向 main 申请，只能申请 `credential.bin` 和 `weixin-credential.bin` 这两个名字。
 
-退出时等待 SDK 的关闭流程。SDK 依次请求 shutdown、关闭 stdin，并在必要时终止及回收进程。
-重组必须等待旧进程结束，不能并行打开相同 Session 的两个写入者。
-会话恢复使用正式持久化接口，与界面聊天记录缓存完全分离。
+## 内核接缝（`packages/kernels/`）
 
-## Soul 演进
+`AgentKernel` 是 Anna 和智能体内核之间的唯一接口。内核只需要做两件事：
 
-今天只有 `anna-persona` 与 `anna-status` 两个实际插件。
-未来的 Memory、Relationship、Perception、Action、Proactivity、Goals 和 Reflection 分别拥有自己的数据与生命周期。
-新增能力使用 DSH 的正式 Tool、System Prompt、Session 与 Cordis 服务扩展点。
-这些能力不要求修改主要 Agent Loop，也不自动获得 shell、网络或文件权限。
+1. 每次调用工具前调用 `gate(tool, input)`。
+2. 发出归一化事件：`thinking`、`text`、`tool-start`、`tool-end`、`compacting`、`retrying`。
 
-外观清单、人格文本、模型设置和系统声音分别拥有自己的配置。
-外观不包含 Session ID，切换外观仅更新 Host 的角色文件及 Renderer 模型。
+权限、舞台表现、交付统计、检查点和渠道都在 Host 里，与具体内核无关。接入 Claude Code 或 Codex 的方法见 [kernels.md](kernels.md)。
 
-## 安全迁移记录
+pi 适配器（`kernels/pi/kernel.ts`）的要点：
 
-旧目录为 `~/git/Anna`。该机器文件系统不区分大小写。
-新目录为 `~/git/anna-dsh`，与旧目录不是同一 inode。
-旧目录及其 Git 历史均保留。未跟踪的 `.zcode/` 未改动。
+- 使用 pi 的 `createAgentSession`，保留 pi 原版编码提示词，Anna 的人格、工作区、权限和记忆说明追加在后面。
+- 自动压缩上下文、自动重试；JSONL 会话放在 `pi-sessions/`。
+- 不加载工作区里的扩展代码（`noExtensions`）。未信任的文件夹也不加载 `AGENTS.md`、skills 和 prompt templates。
+- 有沙箱时，用沙箱包装后的 `bash` 替换 pi 自带的；其余工具仍用 pi 原生实现。
+- 对话记录只从会话分支推导：来源（桌面/微信）和中断记录写成 custom entry，不进入模型上下文；切换权限模式时写一条 custom message 告诉模型。
 
-开始测试前，已生成 `~/Anna-backups/2026-10-16-before-dsh/anna.bundle`，并通过 `git bundle verify`。
-角色及 Core 资产另存于同一备份目录。新项目只复制角色资产与许可。
-模型凭据按用户明确授权只读复用，再由系统加密保存。
-没有导入旧会话、旧 Runtime 或兼容代码，没有修改全局旧配置，没有推送远程。
+## 外部 agent（`packages/agents/`）
+
+识别方式参照 cc-switch：除了 PATH，还会搜索版本管理器和包管理器的全局目录，因为图形界面应用继承不到终端的 PATH。派活和换大脑共用同一套适配器：`launch` 生成命令行参数，`adapters` 解码输出流，`runner` 管理进程和授权回传。外部 agent 的授权请求经过的是 Anna 自己的 `gate`，所以模式、规则、确认卡和检查点对它们同样有效。派活前会给工作区拍快照，用于 diff 和撤销。详见 [kernels.md](kernels.md)。
+
+## 权限（`packages/permissions/`）
+
+细节见 [permissions.md](permissions.md)。`engine.decide()` 是纯函数：输入模式、规则、工作区、是否有沙箱和工具调用，输出 allow / ask / deny。路径解析与 pi 完全一致，并跟随符号链接。真正的安全边界是操作系统沙箱，命令分类只用来减少确认次数。
+
+## 舞台
+
+- **Presence**（`anna-host/presence.ts`）把内核事件翻译成 `AnnaState`。并行的多个确认会叠加计数，全部处理完才恢复原来的姿态。
+- **Director**（`character/director.ts`）在姿态之上还有三层：
+  - 优先级和最短停留时间；
+  - 权限模式的站姿：规划时安静地低头看笔记，谨慎时专注、眉毛微抬，协作时中性，放手时身体前倾、节奏更快；
+  - 切换模式时的一次性手势：放宽权限点头微笑，收紧权限歪头抬眉。
+- 舞台光晕和模式徽章的颜色随模式变化：规划蓝、谨慎琥珀、协作淡紫、放手绿。
+
+## 数据
+
+| 文件 | 内容 |
+|---|---|
+| `settings.json` | v2：角色、模型、内核、各工作区的 `{ trusted, mode, rules }`。从 v1 自动迁移 |
+| `credential.bin` / `weixin-credential.bin` | 系统凭据库加密 |
+| `pi-sessions/` | 内核会话，对话记录的唯一来源 |
+| `checkpoints/<taskId>/` | 文件工具改动前的快照，用于撤销 |
+| `memory.json` | 长期记忆，界面可查看和删除 |
+| `pi-agent/auth.json` | 内容固定为 `{}`，密钥只在内存里 |
+| `transcript.legacy.json` | 0.3 的界面记录，只保留不读取 |
+
+数据目录：macOS 沿用 `~/.local/share/anna-dsh`，Linux 用 `$XDG_DATA_HOME/anna`，Windows 用 `%APPDATA%\Anna`。

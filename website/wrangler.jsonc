@@ -1,5 +1,6 @@
 {
   "name": "anna",
   "compatibility_date": "2026-10-16",
-  "assets": { "directory": "./public" }
+  "assets": { "directory": "./dist" },
+  "routes": [{ "pattern": "anna.mayuanyuan.top", "custom_domain": true }]
 }

@@ -1,114 +1,295 @@
 <script setup lang="ts">
-import type { Command, RuntimeSnapshot } from '../../../packages/shared/contracts'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { characters } from '../../../packages/character/manifest'
+import { renderMarkdown } from '../../../packages/character/markdown'
+import { modes } from '../../../packages/permissions/modes'
 import CharacterStage from './character-stage.vue'
+import AgentsSheet from './components/agents-sheet.vue'
+import ApprovalCard from './components/approval-card.vue'
+import CapabilitiesSheet from './components/capabilities-sheet.vue'
+import ModeSwitch from './components/mode-switch.vue'
+import ResultCard from './components/result-card.vue'
 import SettingsPanel from './settings-panel.vue'
 
+const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', done: '完成了', failed: '遇到问题' }
+const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', find: '查找', grep: '搜索', edit: '修改', write: '写入', bash: '终端', powershell: '终端', anna_status: '状态', anna_memory: '记忆', anna_delegate: '派活' }
+const suggestions = ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', 'Anna，你好，介绍一下你自己。']
+
 const snapshot = ref<RuntimeSnapshot>()
+const messages = ref<Message[]>([])
 const settingsOpen = ref(false)
 const pluginsOpen = ref(false)
+const agentsOpen = ref(false)
+const collaborator = ref<{ agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }>()
+const update = ref<{ state: string, version?: string, notes?: string, message?: string }>()
+const weixinOpen = ref(false)
+const drawer = ref<'history' | 'work' | 'changes' | undefined>()
+const changes = ref<FileChange[]>([])
+const weixin = ref<WeixinState>({ phase: 'offline', message: '微信尚未连接' })
+const verifyCode = ref('')
 const busy = ref(false)
 const error = ref('')
+const notice = ref('')
 const input = ref('')
-const activity = ref('')
-const turnCompleted = ref(false)
-const tools = ref<{ name: string, phase: string, text: string }[]>([])
+const stream = ref('')
+const tools = ref<ToolActivity[]>([])
+const anna = ref<AnnaState>({ phase: 'offline', line: '', step: 0 })
+const modeLine = ref<{ text: string, at: number }>()
 const autoSpeak = ref(false)
 const speaking = ref(false)
-const chat = ref<HTMLDivElement>()
-const character = computed(() => characters.find(c => c.id === snapshot.value?.settings.characterId) ?? characters[0])
-const blocked = computed(() => busy.value || snapshot.value?.state === 'running' || snapshot.value?.state === 'starting')
+const streamingAt = ref(0)
+const now = ref(Date.now())
+const history = ref<HTMLDivElement>()
+const bubble = ref<HTMLDivElement>()
+const modeSwitch = ref<InstanceType<typeof ModeSwitch>>()
+const wide = ref(window.innerWidth > 1100)
+function resize() { wide.value = window.innerWidth > 1100 }
 let release: (() => void) | undefined
-async function scroll() { await nextTick(); chat.value?.scrollTo({ top: chat.value.scrollHeight, behavior: 'smooth' }) }
+let clock: number | undefined
+
+const character = computed(() => characters.find(c => c.id === snapshot.value?.settings.characterId) ?? characters[0])
+const running = computed(() => snapshot.value?.state === 'running')
+const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
+const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
+/** pi needs a model key; an external brain uses its own login. */
+const canChat = computed(() => Boolean(snapshot.value && (snapshot.value.hasKey || snapshot.value.settings.kernel !== 'pi')))
+const needsTrust = computed(() => Boolean(snapshot.value && snapshot.value.settings.workspace && !snapshot.value.workspace.known))
+const lastReply = computed(() => [...messages.value].reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
+const subtitle = computed(() => {
+  if (running.value)
+    return stream.value
+  if (modeLine.value && now.value - modeLine.value.at < 4500)
+    return modeLine.value.text
+  return lastReply.value || (canChat.value ? '我在这儿。把要做的事交给我，或者先聊聊。' : '先给我接上一个模型，我们就能开始了。')
+})
+/** Mouth moves while text streams in, while reading aloud, or while greeting a mode change. */
+const mouth = computed(() => speaking.value || (anna.value.phase === 'responding' && now.value - streamingAt.value < 400) || Boolean(modeLine.value && now.value - modeLine.value.at < 1600))
+const callTools = computed(() => tools.value.filter(tool => tool.phase === 'call'))
+const resultFor = (callId: string) => tools.value.find(tool => tool.phase === 'result' && tool.callId === callId)
+const workspaceName = computed(() => snapshot.value?.workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? '工作区')
+
+function summarize(tool: ToolActivity) {
+  try {
+    const args = JSON.parse(tool.text) as Record<string, unknown>
+    return String(args.path ?? args.command ?? args.pattern ?? args.text ?? '').split('\n')[0]!.slice(0, 80)
+  }
+  catch { return tool.text.slice(0, 80) }
+}
+
+function accept(next: RuntimeSnapshot) {
+  if (next.messages)
+    messages.value = next.messages
+  snapshot.value = next
+}
+
+async function scrollHistory() { await nextTick(); history.value?.scrollTo({ top: history.value.scrollHeight }) }
+function speak(text: string) {
+  speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text.slice(0, 600))
+  utterance.lang = 'zh-CN'
+  utterance.onstart = () => { speaking.value = true }
+  utterance.onend = utterance.onerror = () => { speaking.value = false }
+  speechSynthesis.speak(utterance)
+}
+
 async function run(command: Command) {
-  if (command.type !== 'character')
+  const ownsBusy = !['character', 'approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
+  if (ownsBusy)
     busy.value = true
   error.value = ''
-  if (command.type === 'send') { tools.value = []; turnCompleted.value = false }
   try {
     const result = await window.anna.invoke(command)
-    if (!result.ok) { error.value = result.error; return }
-    snapshot.value = result.snapshot
-    if (command.type === 'send' && result.snapshot.state === 'ready')
-      turnCompleted.value = true
-    if (command.type === 'configure')
-      activity.value = '配置已保存。发送消息以验证真实连接。'
-    if (command.type === 'send' && autoSpeak.value) {
-      const text = result.snapshot.messages.at(-1)?.text
-      if (text) {
-        const utterance = new SpeechSynthesisUtterance(text)
-        utterance.lang = 'zh-CN'
-        utterance.onstart = () => { speaking.value = true }
-        utterance.onend = utterance.onerror = () => { speaking.value = false }
-        speechSynthesis.speak(utterance)
-      }
-    }
-    await scroll()
+    if (!result.ok) { error.value = result.error; return false }
+    accept(result.snapshot)
+    return true
   }
-  catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause); return false }
   finally {
-    busy.value = false; if (command.type === 'send')
-      activity.value = ''
+    if (ownsBusy)
+      busy.value = false
   }
 }
-function send() {
-  const text = input.value.trim()
-  if (!text || blocked.value)
+
+function send(text = input.value) {
+  const body = text.trim()
+  if (!body || configuring.value || !canChat.value || needsTrust.value)
     return
   input.value = ''
-  tools.value = []
-  void run({ type: 'send', text })
+  if (!running.value) {
+    tools.value = []
+    stream.value = ''
+    collaborator.value = undefined
+  }
+  void run({ type: 'send', text: body })
 }
+const decide = (id: string, allow: boolean, scope: ApprovalScope) => run({ type: 'approval', id, allow, scope })
+async function showChanges() {
+  if (snapshot.value?.result && await run({ type: 'changes', taskId: snapshot.value.result.taskId }))
+    drawer.value = 'changes'
+}
+const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
+function keydown(event: KeyboardEvent) {
+  if (event.key === 'Tab' && event.shiftKey && canChat.value) {
+    event.preventDefault()
+    modeSwitch.value?.cycle()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('resize', resize)
+  window.addEventListener('keydown', keydown)
+  clock = window.setInterval(() => { now.value = Date.now() }, 200)
   release = window.anna.subscribe((event) => {
-    if (event.type === 'navigate')
-      settingsOpen.value = true
-    if (event.type === 'snapshot')
-      snapshot.value = event.snapshot
-    if (event.type === 'tool')
-      tools.value.push(event)
-    if (event.type === 'activity')
-      activity.value = event.text
-    void scroll()
+    switch (event.type) {
+      case 'weixin': weixin.value = event.state; break
+      case 'navigate': settingsOpen.value = true; break
+      case 'snapshot': accept(event.snapshot); break
+      case 'tool': tools.value.push(event); break
+      case 'anna': anna.value = event.state; break
+      case 'stream': stream.value = event.text; streamingAt.value = Date.now(); break
+      case 'result': if (autoSpeak.value)
+        speak(lastReply.value); break
+      case 'mode': modeLine.value = { text: event.line, at: Date.now() }; break
+      case 'changes': changes.value = event.changes; break
+      case 'collaborator': collaborator.value = event; break
+      case 'update': update.value = event; break
+      case 'core':
+        notice.value = event.status === 'ready' ? '' : event.message ?? ''
+        if (event.status === 'ready')
+          void run({ type: 'snapshot' }).then(() => canChat.value && run({ type: 'connect' }))
+        break
+    }
   })
   await run({ type: 'snapshot' })
-  if (snapshot.value?.hasKey)
+  if (snapshot.value)
+    anna.value = snapshot.value.anna
+  await run({ type: 'weixin-status' })
+  if (canChat.value)
     await run({ type: 'connect' })
+  else
+    settingsOpen.value = true
 })
-onBeforeUnmount(() => { release?.(); speechSynthesis.cancel() })
+watch(() => messages.value.length, () => { void scrollHistory() })
+watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
+onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
 </script>
 
 <template>
-  <main v-if="snapshot" class="app-shell">
-    <header class="topbar"><div class="brand">anna<span>REBORN</span></div><span class="tagline">A Composable Digital Life</span><div class="header-actions"><span class="connection"><i :class="{ online: snapshot.state === 'ready' || snapshot.state === 'running' }" />{{ snapshot.state === 'ready' ? '已连接' : snapshot.state === 'running' ? '思考中' : snapshot.state === 'starting' ? '正在连接' : '等待连接' }} · {{ snapshot.settings.model.model }}</span><button @click="pluginsOpen = true">插件</button><button @click="settingsOpen = true">模型与设置</button></div></header>
-    <div class="main-layout">
-      <section class="companion" aria-label="Anna 角色舞台">
-        <div class="stage-caption"><span class="eyebrow">HERE WITH YOU</span><h1>很高兴，与你相遇。</h1><p>一个 Anna，三种模样。让陪伴慢慢生长。</p></div>
-        <div class="stage"><div class="stage-halo" /><CharacterStage :character="character" :speaking="speaking" /></div>
-        <div class="stage-name"><span class="presence-dot" />{{ character.name }}<span>{{ character.label }} · Live2D</span></div>
-        <div class="character-cards" role="group" aria-label="选择角色">
-          <button v-for="item in characters" :key="item.id" :aria-label="`选择 ${item.name}`" :aria-pressed="character.id === item.id" class="character-card" :class="[{ selected: character.id === item.id }]" @click="run({ type: 'character', id: item.id })"><img :src="item.thumbnailPath" :alt="item.label"><span><strong>{{ item.name }}</strong><small>{{ item.label }}</small></span><span v-if="character.id === item.id" class="selected-dot" /></button>
+  <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
+    <header class="topbar">
+      <div class="brand">anna<span>v0.4</span></div>
+      <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: snapshot.state === 'ready' || snapshot.state === 'running' }" />{{ snapshot.state === 'ready' || snapshot.state === 'running' ? '已连接' : snapshot.state === 'starting' ? '正在连接' : snapshot.state === 'error' ? '连接出错' : '未连接' }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
+      <nav class="header-actions">
+        <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
+        <button :aria-pressed="drawer === 'work'" @click="drawer = drawer === 'work' ? undefined : 'work'">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
+        <button @click="weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+        <button @click="agentsOpen = true; run({ type: 'snapshot' })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
+        <button @click="pluginsOpen = true">外观与能力</button>
+        <button @click="settingsOpen = true">模型与设置</button>
+      </nav>
+    </header>
+
+    <section class="scene" aria-label="Anna 舞台">
+      <div class="stage">
+        <div class="stage-halo" />
+        <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" @poke="drawer = 'work'" />
+        <div class="status-ribbon" role="status" :data-phase="anna.phase" :style="{ left: `${(wide ? 0.62 : 0.4) * 100}%` }"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
+      </div>
+
+      <div class="speech" :class="{ live: running }">
+        <span class="speaker">{{ character.name }} · Anna</span>
+        <div ref="bubble" class="bubble" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
+        <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><button v-for="item in suggestions" :key="item" @click="send(item)">{{ item }}</button></div>
+      </div>
+
+      <aside class="props" aria-label="Anna 手上的事">
+        <div v-if="needsTrust" class="card trust-card" role="alert">
+          <span class="eyebrow">新的工作文件夹</span>
+          <strong>你信任这个文件夹里的内容吗？</strong>
+          <pre>{{ snapshot.workspace.path }}</pre>
+          <p class="small">信任后，Anna 会加载其中的 AGENTS.md 等项目说明，并可以使用“协作”和“放手”模式。来源不明的仓库可能包含诱导 AI 的指令，建议只信任你自己的项目。</p>
+          <div class="card-actions">
+            <button :disabled="configuring" @click="run({ type: 'trust', trusted: false })">先只读看看</button>
+            <button class="primary" :disabled="configuring" @click="run({ type: 'trust', trusted: true })">信任并开始</button>
+          </div>
         </div>
-      </section>
-      <section class="conversation" aria-label="与 Anna 对话">
-        <div class="conversation-heading"><div><span class="eyebrow">A LITTLE CLOSER</span><h2>和 Anna 聊聊</h2></div><span class="brain-label">DSH BRAIN</span></div>
-        <div ref="chat" class="messages" aria-live="polite">
-          <div v-if="!snapshot.messages.length" class="empty-chat"><div class="anna-orb">a</div><h3>我在这里，认真听你说。</h3><p>分享今天的小事，或一起理清一个想法。<br>从一句“你好”开始。</p><button :disabled="blocked" @click="run({ type: 'send', text: 'Anna，你好，介绍一下你自己。' })">Anna，你好，介绍一下你自己。</button></div>
-          <article v-for="(message, index) in snapshot.messages" :key="index" class="message" :class="[message.role]"><span>{{ message.role === 'user' ? '你' : 'Anna' }}</span><p>{{ message.text }}</p></article>
-          <p v-if="activity" class="activity" role="status">{{ activity }}</p>
-          <p v-if="turnCompleted && !tools.length" class="activity">本轮没有实际工具调用</p>
-          <details v-if="tools.length" class="tool-events"><summary>工具活动 · {{ tools.length }} 个事件</summary><div v-for="(tool, index) in tools" :key="index"><strong>{{ tool.name }} · {{ tool.phase === 'call' ? '发起调用' : '返回结果' }}</strong><pre>{{ tool.text }}</pre></div></details>
+
+        <div v-if="collaborator" class="card collaborator-card" :data-agent="collaborator.agent" :data-state="collaborator.state">
+          <span class="eyebrow">协作者 · {{ collaborator.state === 'running' ? '工作中' : collaborator.state === 'done' ? '完成' : '没有完成' }}</span>
+          <strong><i class="agent-dot" />{{ collaborator.label }}<small v-if="collaborator.provider"> · {{ collaborator.provider }}</small></strong>
+          <span class="small muted">{{ collaborator.line }}<template v-if="collaborator.step"> · 第 {{ collaborator.step }} 步</template></span>
         </div>
-        <div v-if="error || snapshot.error" class="error" role="alert">{{ error || snapshot.error }}</div>
-        <div v-if="!snapshot.hasKey" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
-        <form class="composer" @submit.prevent="send"><textarea v-model="input" aria-label="消息" placeholder="想对 Anna 说些什么？" :disabled="blocked" @keydown.enter.exact.prevent="send" /><div class="composer-actions"><label><input v-model="autoSpeak" type="checkbox">朗读回复</label><button v-if="blocked" type="button" @click="run({ type: 'stop' })">关闭运行时以中断</button><button class="primary" :disabled="blocked || !input.trim() || !snapshot.hasKey" type="submit">发送 ↗</button></div></form>
-        <p class="conversation-footnote">{{ snapshot.restored ? '会话已恢复' : '同一个 Anna 大脑' }} · 外观切换不改变对话</p>
-      </section>
-    </div>
-    <footer><span>ANNA / DIGITAL LIFE, IN PROGRESS</span><span>本地运行 · 按需组合 · 真诚相伴</span></footer>
-    <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="blocked" @close="settingsOpen = false" @command="run" />
-    <div v-if="pluginsOpen" class="sheet-backdrop" @click.self="pluginsOpen = false"><section class="sheet" role="dialog" aria-modal="true" aria-label="Anna 插件"><div class="sheet-heading"><div><span class="eyebrow">COMPOSABLE SOUL</span><h2>让能力慢慢生长</h2></div><button class="icon-button" aria-label="关闭插件" @click="pluginsOpen = false">×</button></div><p class="muted">只加载随 Anna 提供的本地插件。切换能力会关闭并重新组合 DSH，然后恢复会话。</p><div class="plugin-row"><div><h3>Anna Persona <small>1.0.0</small></h3><p>善良、理性、真诚，拥有自己的观点。</p><span>{{ snapshot.plugins.includes('anna-persona') ? '实际已加载' : '尚未加载' }}</span></div><span>基础人格</span></div><div class="plugin-row"><div><h3>Anna Status <small>1.0.0</small></h3><p>读取当前角色、版本与已加载插件。</p><span>{{ snapshot.plugins.includes('anna-status') ? '实际已加载' : '未加载' }}</span></div><button :disabled="blocked || !snapshot.hasKey" :aria-pressed="snapshot.settings.statusEnabled" @click="run({ type: 'plugin', enabled: !snapshot.settings.statusEnabled })">{{ snapshot.settings.statusEnabled ? '禁用状态工具' : '启用状态工具' }}</button></div><p class="muted small">实际工具注册表：{{ snapshot.tools.join('、') || '无' }}<br>运行时：{{ snapshot.state }}</p><button :disabled="blocked || !snapshot.tools.includes('anna_status')" @click="pluginsOpen = false; run({ type: 'send', text: 'Anna，调用你的状态工具，检查你现在加载了什么插件。' })">请 Anna 检查运行状态</button><p v-if="error" class="error">{{ error }}</p></section></div>
+
+        <ApprovalCard v-for="approval in snapshot.approvals" :key="approval.id" :approval="approval" @decide="(allow, scope) => decide(approval.id, allow, scope)" />
+
+        <div v-if="running || callTools.length" class="card activity-card">
+          <span class="eyebrow">{{ running ? '正在做' : '刚才做了' }}</span>
+          <ol class="tool-trail">
+            <li v-for="tool in callTools.slice(-6)" :key="tool.callId" :class="{ failed: resultFor(tool.callId)?.isError, pending: !resultFor(tool.callId) }"><b>{{ toolLabels[tool.name] ?? tool.name }}</b><span>{{ summarize(tool) }}</span></li>
+          </ol>
+          <button class="link" @click="drawer = 'work'">查看完整过程 →</button>
+        </div>
+
+        <ResultCard v-if="snapshot.result && !running" :result="snapshot.result" :error="error" @changes="showChanges" @undo="undo" />
+
+        <div v-if="snapshot.queue.length" class="card queue-card"><span class="eyebrow">排队中</span><p v-for="(item, index) in snapshot.queue" :key="index" class="small">{{ index + 1 }}. {{ item.slice(0, 60) }}</p></div>
+
+        <button class="card workspace-card" @click="pluginsOpen = true">
+          <span class="eyebrow">{{ snapshot.workspace.trusted ? '已信任的工作文件夹' : '未信任的工作文件夹' }}</span>
+          <strong>{{ workspaceName }}</strong>
+          <span class="small muted">{{ modes[mode].label }}模式 · {{ snapshot.platform.sandbox.available ? '命令在沙箱中运行' : '没有命令沙箱' }}</span>
+        </button>
+      </aside>
+    </section>
+
+    <footer class="dock">
+      <div v-if="notice" class="error" role="alert">{{ notice }}</div>
+      <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">更新并重启</button></div>
+      <div v-if="error || snapshot.error" class="error" role="alert">{{ error || snapshot.error }}</div>
+      <div v-if="!canChat" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
+      <form class="composer" @submit.prevent="send()">
+        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : '把要做的事交给 Anna…（@claude、@codex 可以直接派给其他 agent）'" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
+        <div class="composer-actions">
+          <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
+          <label><input v-model="autoSpeak" type="checkbox">朗读</label>
+          <button v-if="running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
+          <button class="primary" :disabled="configuring || !input.trim() || !canChat || needsTrust" type="submit">{{ running ? '插话 ↗' : '发送 ↗' }}</button>
+        </div>
+      </form>
+    </footer>
+
+    <transition name="slide">
+      <aside v-if="drawer" class="drawer" :aria-label="drawer === 'history' ? '对话记录' : drawer === 'changes' ? '改动' : '工作过程'">
+        <div class="sheet-heading"><h2>{{ drawer === 'history' ? '对话记录' : drawer === 'changes' ? '这次的改动' : '工作过程' }}</h2><button class="icon-button" aria-label="关闭抽屉" @click="drawer = undefined">×</button></div>
+        <div v-if="drawer === 'history'" ref="history" class="messages">
+          <p v-if="!messages.length" class="muted">还没有对话。</p>
+          <article v-for="(message, index) in messages" :key="index" class="message" :class="[message.role, { note: message.note, delegated: message.delegation }]"><span>{{ message.role === 'user' ? (message.origin === 'weixin' ? '你 · 微信' : '你') : message.delegation ? `${message.delegation.label}${message.delegation.provider ? ` · ${message.delegation.provider}` : ''} · ${message.delegation.steps} 步` : 'Anna' }}</span><p v-if="message.role === 'user' || message.note">{{ message.text }}</p><details v-else-if="message.delegation" class="delegation-block" :open="index === messages.length - 1"><summary>{{ message.delegation.status === 'completed' ? '完成' : message.delegation.status === 'aborted' ? '已停下' : '没有完成' }} · {{ message.delegation.task.slice(0, 60) }}</summary><div class="rich" v-html="renderMarkdown(message.text)" /></details><div v-else class="rich" v-html="renderMarkdown(message.text)" /></article>
+          <p class="small muted">{{ snapshot.restored ? '会话已从上次恢复' : '新会话' }} · {{ snapshot.sessionId ?? '' }}</p>
+        </div>
+        <div v-else-if="drawer === 'changes'" class="tool-events">
+          <p v-if="!changes.length" class="muted">没有可显示的改动。</p>
+          <details v-for="change in changes" :key="change.path" open>
+            <summary><b>{{ change.status === 'added' ? '新增' : change.status === 'deleted' ? '删除' : '修改' }}</b> {{ change.path }} <small class="plus">+{{ change.added }}</small> <small class="minus">−{{ change.removed }}</small></summary>
+            <pre class="diff"><span v-for="(line, index) in change.patch.split('\n').slice(2)" :key="index" :class="{ add: line.startsWith('+'), del: line.startsWith('-'), hunk: line.startsWith('@@') }">{{ line }}
+</span></pre>
+          </details>
+        </div>
+        <div v-else class="tool-events">
+          <p v-if="!tools.length" class="muted">本轮没有实际工具调用</p>
+          <details v-for="tool in callTools" :key="tool.callId" :open="callTools.length < 4">
+            <summary :class="{ failed: resultFor(tool.callId)?.isError }"><b>{{ toolLabels[tool.name] ?? tool.name }}</b> {{ summarize(tool) }}</summary>
+            <pre>{{ tool.text }}</pre>
+            <pre v-if="resultFor(tool.callId)" class="result">{{ resultFor(tool.callId)!.text }}</pre>
+          </details>
+        </div>
+      </aside>
+    </transition>
+
+    <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 Anna 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；Anna 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
+    <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
+    <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
+    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="pluginsOpen = false" @command="run" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
 </template>

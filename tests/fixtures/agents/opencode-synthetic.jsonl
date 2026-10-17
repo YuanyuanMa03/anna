@@ -1,0 +1,6 @@
+{"type":"step_start","timestamp":1792200000000,"sessionID":"ses_oc1","part":{"type":"step-start"}}
+{"type":"tool_use","timestamp":1792200001000,"sessionID":"ses_oc1","part":{"type":"tool","tool":"read","callID":"c1","state":{"status":"completed","input":{"filePath":"/w/note.txt"},"output":"hello"}}}
+{"type":"tool_use","timestamp":1792200002000,"sessionID":"ses_oc1","part":{"type":"tool","tool":"bash","callID":"c2","state":{"status":"error","input":{"command":"printf OK > done.txt"},"error":"permission rejected"}}}
+{"type":"reasoning","timestamp":1792200002500,"sessionID":"ses_oc1","part":{"type":"reasoning","text":"thinking"}}
+{"type":"text","timestamp":1792200003000,"sessionID":"ses_oc1","part":{"type":"text","text":"Read note.txt; the write was rejected."}}
+{"type":"step_finish","timestamp":1792200003100,"sessionID":"ses_oc1","part":{"type":"step-finish","reason":"stop"}}

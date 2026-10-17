@@ -1,0 +1,2497 @@
+{
+  "source": {
+    "repo": "https://github.com/farion1231/cc-switch",
+    "commit": "797e027",
+    "license": "MIT",
+    "copyright": "Jason Young"
+  },
+  "claude": [
+    {
+      "name": "Claude Official",
+      "website": "https://www.anthropic.com/claude-code",
+      "official": true,
+      "category": "official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {}
+    },
+    {
+      "name": "Kimi",
+      "website": "https://platform.kimi.com/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.moonshot.cn/anthropic",
+        "ANTHROPIC_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.7-code"
+      }
+    },
+    {
+      "name": "Kimi Global",
+      "website": "https://platform.kimi.ai/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.moonshot.ai/anthropic",
+        "ANTHROPIC_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.7-code",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.7-code"
+      }
+    },
+    {
+      "name": "Kimi For Coding",
+      "website": "https://www.kimi.com/code/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/",
+        "ANTHROPIC_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-for-coding",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+      }
+    },
+    {
+      "name": "Kimi For Coding Global",
+      "website": "https://www.kimi.ai/code",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.kimi.ai/coding/",
+        "ANTHROPIC_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-for-coding",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-for-coding",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+      }
+    },
+    {
+      "name": "PackyCode",
+      "website": "https://www.packyapi.ai/",
+      "apiKeyUrl": "https://www.packyapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.packyapi.ai"
+      }
+    },
+    {
+      "name": "ZetaAPI",
+      "website": "https://zetaapi.ai/",
+      "apiKeyUrl": "https://zetaapi.ai/go/u117",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.zetaapi.ai"
+      }
+    },
+    {
+      "name": "APINebula",
+      "website": "https://apinebula.ai/",
+      "apiKeyUrl": "https://apinebula.ai/VjM74M",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://apinebula.ai"
+      }
+    },
+    {
+      "name": "AICodeMirror",
+      "website": "https://www.aicodemirror.ai/",
+      "apiKeyUrl": "https://www.aicodemirror.ai/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.aicodemirror.ai/api/claudecode"
+      }
+    },
+    {
+      "name": "PatewayAI",
+      "website": "https://pateway.ai/",
+      "apiKeyUrl": "https://pateway.ai/?ch=etzpm8#/",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.pateway.ai"
+      }
+    },
+    {
+      "name": "FennoAI",
+      "website": "https://api.fenno.ai/",
+      "apiKeyUrl": "https://api.fenno.ai/register?redirect=%2Fpurchase%3Ftab%3Dsubscription%26group%3D16",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.fenno.ai"
+      }
+    },
+    {
+      "name": "RunAPI",
+      "website": "https://runapi.host/",
+      "apiKeyUrl": "https://runapi.host/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://runapi.host"
+      }
+    },
+    {
+      "name": "OpenModel",
+      "website": "https://www.openmodel.ai/",
+      "apiKeyUrl": "https://www.openmodel.ai/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.openmodel.ai"
+      }
+    },
+    {
+      "name": "GrooRoute Pro",
+      "website": "https://grooroute.pro/",
+      "apiKeyUrl": "https://grooroute.pro/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://grooroute.pro",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "TokenFactory",
+      "website": "https://tokenfactory.cn/",
+      "apiKeyUrl": "https://console.tokenfactory.cn/login",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.tokenfactory.cn/anthropic",
+        "ANTHROPIC_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4.1-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k3[1M]"
+      }
+    },
+    {
+      "name": "Shengsuanyun",
+      "website": "https://www.shengsuanyun.com/",
+      "apiKeyUrl": "https://www.shengsuanyun.com/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://router.shengsuanyun.com/api",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-haiku-4.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5"
+      }
+    },
+    {
+      "name": "AIGoCode",
+      "website": "https://aigocode.net/",
+      "apiKeyUrl": "https://aigocode.net/invite/CC-SWITCH",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.aigocode.dev"
+      }
+    },
+    {
+      "name": "Qiniu",
+      "website": "https://s.qiniu.com/nMvAvy",
+      "apiKeyUrl": "https://s.qiniu.com/nMvAvy",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.qnaigc.com"
+      }
+    },
+    {
+      "name": "AICoding",
+      "website": "https://aicoding.inc/",
+      "apiKeyUrl": "https://aicoding.inc/i/CCSWITCH",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.aicoding.inc"
+      }
+    },
+    {
+      "name": "SubRouter",
+      "website": "https://subrouter.ai/",
+      "apiKeyUrl": "https://subrouter.ai/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://subrouter.ai"
+      }
+    },
+    {
+      "name": "FluxA Token Plan",
+      "website": "https://agentmarket.fluxapay.xyz/",
+      "apiKeyUrl": "https://agentmarket.fluxapay.xyz/marketplace/tokenplans",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.baiduqianfan.ai/anthropic/tokenplan/team",
+        "ANTHROPIC_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1M]"
+      }
+    },
+    {
+      "name": "88API",
+      "website": "https://88api.ai/",
+      "apiKeyUrl": "https://88api.ai/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.88api.ai"
+      }
+    },
+    {
+      "name": "APIKEY.FUN",
+      "website": "https://apikey.fan/",
+      "apiKeyUrl": "https://apikey.fan/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.apikey.fan"
+      }
+    },
+    {
+      "name": "9527CODE",
+      "website": "https://9527.codes/",
+      "apiKeyUrl": "https://9527.codes/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://9527.codes"
+      }
+    },
+    {
+      "name": "ClaudeAPI",
+      "website": "https://www.apito.ai/",
+      "apiKeyUrl": "https://console.apito.ai/agent/register/pQBql2buaqiX3dDS",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://gw.apito.ai"
+      }
+    },
+    {
+      "name": "Code0",
+      "website": "https://code0.ai/",
+      "apiKeyUrl": "https://code0.ai/agent/register/B2XHxGjGmRvqgznY",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://code0.ai"
+      }
+    },
+    {
+      "name": "TeamoRouter",
+      "website": "https://teamorouter.cn/",
+      "apiKeyUrl": "https://teamorouter.cn/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.teamorouter.cn"
+      }
+    },
+    {
+      "name": "PPIO",
+      "website": "https://ppio.com/",
+      "apiKeyUrl": "https://ppio.com/activity/ccswitch",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.ppio.com/anthropic",
+        "ANTHROPIC_MODEL": "deepseek/deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek/deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek/deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek/deepseek-v4-flash-0731[1M]"
+      }
+    },
+    {
+      "name": "ClaudeCN",
+      "website": "https://claudecn.top/",
+      "apiKeyUrl": "https://claudecn.ai/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://claudecn.top"
+      }
+    },
+    {
+      "name": "火山 Agent Plan",
+      "website": "https://www.volcengine.com/activity/agentplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "apiKeyUrl": "https://www.volcengine.com/activity/agentplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ark.cn-beijing.volces.com/api/plan",
+        "ANTHROPIC_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "ark-code-latest"
+      }
+    },
+    {
+      "name": "火山 Coding Plan",
+      "website": "https://www.volcengine.com/activity/codingplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "apiKeyUrl": "https://www.volcengine.com/activity/codingplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ark.cn-beijing.volces.com/api/coding",
+        "ANTHROPIC_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "ark-code-latest"
+      }
+    },
+    {
+      "name": "BytePlus",
+      "website": "https://www.byteplus.com/en/product/modelark",
+      "apiKeyUrl": "https://www.byteplus.com/en/product/modelark",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ark.ap-southeast.bytepluses.com/api/coding",
+        "ANTHROPIC_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "ark-code-latest",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "ark-code-latest"
+      }
+    },
+    {
+      "name": "Volcengine Doubao",
+      "website": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ark.cn-beijing.volces.com/api/compatible",
+        "ANTHROPIC_MODEL": "doubao-seed-2-1-pro-260628",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "doubao-seed-2-1-pro-260628",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "doubao-seed-2-1-pro-260628",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "doubao-seed-2-1-pro-260628"
+      }
+    },
+    {
+      "name": "SiliconFlow",
+      "website": "https://siliconflow.cn/",
+      "apiKeyUrl": "https://cloud.siliconflow.cn/i/YflgU2Ve",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.siliconflow.cn",
+        "ANTHROPIC_MODEL": "deepseek-ai/DeepSeek-V4-Flash[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-ai/DeepSeek-V4-Flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-ai/DeepSeek-V4-Flash[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-ai/DeepSeek-V4-Flash[1M]"
+      }
+    },
+    {
+      "name": "SiliconFlow en",
+      "website": "https://siliconflow.com/",
+      "apiKeyUrl": "https://cloud.siliconflow.cn/i/YflgU2Ve",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.siliconflow.com",
+        "ANTHROPIC_MODEL": "MiniMaxAI/MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMaxAI/MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMaxAI/MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMaxAI/MiniMax-M3[1M]"
+      }
+    },
+    {
+      "name": "A6API",
+      "website": "https://www.a6api.com/",
+      "apiKeyUrl": "https://a6api.com/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.a6api.com"
+      }
+    },
+    {
+      "name": "Compshare",
+      "website": "https://www.compshare.cn/",
+      "apiKeyUrl": "https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.modelverse.cn"
+      }
+    },
+    {
+      "name": "Compshare Coding Plan",
+      "website": "https://www.compshare.cn/",
+      "apiKeyUrl": "https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://cp.compshare.cn"
+      }
+    },
+    {
+      "name": "CCSub",
+      "website": "https://www.ccsub.net/",
+      "apiKeyUrl": "https://www.ccsub.net/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.ccsub.net"
+      }
+    },
+    {
+      "name": "SSSAiCode",
+      "website": "https://sssaicodeapi.com/",
+      "apiKeyUrl": "https://sssaicodeapi.com/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://node-hk.sssaicodeapi.com/api"
+      }
+    },
+    {
+      "name": "SoleAPI",
+      "website": "https://soleapi.com/",
+      "apiKeyUrl": "https://soleapi.com/r/ccswitch",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://soleapi.com"
+      }
+    },
+    {
+      "name": "Micu",
+      "website": "https://www.micuapi.ai/",
+      "apiKeyUrl": "https://www.micuapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.micuapi.ai"
+      }
+    },
+    {
+      "name": "RightCode",
+      "website": "https://www.rightapi.ai/",
+      "apiKeyUrl": "https://www.rightapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.rightapi.ai/claude"
+      }
+    },
+    {
+      "name": "Cubence",
+      "website": "https://cubence.com/",
+      "apiKeyUrl": "https://cubence.com/signup",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.cubence.com"
+      }
+    },
+    {
+      "name": "CrazyRouter",
+      "website": "https://www.crazyrouter.com/",
+      "apiKeyUrl": "https://www.crazyrouter.com/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://cn.crazyrouter.com"
+      }
+    },
+    {
+      "name": "DMXAPI",
+      "website": "https://www.dmxapi.cn/",
+      "apiKeyUrl": "https://www.dmxapi.cn/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.dmxapi.cn"
+      }
+    },
+    {
+      "name": "SudoCode.chat",
+      "website": "https://sudocode.chat/",
+      "apiKeyUrl": "https://sudocode.chat/sign-up",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.sudocode.chat"
+      }
+    },
+    {
+      "name": "SudoCode.us",
+      "website": "https://sudocode.us/",
+      "apiKeyUrl": "https://sudocode.us/",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://sudocode.us"
+      }
+    },
+    {
+      "name": "XycAi",
+      "website": "https://xycai.us/",
+      "apiKeyUrl": "https://xycai.us/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://apicdn.xycai.us"
+      }
+    },
+    {
+      "name": "Modelflare",
+      "website": "https://modelflare.dev/",
+      "apiKeyUrl": "https://modelflare.dev/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://modelflare.dev",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "Tu-zi",
+      "website": "https://api.tu-zi.com/",
+      "apiKeyUrl": "https://api.tu-zi.com/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.tu-zi.com"
+      }
+    },
+    {
+      "name": "Amux",
+      "website": "https://amux.ai/",
+      "apiKeyUrl": "https://amux.ai/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.amux.ai"
+      }
+    },
+    {
+      "name": "AtlasCloud",
+      "website": "https://www.atlascloud.ai/console/coding-plan",
+      "apiKeyUrl": "https://www.atlascloud.ai/console/coding-plan",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.atlascloud.ai",
+        "ANTHROPIC_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "zai-org/glm-5.1",
+        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+      }
+    },
+    {
+      "name": "Soshow",
+      "website": "https://aimarket.so-show.com/",
+      "apiKeyUrl": "https://aimarket.so-show.com/workbench/access-key",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://maas.so-show.com",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5",
+        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+      }
+    },
+    {
+      "name": "DeepSeek",
+      "website": "https://platform.deepseek.com/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+        "ANTHROPIC_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1M]"
+      }
+    },
+    {
+      "name": "OpenCode Go",
+      "website": "https://opencode.ai/go",
+      "apiKeyUrl": "https://opencode.ai/go",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://opencode.ai/zen/go",
+        "ANTHROPIC_MODEL": "deepseek-v4-flash[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-flash[1M]"
+      }
+    },
+    {
+      "name": "OpenCode Zen",
+      "website": "https://opencode.ai/zen",
+      "apiKeyUrl": "https://opencode.ai/auth",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://opencode.ai/zen",
+        "ANTHROPIC_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5"
+      }
+    },
+    {
+      "name": "Tencent Token Plan",
+      "website": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/tokenplan",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "tc-code-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "tc-code-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "tc-code-latest",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "tc-code-latest"
+      }
+    },
+    {
+      "name": "Tencent Token Plan (Intl)",
+      "website": "https://www.tencentcloud.com/products/tokenhub",
+      "apiKeyUrl": "https://console.tencentcloud.com/tokenhub/tokenplan",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenhub-intl.tencentcloudmaas.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto"
+      }
+    },
+    {
+      "name": "Tencent Token Plan Enterprise Pro",
+      "website": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/tokenplan-e",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenhub.tencentmaas.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto"
+      }
+    },
+    {
+      "name": "Tencent Token Plan Enterprise Pro (Intl)",
+      "website": "https://www.tencentcloud.com/products/tokenhub",
+      "apiKeyUrl": "https://console.tencentcloud.com/tokenhub/tokenplan-e",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenhub-intl.tencentcloudmaas.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto"
+      }
+    },
+    {
+      "name": "Tencent Token Plan Enterprise Lite",
+      "website": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/tokenplan-e",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenhub.tencentmaas.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto"
+      }
+    },
+    {
+      "name": "Tencent Token Plan Enterprise Lite (Intl)",
+      "website": "https://www.tencentcloud.com/products/tokenhub",
+      "apiKeyUrl": "https://console.tencentcloud.com/tokenhub/tokenplan-e",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenhub-intl.tencentcloudmaas.com/plan/anthropic",
+        "ANTHROPIC_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto"
+      }
+    },
+    {
+      "name": "Zhipu GLM",
+      "website": "https://open.bigmodel.cn/",
+      "apiKeyUrl": "https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
+        "ANTHROPIC_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1M]"
+      }
+    },
+    {
+      "name": "Zhipu GLM en",
+      "website": "https://z.ai/",
+      "apiKeyUrl": "https://z.ai/subscribe?ic=8JVLJQFSKB",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+        "ANTHROPIC_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1M]"
+      }
+    },
+    {
+      "name": "Baidu Qianfan Coding Plan",
+      "website": "https://cloud.baidu.com/product/qianfan_modelbuilder",
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://qianfan.baidubce.com/anthropic/coding",
+        "ANTHROPIC_MODEL": "qianfan-code-latest",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qianfan-code-latest",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qianfan-code-latest",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qianfan-code-latest"
+      }
+    },
+    {
+      "name": "Baidu Qianfan Token Plan",
+      "website": "https://cloud.baidu.com/product/codingplan.html",
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/resource/token-plan",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://qianfan.baidubce.com/anthropic/tokenplan/personal",
+        "ANTHROPIC_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1M]"
+      }
+    },
+    {
+      "name": "千问AI平台",
+      "website": "https://platform.qianwenai.com/",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://dashscope.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_MODEL": "qwen3.8-max[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.8-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.8-max[1M]",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
+      }
+    },
+    {
+      "name": "千问AI平台 Coding Plan",
+      "website": "https://bailian.console.aliyun.com/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+      }
+    },
+    {
+      "name": "千问AI平台 Token Plan",
+      "website": "https://platform.qianwenai.com/pricing/token-plan",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_MODEL": "qwen3.8-max[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.8-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.8-max[1M]",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
+      }
+    },
+    {
+      "name": "QwenCloud",
+      "website": "https://home.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://dashscope-intl.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_MODEL": "qwen3.8-max[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.8-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.8-max[1M]"
+      }
+    },
+    {
+      "name": "QwenCloud For Coding",
+      "website": "https://www.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.7-plus[1M]"
+      }
+    },
+    {
+      "name": "QwenCloud Token Plan",
+      "website": "https://www.qwencloud.com/pricing/token-plan",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_MODEL": "qwen3.8-max[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.8-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.8-max[1M]",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
+      }
+    },
+    {
+      "name": "StepFun",
+      "website": "https://platform.stepfun.com/step-plan",
+      "apiKeyUrl": "https://platform.stepfun.com/interface-key",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.stepfun.com/step_plan",
+        "ANTHROPIC_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "step-3.5-flash-2603"
+      }
+    },
+    {
+      "name": "StepFun en",
+      "website": "https://platform.stepfun.ai/step-plan",
+      "apiKeyUrl": "https://platform.stepfun.ai/interface-key",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.stepfun.ai/step_plan",
+        "ANTHROPIC_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "step-3.5-flash-2603",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "step-3.5-flash-2603"
+      }
+    },
+    {
+      "name": "ModelScope",
+      "website": "https://modelscope.cn/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api-inference.modelscope.cn",
+        "ANTHROPIC_MODEL": "ZhipuAI/GLM-5.2[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ZhipuAI/GLM-5.2[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "ZhipuAI/GLM-5.2[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "ZhipuAI/GLM-5.2[1M]"
+      }
+    },
+    {
+      "name": "StreamLake",
+      "website": "https://www.streamlake.com/",
+      "apiKeyUrl": "https://console.streamlake.com/console/wanqing/api-key",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://wanqing.streamlakeapi.com/api/gateway/v1/endpoints/kat-coder-pro-v2.5/claude-code-proxy",
+        "ANTHROPIC_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kat-coder-pro-v2.5"
+      }
+    },
+    {
+      "name": "StreamLake en",
+      "website": "https://console.streamlake.ai/",
+      "apiKeyUrl": "https://console.streamlake.ai/console/api-key",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://vanchin.streamlake.ai/api/gateway/v1/endpoints/kat-coder-pro-v2.5/claude-code-proxy",
+        "ANTHROPIC_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kat-coder-pro-v2.5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kat-coder-pro-v2.5"
+      }
+    },
+    {
+      "name": "Longcat",
+      "website": "https://longcat.chat/platform",
+      "apiKeyUrl": "https://longcat.chat/platform/api_keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.longcat.chat/anthropic",
+        "ANTHROPIC_MODEL": "LongCat-2.0[1M]",
+        "ANTHROPIC_SMALL_FAST_MODEL": "LongCat-2.0",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "LongCat-2.0[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "LongCat-2.0[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "LongCat-2.0[1M]",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "131072"
+      }
+    },
+    {
+      "name": "MiniMax",
+      "website": "https://platform.minimax.cn/",
+      "apiKeyUrl": "https://platform.minimax.cn/subscribe/token-plan",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimax.cn/anthropic",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+        "ANTHROPIC_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3[1M]"
+      }
+    },
+    {
+      "name": "MiniMax en",
+      "website": "https://platform.minimax.io/",
+      "apiKeyUrl": "https://platform.minimax.io/subscribe/coding-plan",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimax.io/anthropic",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+        "ANTHROPIC_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3[1M]"
+      }
+    },
+    {
+      "name": "BaiLing",
+      "website": "https://developer.ant-ling.com/zh-CN/docs/",
+      "apiKeyUrl": "https://chat.ant-ling.com/open",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.ant-ling.com/anthropic",
+        "ANTHROPIC_MODEL": "Ling-2.6-1T",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "Ling-2.6-1T",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "Ling-2.6-1T",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "Ling-2.6-1T"
+      }
+    },
+    {
+      "name": "AiHubMix",
+      "website": "https://aihubmix.com/",
+      "apiKeyUrl": "https://aihubmix.com/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://aihubmix.com"
+      }
+    },
+    {
+      "name": "CherryIN",
+      "website": "https://open.cherryin.ai/",
+      "apiKeyUrl": "https://open.cherryin.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://open.cherryin.net",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-haiku-4.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5"
+      }
+    },
+    {
+      "name": "RelaxyCode",
+      "website": "https://www.relaxycode.com/",
+      "apiKeyUrl": "https://www.relaxycode.com/register",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.relaxycode.com"
+      }
+    },
+    {
+      "name": "E-FlowCode",
+      "website": "https://e-flowcode.cc/",
+      "apiKeyUrl": "https://e-flowcode.cc/",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://e-flowcode.cc",
+        "ENABLE_TOOL_SEARCH": "true"
+      }
+    },
+    {
+      "name": "OpenRouter",
+      "website": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-haiku-4.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5"
+      }
+    },
+    {
+      "name": "TheRouter",
+      "website": "https://therouter.ai/",
+      "apiKeyUrl": "https://dashboard.therouter.ai/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.therouter.ai",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-haiku-4.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5"
+      }
+    },
+    {
+      "name": "Baseten",
+      "website": "https://www.baseten.co/",
+      "apiKeyUrl": "https://app.baseten.co/settings/api_keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://inference.baseten.co",
+        "ANTHROPIC_MODEL": "zai-org/GLM-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "zai-org/GLM-5.3-Flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "zai-org/GLM-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "moonshotai/Kimi-K3[1M]"
+      }
+    },
+    {
+      "name": "Novita AI",
+      "website": "https://novita.ai/",
+      "apiKeyUrl": "https://novita.ai/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.novita.ai/anthropic",
+        "ANTHROPIC_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "zai-org/glm-5.1",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "zai-org/glm-5.1"
+      }
+    },
+    {
+      "name": "Ollama Cloud",
+      "website": "https://ollama.com/",
+      "apiKeyUrl": "https://ollama.com/settings/keys",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ollama.com",
+        "ANTHROPIC_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k3[1M]"
+      }
+    },
+    {
+      "name": "Ollama",
+      "website": "https://ollama.com/",
+      "official": false,
+      "category": "local",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "http://localhost:11434",
+        "ANTHROPIC_MODEL": "qwen3.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.5"
+      }
+    },
+    {
+      "name": "LM Studio",
+      "website": "https://lmstudio.ai/",
+      "official": false,
+      "category": "local",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "http://localhost:1234",
+        "ANTHROPIC_MODEL": "openai/gpt-oss-20b",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "openai/gpt-oss-20b",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "openai/gpt-oss-20b",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "openai/gpt-oss-20b",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072"
+      }
+    },
+    {
+      "name": "llama.cpp",
+      "website": "https://github.com/ggml-org/llama.cpp",
+      "official": false,
+      "category": "local",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:9931",
+        "ANTHROPIC_MODEL": "ggml-org/Qwen3-Coder-30B-A3B-Instruct-Q8_0-GGUF",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ggml-org/Qwen3-Coder-30B-A3B-Instruct-Q8_0-GGUF",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "ggml-org/Qwen3-Coder-30B-A3B-Instruct-Q8_0-GGUF",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "ggml-org/Qwen3-Coder-30B-A3B-Instruct-Q8_0-GGUF"
+      }
+    },
+    {
+      "name": "vLLM",
+      "website": "https://vllm.ai/",
+      "official": false,
+      "category": "local",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "http://localhost:8000",
+        "ANTHROPIC_MODEL": "Qwen/Qwen3.6-27B",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "Qwen/Qwen3.6-27B",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "Qwen/Qwen3.6-27B",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "Qwen/Qwen3.6-27B"
+      }
+    },
+    {
+      "name": "Meta Model API",
+      "website": "https://dev.meta.ai/",
+      "apiKeyUrl": "https://dev.meta.ai/",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.meta.ai",
+        "ANTHROPIC_MODEL": "muse-wonder-1.0[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "muse-wonder-1.0[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "muse-spark-1.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "muse-spark-1.3[1M]",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "muse-spark-1.3[1M]",
+        "ENABLE_TOOL_SEARCH": "true",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1048576"
+      }
+    },
+    {
+      "name": "DeepInfra",
+      "website": "https://deepinfra.com/",
+      "apiKeyUrl": "https://deepinfra.com/dash/api_keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepinfra.com/anthropic",
+        "ANTHROPIC_MODEL": "deepseek-ai/DeepSeek-V4-Flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "inclusionAI/Ling-3.0-flash",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-ai/DeepSeek-V4-Flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-ai/DeepSeek-V4-Pro-0813[1M]"
+      }
+    },
+    {
+      "name": "Vercel AI Gateway",
+      "website": "https://vercel.com/ai-gateway",
+      "apiKeyUrl": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ai-gateway.vercel.sh/claude-code",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-5.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-haiku-5.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-5.5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-opus-5.5"
+      }
+    },
+    {
+      "name": "SambaNova",
+      "website": "https://sambanova.ai/",
+      "apiKeyUrl": "https://cloud.sambanova.ai/apis",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.sambanova.ai",
+        "ANTHROPIC_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3[1M]"
+      }
+    },
+    {
+      "name": "DigitalOcean",
+      "website": "https://www.digitalocean.com/products/ai-platform",
+      "apiKeyUrl": "https://cloud.digitalocean.com/model-studio/manage-keys",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://inference.do-ai.run",
+        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+      }
+    },
+    {
+      "name": "Hugging Face",
+      "website": "https://huggingface.co/inference/models",
+      "apiKeyUrl": "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://router.huggingface.co",
+        "ANTHROPIC_MODEL": "zai-org/GLM-5.3:baseten[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "zai-org/GLM-5.3-Flash:baseten[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "zai-org/GLM-5.3:baseten[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "zai-org/GLM-5.3:baseten[1M]",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1048576"
+      }
+    },
+    {
+      "name": "Microsoft Foundry",
+      "website": "https://azure.microsoft.com/en-us/products/ai-foundry",
+      "apiKeyUrl": "https://ai.azure.com/",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_API_KEY",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://${AZURE_RESOURCE_NAME}.services.ai.azure.com/anthropic",
+        "ANTHROPIC_MODEL": "claude-opus-5-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5",
+        "CLAUDE_CODE_AUTO_MODE_SERVER": "0"
+      }
+    },
+    {
+      "name": "Fireworks AI",
+      "website": "https://fireworks.ai/",
+      "apiKeyUrl": "https://app.fireworks.ai/settings/users/api-keys",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.fireworks.ai/inference",
+        "ANTHROPIC_MODEL": "accounts/fireworks/models/glm-5p3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "accounts/fireworks/models/deepseek-v4p1-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "accounts/fireworks/models/glm-5p3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "accounts/fireworks/models/kimi-k3[1M]"
+      }
+    },
+    {
+      "name": "Cloudflare AI Gateway",
+      "website": "https://developers.cloudflare.com/ai-gateway/",
+      "apiKeyUrl": "https://dash.cloudflare.com/profile/api-tokens",
+      "official": false,
+      "category": "cloud_provider",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://gateway.ai.cloudflare.com/v1/${ACCOUNT_ID}/${GATEWAY_ID}/anthropic",
+        "ANTHROPIC_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5",
+        "CLAUDE_CODE_AUTO_MODE_SERVER": "0"
+      }
+    },
+    {
+      "name": "PIPELLM",
+      "website": "https://code.pipellm.ai/",
+      "apiKeyUrl": "https://code.pipellm.ai/login",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://cc-api.pipellm.ai",
+        "ANTHROPIC_MODEL": "claude-opus-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5"
+      }
+    },
+    {
+      "name": "Xiaomi MiMo",
+      "website": "https://platform.xiaomimimo.com/",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.xiaomimimo.com/anthropic",
+        "ANTHROPIC_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.6-pro[1M]"
+      }
+    },
+    {
+      "name": "Xiaomi MiMo Token Plan (China)",
+      "website": "https://platform.xiaomimimo.com/#/token-plan",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/plan-manage",
+      "official": false,
+      "category": "cn_official",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://token-plan-cn.xiaomimimo.com/anthropic",
+        "ANTHROPIC_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.6-pro[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.6-pro[1M]"
+      }
+    },
+    {
+      "name": "JieKou AI",
+      "website": "https://jiekou.ai/#model-library",
+      "apiKeyUrl": "https://jiekou.ai/settings/key-management",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.jiekou.ai/anthropic",
+        "ANTHROPIC_MODEL": "claude-fable-5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-fable-5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-fable-5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-fable-5"
+      }
+    },
+    {
+      "name": "AICodeWith",
+      "website": "https://aicodewith.ai/",
+      "apiKeyUrl": "https://aicodewith.ai/login?tab=register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.aicodewith.ai"
+      }
+    },
+    {
+      "name": "模力方舟",
+      "website": "https://moark.com/",
+      "apiKeyUrl": "https://moark.com/dashboard/tokens",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://moark.com/anthropic",
+        "ANTHROPIC_MODEL": "deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash-0731[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-flash-0731[1M]"
+      }
+    },
+    {
+      "name": "SoruxGPT",
+      "website": "https://ai.soruxgpt.com/",
+      "apiKeyUrl": "https://ai.soruxgpt.com/console/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://ai.soruxgpt.com"
+      }
+    },
+    {
+      "name": "SoruxGPT Coding Plan",
+      "website": "https://app.soruxgpt.com/",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://app.soruxgpt.com/api/cc"
+      }
+    },
+    {
+      "name": "IKunCode",
+      "website": "https://api.ikuncode.ai/",
+      "apiKeyUrl": "https://api.ikuncode.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.ikuncode.ai"
+      }
+    },
+    {
+      "name": "RunToken",
+      "website": "https://www.runtoken.ai/",
+      "apiKeyUrl": "https://www.runtoken.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://www.runtoken.ai"
+      }
+    },
+    {
+      "name": "BotCF",
+      "website": "https://botcf.com/",
+      "apiKeyUrl": "https://botcf.com/console/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://botcf.com"
+      }
+    },
+    {
+      "name": "YYLX",
+      "website": "https://yylx.io/",
+      "apiKeyUrl": "https://app.yylx.io/keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://app.yylx.io"
+      }
+    },
+    {
+      "name": "TokenFlux",
+      "website": "https://tokenflux.dev/",
+      "apiKeyUrl": "https://tokenflux.dev/keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://tokenflux.dev"
+      }
+    },
+    {
+      "name": "NekoCode",
+      "website": "https://nekoapi.ai/",
+      "apiKeyUrl": "https://nekoapi.ai/token",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://nekoapi.ai"
+      }
+    },
+    {
+      "name": "AIComing",
+      "website": "https://aicoming.top/",
+      "apiKeyUrl": "https://aicoming.top/console#keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.aicoming.top"
+      }
+    }
+  ],
+  "codex": [
+    {
+      "name": "OpenAI Official",
+      "website": "https://chatgpt.com/codex",
+      "official": true,
+      "category": "official",
+      "wireApi": "responses"
+    },
+    {
+      "name": "PackyCode",
+      "website": "https://www.packyapi.ai/",
+      "apiKeyUrl": "https://www.packyapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://www.packyapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "ZetaAPI",
+      "website": "https://zetaapi.ai/",
+      "apiKeyUrl": "https://zetaapi.ai/go/u117",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.zetaapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AICodeMirror",
+      "website": "https://www.aicodemirror.ai/",
+      "apiKeyUrl": "https://www.aicodemirror.ai/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.aicodemirror.ai/api/codex/backend-api/codex",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "PatewayAI",
+      "website": "https://pateway.ai/",
+      "apiKeyUrl": "https://pateway.ai/?ch=etzpm8#/",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.pateway.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "FennoAI",
+      "website": "https://api.fenno.ai/",
+      "apiKeyUrl": "https://api.fenno.ai/register?redirect=%2Fpurchase%3Ftab%3Dsubscription%26group%3D16",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.fenno.ai",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "RunAPI",
+      "website": "https://runapi.host/",
+      "apiKeyUrl": "https://runapi.host/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://runapi.host/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "OpenModel",
+      "website": "https://www.openmodel.ai/",
+      "apiKeyUrl": "https://www.openmodel.ai/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.openmodel.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "GrooRoute Pro",
+      "website": "https://grooroute.pro/",
+      "apiKeyUrl": "https://grooroute.pro/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://grooroute.pro/v1",
+      "model": "gpt-6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Shengsuanyun",
+      "website": "https://www.shengsuanyun.com/",
+      "apiKeyUrl": "https://www.shengsuanyun.com/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://router.shengsuanyun.com/api/v1",
+      "model": "openai/gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AIGoCode",
+      "website": "https://aigocode.net/",
+      "apiKeyUrl": "https://aigocode.net/invite/CC-SWITCH",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.aigocode.dev",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Qiniu",
+      "website": "https://s.qiniu.com/nMvAvy",
+      "apiKeyUrl": "https://s.qiniu.com/nMvAvy",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.qnaigc.com/bypass/openai/v1",
+      "model": "gpt-6-astra",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AICoding",
+      "website": "https://aicoding.inc/",
+      "apiKeyUrl": "https://aicoding.inc/i/CCSWITCH",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.aicoding.inc",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SubRouter",
+      "website": "https://subrouter.ai/",
+      "apiKeyUrl": "https://subrouter.ai/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://subrouter.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "88API",
+      "website": "https://88api.ai/",
+      "apiKeyUrl": "https://88api.ai/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.88api.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "9527CODE",
+      "website": "https://9527.codes/",
+      "apiKeyUrl": "https://9527.codes/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://9527.codes/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Code0",
+      "website": "https://code0.ai/",
+      "apiKeyUrl": "https://code0.ai/agent/register/B2XHxGjGmRvqgznY",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://code0.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "TeamoRouter",
+      "website": "https://teamorouter.cn/",
+      "apiKeyUrl": "https://teamorouter.cn/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.teamorouter.cn/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "ClaudeCN",
+      "website": "https://claudecn.top/",
+      "apiKeyUrl": "https://claudecn.ai/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://claudecn.top/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "A6API",
+      "website": "https://www.a6api.com/",
+      "apiKeyUrl": "https://a6api.com/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.a6api.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Compshare",
+      "website": "https://www.compshare.cn/",
+      "apiKeyUrl": "https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.modelverse.cn/v1",
+      "model": "gpt-6-astra",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Compshare Coding Plan",
+      "website": "https://www.compshare.cn/",
+      "apiKeyUrl": "https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://cp.compshare.cn/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "CCSub",
+      "website": "https://www.ccsub.net/",
+      "apiKeyUrl": "https://www.ccsub.net/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://www.ccsub.net/v1",
+      "model": "gpt-6-astra",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SSSAiCode",
+      "website": "https://sssaicodeapi.com/",
+      "apiKeyUrl": "https://sssaicodeapi.com/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://node-hk.sssaicodeapi.com/api/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SoleAPI",
+      "website": "https://soleapi.com/",
+      "apiKeyUrl": "https://soleapi.com/r/ccswitch",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://soleapi.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Micu",
+      "website": "https://www.micuapi.ai/",
+      "apiKeyUrl": "https://www.micuapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://www.micuapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "RightCode",
+      "website": "https://www.rightapi.ai/",
+      "apiKeyUrl": "https://www.rightapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://www.rightapi.ai/codex/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Cubence",
+      "website": "https://cubence.com/",
+      "apiKeyUrl": "https://cubence.com/signup",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.cubence.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "CrazyRouter",
+      "website": "https://www.crazyrouter.com/",
+      "apiKeyUrl": "https://www.crazyrouter.com/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://cn.crazyrouter.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "DMXAPI",
+      "website": "https://www.dmxapi.cn/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://www.dmxapi.cn/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "XycAi",
+      "website": "https://xycai.us/",
+      "apiKeyUrl": "https://xycai.us/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://apicdn.xycai.us/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Modelflare",
+      "website": "https://modelflare.dev/",
+      "apiKeyUrl": "https://modelflare.dev/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://modelflare.dev/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Tu-zi",
+      "website": "https://api.tu-zi.com/",
+      "apiKeyUrl": "https://api.tu-zi.com/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.tu-zi.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Amux",
+      "website": "https://amux.ai/",
+      "apiKeyUrl": "https://amux.ai/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.amux.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Soshow",
+      "website": "https://aimarket.so-show.com/",
+      "apiKeyUrl": "https://aimarket.so-show.com/workbench/access-key",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://maas.so-show.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Azure OpenAI",
+      "website": "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/codex",
+      "official": true,
+      "category": "third_party",
+      "baseUrl": "https://YOUR_RESOURCE_NAME.openai.azure.com/openai",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "OpenCode Zen",
+      "website": "https://opencode.ai/zen",
+      "apiKeyUrl": "https://opencode.ai/auth",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://opencode.ai/zen/v1",
+      "model": "gpt-6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AiHubMix",
+      "website": "https://aihubmix.com/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://aihubmix.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "CherryIN",
+      "website": "https://open.cherryin.ai/",
+      "apiKeyUrl": "https://open.cherryin.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://open.cherryin.net/v1",
+      "model": "openai/gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "RelaxyCode",
+      "website": "https://www.relaxycode.com/",
+      "apiKeyUrl": "https://www.relaxycode.com/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://www.relaxycode.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "E-FlowCode",
+      "website": "https://e-flowcode.cc/",
+      "apiKeyUrl": "https://e-flowcode.cc/",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://e-flowcode.cc/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "PIPELLM",
+      "website": "https://code.pipellm.ai/",
+      "apiKeyUrl": "https://code.pipellm.ai/login",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://cc-api.pipellm.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "OpenRouter",
+      "website": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "TheRouter",
+      "website": "https://therouter.ai/",
+      "apiKeyUrl": "https://dashboard.therouter.ai/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.therouter.ai/v1",
+      "model": "openai/gpt-5.3-codex",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AICodeWith",
+      "website": "https://aicodewith.ai/",
+      "apiKeyUrl": "https://aicodewith.ai/login?tab=register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.aicodewith.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SoruxGPT",
+      "website": "https://ai.soruxgpt.com/",
+      "apiKeyUrl": "https://ai.soruxgpt.com/console/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://ai.soruxgpt.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SoruxGPT Coding Plan",
+      "website": "https://app.soruxgpt.com/",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://app.soruxgpt.com/api/codex",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "IKunCode",
+      "website": "https://api.ikuncode.ai/",
+      "apiKeyUrl": "https://api.ikuncode.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.ikuncode.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "RunToken",
+      "website": "https://www.runtoken.ai/",
+      "apiKeyUrl": "https://www.runtoken.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://www.runtoken.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "BotCF",
+      "website": "https://botcf.com/",
+      "apiKeyUrl": "https://botcf.com/console/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://botcf.com/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "YYLX",
+      "website": "https://yylx.io/",
+      "apiKeyUrl": "https://app.yylx.io/keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://app.yylx.io/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "TokenFlux",
+      "website": "https://tokenflux.dev/",
+      "apiKeyUrl": "https://tokenflux.dev/keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://tokenflux.dev/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "NekoCode",
+      "website": "https://nekoapi.ai/",
+      "apiKeyUrl": "https://nekoapi.ai/token",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://nekoapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AIComing",
+      "website": "https://aicoming.top/",
+      "apiKeyUrl": "https://aicoming.top/console#keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.aicoming.top/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    }
+  ],
+  "gemini": [
+    {
+      "name": "Google Official",
+      "website": "https://ai.google.dev/",
+      "apiKeyUrl": "https://aistudio.google.com/apikey",
+      "official": false,
+      "category": "official",
+      "env": {}
+    },
+    {
+      "name": "PackyCode",
+      "website": "https://www.packyapi.ai/",
+      "apiKeyUrl": "https://www.packyapi.ai/register",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://www.packyapi.ai",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "APINebula",
+      "website": "https://apinebula.ai/",
+      "apiKeyUrl": "https://apinebula.ai/VjM74M",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://apinebula.ai",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "AICodeMirror",
+      "website": "https://www.aicodemirror.ai/",
+      "apiKeyUrl": "https://www.aicodemirror.ai/register",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.aicodemirror.ai/api/gemini",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "OpenModel",
+      "website": "https://www.openmodel.ai/",
+      "apiKeyUrl": "https://www.openmodel.ai/",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.openmodel.ai",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "Shengsuanyun",
+      "website": "https://www.shengsuanyun.com/",
+      "apiKeyUrl": "https://www.shengsuanyun.com/",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://router.shengsuanyun.com/api",
+        "GEMINI_MODEL": "google/gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "AIGoCode",
+      "website": "https://aigocode.net/",
+      "apiKeyUrl": "https://aigocode.net/invite/CC-SWITCH",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.aigocode.dev",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "Qiniu",
+      "website": "https://s.qiniu.com/nMvAvy",
+      "apiKeyUrl": "https://s.qiniu.com/nMvAvy",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.qnaigc.com/bypass/vertex",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "AICoding",
+      "website": "https://aicoding.inc/",
+      "apiKeyUrl": "https://aicoding.inc/i/CCSWITCH",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.aicoding.inc",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "SubRouter",
+      "website": "https://subrouter.ai/",
+      "apiKeyUrl": "https://subrouter.ai/register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://subrouter.ai/v1beta",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "88API",
+      "website": "https://88api.ai/",
+      "apiKeyUrl": "https://88api.ai/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.88api.ai",
+        "GEMINI_MODEL": "gemini-3.8-flash"
+      }
+    },
+    {
+      "name": "APIKEY.FUN",
+      "website": "https://apikey.fan/",
+      "apiKeyUrl": "https://apikey.fan/register",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.apikey.fan",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "9527CODE",
+      "website": "https://9527.codes/",
+      "apiKeyUrl": "https://9527.codes/register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://9527.codes",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "Code0",
+      "website": "https://code0.ai/",
+      "apiKeyUrl": "https://code0.ai/agent/register/B2XHxGjGmRvqgznY",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://code0.ai",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "A6API",
+      "website": "https://www.a6api.com/",
+      "apiKeyUrl": "https://a6api.com/register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.a6api.com",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "SSSAiCode",
+      "website": "https://sssaicodeapi.com/",
+      "apiKeyUrl": "https://sssaicodeapi.com/register",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://node-hk.sssaicodeapi.com/api",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "SoleAPI",
+      "website": "https://soleapi.com/",
+      "apiKeyUrl": "https://soleapi.com/r/ccswitch",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://soleapi.com",
+        "GEMINI_MODEL": "gemini-3.8-flash"
+      }
+    },
+    {
+      "name": "Cubence",
+      "website": "https://cubence.com/",
+      "apiKeyUrl": "https://cubence.com/signup",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.cubence.com",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "CrazyRouter",
+      "website": "https://www.crazyrouter.com/",
+      "apiKeyUrl": "https://www.crazyrouter.com/register",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://cn.crazyrouter.com",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "SudoCode.us",
+      "website": "https://sudocode.us/",
+      "apiKeyUrl": "https://sudocode.us/",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://sudocode.us",
+        "GEMINI_MODEL": "gemini-3.1-flash-lite"
+      }
+    },
+    {
+      "name": "XycAi",
+      "website": "https://xycai.us/",
+      "apiKeyUrl": "https://xycai.us/register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://apicdn.xycai.us",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "Modelflare",
+      "website": "https://modelflare.dev/",
+      "apiKeyUrl": "https://modelflare.dev/sign-up",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://modelflare.dev",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "Tu-zi",
+      "website": "https://api.tu-zi.com/",
+      "apiKeyUrl": "https://api.tu-zi.com/token",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.tu-zi.com",
+        "GEMINI_MODEL": "gemini-3.8-flash"
+      }
+    },
+    {
+      "name": "E-FlowCode",
+      "website": "https://e-flowcode.cc/",
+      "apiKeyUrl": "https://e-flowcode.cc/",
+      "official": false,
+      "category": "third_party",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://e-flowcode.cc",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "CherryIN",
+      "website": "https://open.cherryin.ai/",
+      "apiKeyUrl": "https://open.cherryin.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://open.cherryin.net",
+        "GEMINI_MODEL": "google/gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "OpenRouter",
+      "website": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://openrouter.ai/api",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "TheRouter",
+      "website": "https://therouter.ai/",
+      "apiKeyUrl": "https://dashboard.therouter.ai/",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.therouter.ai",
+        "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "AICodeWith",
+      "website": "https://aicodewith.ai/",
+      "apiKeyUrl": "https://aicodewith.ai/login?tab=register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.aicodewith.ai/gemini_cli",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "SoruxGPT",
+      "website": "https://ai.soruxgpt.com/",
+      "apiKeyUrl": "https://ai.soruxgpt.com/console/token",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://ai.soruxgpt.com",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "IKunCode",
+      "website": "https://api.ikuncode.ai/",
+      "apiKeyUrl": "https://api.ikuncode.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.ikuncode.ai",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "RunToken",
+      "website": "https://www.runtoken.ai/",
+      "apiKeyUrl": "https://www.runtoken.ai/console/token",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://www.runtoken.ai",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "YYLX",
+      "website": "https://yylx.io/",
+      "apiKeyUrl": "https://app.yylx.io/keys",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://app.yylx.io",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    },
+    {
+      "name": "TokenFlux",
+      "website": "https://tokenflux.dev/",
+      "apiKeyUrl": "https://tokenflux.dev/keys",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://tokenflux.dev",
+        "GEMINI_MODEL": "gemini-3.1-pro"
+      }
+    },
+    {
+      "name": "AIComing",
+      "website": "https://aicoming.top/",
+      "apiKeyUrl": "https://aicoming.top/console#keys",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://api.aicoming.top",
+        "GEMINI_MODEL": "gemini-3.1-pro-preview"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{"type":"init","timestamp":"2026-10-17T00:00:00.000Z","session_id":"gem-session-1","model":"gemini-3.6-flash"}
+{"type":"message","timestamp":"2026-10-17T00:00:00.100Z","role":"user","content":"Read note.txt and create done.txt"}
+{"type":"tool_use","timestamp":"2026-10-17T00:00:01.000Z","tool_name":"read_file","tool_id":"t1","parameters":{"absolute_path":"/w/note.txt"}}
+{"type":"tool_result","timestamp":"2026-10-17T00:00:01.100Z","tool_id":"t1","status":"success","output":"hello"}
+{"type":"tool_use","timestamp":"2026-10-17T00:00:02.000Z","tool_name":"run_shell_command","tool_id":"t2","parameters":{"command":"printf OK > done.txt"}}
+{"type":"tool_result","timestamp":"2026-10-17T00:00:02.300Z","tool_id":"t2","status":"error","error":{"type":"permission","message":"Tool execution denied"}}
+{"type":"message","timestamp":"2026-10-17T00:00:03.000Z","role":"assistant","content":"I read note.txt; ","delta":true}
+{"type":"message","timestamp":"2026-10-17T00:00:03.100Z","role":"assistant","content":"the shell command was denied.","delta":true}
+{"type":"result","timestamp":"2026-10-17T00:00:03.200Z","status":"success","stats":{"total_tokens":10}}

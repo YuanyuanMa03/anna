@@ -1,0 +1,52 @@
+name: Windows desktop
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - apps/**
+      - packages/**
+      - plugins/**
+      - scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/windows.yml
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Restore licensed product assets
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://github.com/YuanyuanMa03/anna-downloads/releases/download/v0.2.0/anna-character-assets.zip' -OutFile assets.zip
+          Expand-Archive assets.zip -DestinationPath . -Force
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:unconfigured
+      - run: pnpm package:windows
+      - name: Start packaged application
+        shell: pwsh
+        run: |
+          $env:ANNA_PACKAGED_APP = "$pwd/dist/windows/Anna"
+          pnpm test:unconfigured
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anna-windows-x64
+          path: |
+            dist/windows/*.zip
+            dist/windows/*.sha256
+            dist/windows/package-report.json
+            artifacts/unconfigured-settings.png

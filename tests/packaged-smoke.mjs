@@ -14,7 +14,6 @@ async function main() {
   delete settings.sessionId
   await writeFile(join(data, 'settings.json'), JSON.stringify(settings), { mode: 0o600 })
   const desktop = await _electron.launch({ executablePath: join(bundle, 'Contents/MacOS/Anna'), args: [], cwd: '/', env: { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', ANNA_ROOT: '/nonexistent/anna-source', ANNA_DEV_URL: 'http://127.0.0.1:9', ANNA_DATA_DIR: data } })
-  let pid
   try {
     const page = await desktop.firstWindow()
     await page.locator('.connection i.online').waitFor({ timeout: 60000 })
@@ -23,15 +22,13 @@ async function main() {
     assert(info.packaged)
     assert.equal(info.root, join(bundle, 'Contents/Resources/app'))
     assert.deepEqual(info.menu, ['Anna', '编辑', '窗口'])
-    await desktop.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].submenu.items[1].click())
+    await desktop.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].submenu.items.find(item => item.label === '设置…').click())
     await page.getByRole('dialog', { name: '模型与设置' }).waitFor()
     await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await page.screenshot({ path: 'artifacts/packaged-smoke.png' })
-    pid = JSON.parse(await readFile(join(data, 'receipts/anna-persona.json'), 'utf8')).pid
-    await writeFile('artifacts/packaged-smoke.json', JSON.stringify({ ...info, data, dshPid: pid, modelLoaded: true, nativeSettingsMenu: true, sourceAndDevServerIgnored: true }, null, 2))
-    process.stdout.write('Packaged app, contained DSH, real model asset, and native settings menu passed.\n')
+    await writeFile('artifacts/packaged-smoke.json', JSON.stringify({ ...info, data, runtime: 'pi-in-process', modelLoaded: true, nativeSettingsMenu: true, sourceAndDevServerIgnored: true }, null, 2))
+    process.stdout.write('Packaged app, in-process runtime, real model asset, and native settings menu passed.\n')
   }
   finally { await desktop.close() }
-  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 }
 void main().catch((error) => { console.error(error); process.exitCode = 1 })

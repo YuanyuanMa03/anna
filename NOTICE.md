@@ -22,4 +22,7 @@ Sources:
 - https://www.live2d.com/eula/live2d-free-material-license-agreement_jp.html
 
 System speech uses macOS voices through Chromium. No voice data is part of this repository.
-Electron, Node.js, DeepSeek Harness, Cordis, and other dependencies retain their upstream licenses.
+The agent kernel is pi (`@earendil-works/pi-*`). Shell commands are isolated with Anthropic's `@anthropic-ai/sandbox-runtime` (Apache-2.0).
+The Weixin channel follows the protocol of Tencent's openclaw-weixin (MIT); its license is in `assets/licenses/Tencent-Weixin-MIT.txt`.
+Agent detection and provider presets follow cc-switch (https://github.com/farion1231/cc-switch, MIT, © Jason Young). `packages/agents/presets.json` is generated from its preset files by `scripts/sync-ccswitch-presets.mjs`; referral parameters are removed.
+Electron, Node.js, pi, sandbox-runtime, and other dependencies retain their upstream licenses.

@@ -1,0 +1,51 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Linux sandbox and display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
+      - name: Restore licensed character assets
+        shell: bash
+        run: |
+          curl -fsSL -o assets.zip 'https://github.com/YuanyuanMa03/anna-downloads/releases/download/v0.2.0/anna-character-assets.zip'
+          unzip -oq assets.zip -d .
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      # Deterministic desktop acceptance with a scripted model: no API key, no network.
+      - name: Scripted desktop acceptance
+        if: runner.os != 'Linux'
+        run: pnpm test:scripted
+      - name: Scripted desktop acceptance (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:scripted
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-${{ matrix.os }}
+          path: artifacts/
