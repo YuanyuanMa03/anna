@@ -8,7 +8,7 @@ Anna is a Live2D character who lives on your desktop and actually gets work done
 runs your tests, and hands tasks to Claude Code or Codex when they're the better fit. Every step shows up on stage.
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?include_prereleases&color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
+[![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6cb38f)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)

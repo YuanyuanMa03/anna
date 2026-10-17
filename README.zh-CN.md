@@ -8,7 +8,7 @@ Anna 是住在你桌面上的 Live2D 角色，会真的动手干活：读代码�
 遇到更适合 Claude Code 或 Codex 的任务，她会派给它们。每一步都演在舞台上。
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?include_prereleases&color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
+[![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6cb38f)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)
