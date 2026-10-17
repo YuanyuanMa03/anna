@@ -18,7 +18,7 @@ async function main() {
   await rm(app, { recursive: true, force: true })
   await cp(dirname(electron), app, { recursive: true, verbatimSymlinks: true })
   await rm(join(app, 'resources/default_app.asar'), { force: true })
-  pnpm(['--filter', 'anna-dsh', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', runtime])
+  pnpm(['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', runtime])
   for (const entry of await readdir(runtime)) {
     if (entry !== 'node_modules')
       await rm(join(runtime, entry), { recursive: true, force: true })

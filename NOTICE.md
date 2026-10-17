@@ -9,9 +9,11 @@ The renderer uses AIRI's Pixi 6 and pixi-live2d-display foundation. The Vue stag
 This project does not copy the AIRI monorepo or its agent runtime.
 
 Hiyori, Haru Greeter, and Mark are Live2D sample assets. Anna does not relicense them as MIT.
-Their models, textures, motions, previews, and Cubism Core remain outside Git tracking.
-Their original ReadMe files and Cubism Core license remain in `assets/licenses/`.
-Public distribution requires a separate review of the applicable Live2D material and SDK terms.
+Their models, textures, motions, previews, and Cubism Core are not tracked in Git. `pnpm assets` downloads them from
+this repository's `assets-v1` release and verifies each file against `docs/asset-inventory.json`.
+Their original ReadMe files and the Cubism Core license are in `assets/licenses/`.
+If you redistribute Anna or build on it, review the Live2D Free Material License and the Cubism SDK terms yourself;
+a custom model is the safest choice for commercial use.
 
 Sources:
 

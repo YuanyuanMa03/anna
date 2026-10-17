@@ -9,3 +9,6 @@ __pycache__/
 
 .DS_Store
 website/dist/
+website/public/latest.json
+.claude/settings.local.json
+*.p12

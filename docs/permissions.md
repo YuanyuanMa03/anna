@@ -1,56 +1,73 @@
-# 权限模式与沙箱
+# Permission modes and the sandbox
 
-Anna 的权限参考 Claude Code 的设计，分三层：**模式**决定默认做法，**规则**记住你的例外，**操作系统沙箱**是真正的边界。
+Anna's permissions follow Claude Code's design in three layers:
 
-## 四种模式
+- **Modes** decide the default.
+- **Rules** remember your exceptions.
+- **The OS sandbox** is the real boundary.
 
-| | 规划 plan | 谨慎 ask | 协作 edit | 放手 auto |
+## Four modes
+
+| | Plan | Ask | Edit | Auto |
 |---|---|---|---|---|
-| 读工作区内文件 | ✓ | ✓ | ✓ | ✓ |
-| 读工作区外文件 | 问 | 问 | 问 | ✓ |
-| 读 `.env`、`*.pem` 等密钥文件 | 问（高风险） | 问（高风险） | 问（高风险） | 问（高风险） |
-| 读 `~/.ssh`、`~/.aws`、钥匙串、Anna 自己的数据 | ✗ | ✗ | ✗ | ✗ |
-| 改工作区内文件 | ✗ | 问 | ✓ | ✓ |
-| 改工作区外文件 | ✗ | 问（高风险） | 问（高风险） | 问（高风险） |
-| 查看类命令（`ls`、`git status`、`rg`） | ✓ | ✓ | ✓ | ✓ |
-| 验证类命令（测试、lint、构建） | ✗ | 问 | ✓ | ✓ |
-| 其他命令 / 联网命令 | ✗ | 问 | 问 | ✓（在沙箱内） |
-| 高风险命令（`rm -rf`、`git push`、`sudo`） | ✗ | 问（高风险） | 问（高风险） | 问（高风险） |
-| 联网（沙箱内） | ✗ | 每个域名问 | 每个域名问 | 常用软件源自动放行，其余问 |
-| 舞台表现 | 安静、低头看笔记 | 专注、眉毛微抬 | 中性 | 前倾、节奏更快 |
+| Read files in the workspace | ✓ | ✓ | ✓ | ✓ |
+| Read files outside the workspace | ask | ask | ask | ✓ |
+| Read secrets such as `.env` or `*.pem` | ask (risky) | ask (risky) | ask (risky) | ask (risky) |
+| Read `~/.ssh`, `~/.aws`, keychains, Anna's own data | ✗ | ✗ | ✗ | ✗ |
+| Edit files in the workspace | ✗ | ask | ✓ | ✓ |
+| Edit files outside the workspace | ✗ | ask (risky) | ask (risky) | ask (risky) |
+| Inspect commands (`ls`, `git status`, `rg`) | ✓ | ✓ | ✓ | ✓ |
+| Verify commands (tests, lint, builds) | ✗ | ask | ✓ | ✓ |
+| Other commands, network commands | ✗ | ask | ask | ✓ (in the sandbox) |
+| Risky commands (`rm -rf`, `git push`, `sudo`) | ✗ | ask (risky) | ask (risky) | ask (risky) |
+| Network from the sandbox | ✗ | ask per domain | ask per domain | common registries allowed, others ask |
+| On stage | quiet, reading her notes | attentive, brows raised | neutral | leaning in, brisk |
 
-- 输入框里按 **Shift+Tab** 切换模式。
-- 协作和放手模式只能在**信任过的文件夹**里使用。打开一个新文件夹时，Anna 会先问你是否信任；没有信任的文件夹不会加载 `AGENTS.md` 等项目说明。
-- **微信派来的任务**无论当前是什么模式，都按“谨慎”执行。
-- 没有沙箱时（目前是 Windows，或者 Linux 缺少 bubblewrap），放手模式下的修改类命令仍然要确认。
-- 标为“高风险”的确认只能逐次批准，不能按会话或永久放行。
+- Press **Shift+Tab** in the input box to switch modes.
+- Edit and Auto are only available in **trusted folders**. When you open a new folder, Anna asks whether you trust it.
+  Untrusted folders don't load project instructions such as `AGENTS.md`.
+- **Tasks from WeChat** always run in Ask mode, whatever the current mode is.
+- Without a sandbox, Auto mode still asks before commands that change things. That covers Windows today, and Linux
+  when bubblewrap is missing.
+- Approvals marked "risky" can only be granted once at a time, never for a session or permanently.
 
-## 规则
+## Rules
 
-格式与 Claude Code 相同，优先级为 deny > ask > allow：
+Rules use the Claude Code format. Precedence is deny > ask > allow.
 
 ```
-Bash(pnpm test)            完全相同的命令
-Bash(pnpm install:*)       以此开头的命令
-Read(~/notes/**)           路径通配；相对路径相对于工作区；// 开头表示绝对路径
-Edit(src/**)               覆盖 write 和 edit
-Network(*.github.com)      沙箱联网
+Bash(pnpm test)            this exact command
+Bash(pnpm install:*)       commands starting with this
+Read(~/notes/**)           path glob; relative to the workspace; // starts an absolute path
+Edit(src/**)               covers write and edit
+Network(*.github.com)      sandbox network access
 ```
 
-在确认卡上选“本次会话都允许”，规则只在当前会话有效；选“总是允许”，规则会写进这个工作区的设置。所有规则都可以在“外观与能力 → 权限规则”里删除。
+How a rule is saved depends on the button you press:
 
-## 沙箱
+- **Allow for this session** keeps the rule until the session ends.
+- **Always allow** writes the rule to the workspace settings.
 
-终端命令通过 [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime) 运行（macOS 用 Seatbelt，Linux 用 bubblewrap），限制如下：
+Every rule can be removed under **Appearance & Capabilities → Permission rules**.
 
-- **写入**：只能写工作区、临时目录和包管理器缓存。shell 配置（.zshrc 等）、git 配置等由 sandbox-runtime 强制保护。
-- **读取**：凭据目录和 Anna 的数据目录读不到。
-- **网络**：默认全部拒绝。每个域名都会经过 Anna 的确认卡；放手模式自动放行 npm、PyPI、crates.io、Go 代理和 GitHub。
+## Sandbox
 
-启动时会实际运行一条 `true` 做自检，失败就退化为“没有沙箱”，并在界面上说明原因。
+Shell commands run through [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime), with
+Seatbelt on macOS and bubblewrap on Linux:
 
-## 已知边界
+- **Writes** are limited to the workspace, temp directories and package manager caches. sandbox-runtime itself protects
+  shell profiles such as `.zshrc` and the git config.
+- **Reads** of credential folders and Anna's data directory are blocked.
+- **Network** is denied by default. Every domain goes through Anna's approval card. Auto mode allows npm, PyPI,
+  crates.io, the Go proxy and GitHub automatically.
 
-- pi 的读写类工具在 core 进程内执行，不经过操作系统沙箱，只由策略引擎把关。策略引擎的路径解析与 pi 完全一致，并跟随符号链接。
-- 撤销只覆盖 Anna 文件工具（write/edit）造成的改动，命令造成的改动不在其中，这一点和 Claude Code 的检查点相同。
-- 命令分类只用来减少确认，不是安全边界。没有沙箱时，请只信任自己的项目。
+At startup Anna runs `true` inside the sandbox as a self-test. If that fails, she falls back to "no sandbox" and shows
+the reason in the UI.
+
+## Known limits
+
+- pi's read and write tools run inside the core process, not in the OS sandbox, so only the policy engine guards them.
+  The engine resolves paths exactly like pi and follows symlinks.
+- Undo covers changes made by Anna's file tools (write and edit), not changes made by commands. Claude Code's
+  checkpoints have the same limit.
+- Command classes only reduce prompts; they are not a security boundary. Without a sandbox, trust only your own projects.

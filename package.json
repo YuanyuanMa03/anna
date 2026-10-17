@@ -1,11 +1,12 @@
 {
-  "name": "anna-dsh",
+  "name": "anna",
   "type": "module",
   "version": "0.4.0",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev:desktop": "node scripts/dev.mjs",
+    "assets": "node scripts/fetch-assets.mjs",
     "build": "vite build && node scripts/build-host.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.host.json --noEmit",
     "test": "vitest run",

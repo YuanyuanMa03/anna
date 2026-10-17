@@ -1,7 +1,10 @@
-# Product contracts
+# Shared contracts
 
-This package defines settings, snapshots, commands, events, and the fixed Preload Bridge.
-Eventa transports the commands and events between Main and Preload.
+Settings, snapshots, commands and events used by every process, plus a few small runtime pieces:
 
-Both desktop environments import these contracts.
-The package contains no Node-only runtime, pi objects, or credential values.
+- `rpc.ts`: the RPC peer between main and core;
+- `vault.ts`: the vault wrapper around the OS keychain;
+- `update.ts`: release manifest and update planning;
+- `platform.ts`: data directory per platform.
+
+Nothing here holds pi objects or credential values.

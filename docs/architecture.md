@@ -1,68 +1,109 @@
-# Anna v0.4 架构
+# Architecture (v0.4)
 
 ```
-┌──────────── Electron main ─────────────┐        ┌──────────────── Anna core（utilityProcess）────────────────┐
-│ 窗口、菜单、对话框、系统通知            │  RPC   │ Host：串行任务队列 · 权限闸门 · 审批 · 检查点 · 记忆      │
-│ 系统凭据库（safeStorage）只在这里解密   │◄──────►│   │            │                                          │
-│ 核心崩溃 → 自动重启（每分钟最多 3 次）  │        │   ▼            ▼                                          │
-└───────────────▲────────────────────────┘        │ AgentKernel   Presence（内核事件 → 舞台状态/交付统计）     │
-                │ Eventa IPC（受限 preload）       │ （pi 今天；    Channels（微信 ClawBot）                     │
-┌───────────────┴────────────────────────┐        │  Claude Code/  CommandSandbox（Seatbelt / bubblewrap）      │
-│ Renderer：Live2D 舞台 + 导演 + 卡片     │        │  Codex 规划中）                                            │
-└────────────────────────────────────────┘        └────────────────────────────────────────────────────────────┘
+┌──────────── Electron main ─────────────┐        ┌──────────────── Anna core (utilityProcess) ─────────────────┐
+│ windows, menus, dialogs, notifications │  RPC   │ Host: task queue · permission gate · approvals ·            │
+│ OS keychain vault (decrypts only here) │◄──────►│       checkpoints · memory · delegator · agents hub         │
+│ updater                                │        │   │              │                                          │
+│ core crashed → restart (≤ 3 / minute)  │        │   ▼              ▼                                          │
+└───────────────▲────────────────────────┘        │ AgentKernel     Presence (kernel events → stage state)      │
+                │ Eventa IPC (fixed preload)       │ (pi · Claude    Channels (WeChat ClawBot)                   │
+┌───────────────┴────────────────────────┐        │  Code · Codex)  CommandSandbox (Seatbelt / bubblewrap)      │
+│ Renderer: Live2D stage, director, cards │        └─────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────┘
 ```
 
-## 进程
+## Processes
 
-- **main**（`apps/desktop/main.ts`）负责窗口、菜单、文件夹选择、系统通知，以及系统凭据库。它只做加解密，不跑智能体。
-- **core**（`apps/desktop/core.ts`）是 Electron `utilityProcess`。Host、内核、沙箱代理和微信渠道都跑在这里。长任务、上下文压缩和大段搜索不会卡住窗口；core 崩溃后由 main 重启，会话从内核的 JSONL 文件恢复。
-- 两边通过 `packages/shared/rpc.ts` 通信。core 退出后，旧连接上的新请求会立即失败，不会无限等待。
-- core 读取密钥要向 main 申请，只能申请 `credential.bin` 和 `weixin-credential.bin` 这两个名字。
+- **main** (`apps/desktop/main.ts`) owns windows, menus, folder pickers, system notifications, the updater and the OS
+  keychain. It only encrypts and decrypts; it never runs an agent.
+- **core** (`apps/desktop/core.ts`) is an Electron `utilityProcess`. The Host, kernels, sandbox proxy and WeChat channel
+  run here, so long tasks, context compaction and big searches never freeze the window. If core crashes, main restarts
+  it and the session resumes from the kernel's JSONL log.
+- The two talk through `packages/shared/rpc.ts`. Once core exits, new calls on the old connection fail immediately
+  instead of hanging.
+- Core asks main for secrets by name, and only three names are allowed: `credential.bin`, `weixin-credential.bin` and
+  `providers.bin`.
 
-## 内核接缝（`packages/kernels/`）
+## The kernel seam (`packages/kernels/`)
 
-`AgentKernel` 是 Anna 和智能体内核之间的唯一接口。内核只需要做两件事：
+`AgentKernel` is the only interface between Anna and an agent brain. A kernel has two duties:
 
-1. 每次调用工具前调用 `gate(tool, input)`。
-2. 发出归一化事件：`thinking`、`text`、`tool-start`、`tool-end`、`compacting`、`retrying`。
+1. Call `gate(tool, input)` before every tool call.
+2. Emit normalized events: `thinking`, `text`, `tool-start`, `tool-end`, `compacting`, `retrying`.
 
-权限、舞台表现、交付统计、检查点和渠道都在 Host 里，与具体内核无关。接入 Claude Code 或 Codex 的方法见 [kernels.md](kernels.md)。
+Permissions, the stage, delivery stats, checkpoints and channels live in the Host and don't depend on the kernel. See
+[kernels.md](kernels.md) for the pi, Claude Code and Codex kernels.
 
-pi 适配器（`kernels/pi/kernel.ts`）的要点：
+The pi kernel (`kernels/pi/kernel.ts`) works like this:
 
-- 使用 pi 的 `createAgentSession`，保留 pi 原版编码提示词，Anna 的人格、工作区、权限和记忆说明追加在后面。
-- 自动压缩上下文、自动重试；JSONL 会话放在 `pi-sessions/`。
-- 不加载工作区里的扩展代码（`noExtensions`）。未信任的文件夹也不加载 `AGENTS.md`、skills 和 prompt templates。
-- 有沙箱时，用沙箱包装后的 `bash` 替换 pi 自带的；其余工具仍用 pi 原生实现。
-- 对话记录只从会话分支推导：来源（桌面/微信）和中断记录写成 custom entry，不进入模型上下文；切换权限模式时写一条 custom message 告诉模型。
+- It uses pi's `createAgentSession` and keeps pi's own coding system prompt. Anna's persona, workspace, permission and
+  memory instructions are appended after it.
+- Context compaction and retries are automatic. JSONL sessions live in `pi-sessions/`.
+- Extension code from the workspace is never loaded (`noExtensions`). Untrusted folders also skip `AGENTS.md`, skills
+  and prompt templates.
+- With a sandbox available, pi's `bash` tool is replaced by a sandboxed one. The other tools are pi's own.
+- The transcript is derived from the session branch only. Origin (desktop or WeChat) and interruptions are stored as
+  custom entries that never reach the model. A mode change is written as a custom message, so the model knows about it.
 
-## 外部 agent（`packages/agents/`）
+## External agents (`packages/agents/`)
 
-识别方式参照 cc-switch：除了 PATH，还会搜索版本管理器和包管理器的全局目录，因为图形界面应用继承不到终端的 PATH。派活和换大脑共用同一套适配器：`launch` 生成命令行参数，`adapters` 解码输出流，`runner` 管理进程和授权回传。外部 agent 的授权请求经过的是 Anna 自己的 `gate`，所以模式、规则、确认卡和检查点对它们同样有效。派活前会给工作区拍快照，用于 diff 和撤销。详见 [kernels.md](kernels.md)。
+Detection follows cc-switch. Besides `PATH`, Anna searches version-manager and package-manager directories, because a
+GUI app doesn't inherit the terminal's `PATH`.
 
-## 权限（`packages/permissions/`）
+Delegation and brain-swapping share the same adapters:
 
-细节见 [permissions.md](permissions.md)。`engine.decide()` 是纯函数：输入模式、规则、工作区、是否有沙箱和工具调用，输出 allow / ask / deny。路径解析与 pi 完全一致，并跟随符号链接。真正的安全边界是操作系统沙箱，命令分类只用来减少确认次数。
+- `launch` builds the command line.
+- `adapters` decode the output stream.
+- `runner` manages the process and forwards approvals.
 
-## 舞台
+Approval requests from an external agent go through Anna's own `gate`, so modes, rules, approval cards and checkpoints
+apply to them too. Before each delegation, the workspace is snapshotted for diff and undo.
 
-- **Presence**（`anna-host/presence.ts`）把内核事件翻译成 `AnnaState`。并行的多个确认会叠加计数，全部处理完才恢复原来的姿态。
-- **Director**（`character/director.ts`）在姿态之上还有三层：
-  - 优先级和最短停留时间；
-  - 权限模式的站姿：规划时安静地低头看笔记，谨慎时专注、眉毛微抬，协作时中性，放手时身体前倾、节奏更快；
-  - 切换模式时的一次性手势：放宽权限点头微笑，收紧权限歪头抬眉。
-- 舞台光晕和模式徽章的颜色随模式变化：规划蓝、谨慎琥珀、协作淡紫、放手绿。
+## Permissions (`packages/permissions/`)
 
-## 数据
+See [permissions.md](permissions.md). `engine.decide()` is a pure function:
 
-| 文件 | 内容 |
+- **In:** the mode, rules, workspace, whether a sandbox exists, and the tool call.
+- **Out:** `allow`, `ask` or `deny`.
+
+Path resolution matches pi exactly and follows symlinks. The OS sandbox is the real boundary; command classes only
+reduce how often Anna has to ask.
+
+## The stage
+
+**Presence** (`anna-host/presence.ts`) turns kernel events into an `AnnaState`. Parallel approvals stack, and the
+previous pose comes back only after all of them are resolved.
+
+**Director** (`character/director.ts`) adds three layers on top of the pose:
+
+- Priority and a minimum dwell time.
+- A stance per permission mode:
+
+  | Mode | Stance |
+  |---|---|
+  | Plan | quietly reading her notes |
+  | Ask | attentive, brows slightly raised |
+  | Edit | neutral |
+  | Auto | leaning in, quicker rhythm |
+
+- A one-off gesture when the mode changes: a nod and smile when permissions widen, a head tilt when they narrow.
+
+The halo and mode badge colors follow the mode: Plan is blue, Ask amber, Edit lavender and Auto green. While another
+agent works, Anna switches to a "supervising" pose.
+
+## Data
+
+| File | Contents |
 |---|---|
-| `settings.json` | v2：角色、模型、内核、各工作区的 `{ trusted, mode, rules }`。从 v1 自动迁移 |
-| `credential.bin` / `weixin-credential.bin` | 系统凭据库加密 |
-| `pi-sessions/` | 内核会话，对话记录的唯一来源 |
-| `checkpoints/<taskId>/` | 文件工具改动前的快照，用于撤销 |
-| `memory.json` | 长期记忆，界面可查看和删除 |
-| `pi-agent/auth.json` | 内容固定为 `{}`，密钥只在内存里 |
-| `transcript.legacy.json` | 0.3 的界面记录，只保留不读取 |
+| `settings.json` | v2: character, model, kernel, per-workspace `{ trusted, mode, rules }`, agents and providers. Migrated from v1 automatically |
+| `credential.bin`, `weixin-credential.bin`, `providers.bin` | encrypted by the OS keychain (Linux without a keyring: 0600 file, flagged in the UI) |
+| `pi-sessions/` | kernel sessions, the single source of the transcript |
+| `external-sessions/` | transcripts when Claude Code or Codex is the brain |
+| `delegations.json` | session ids for continuing delegations |
+| `checkpoints/<taskId>/` | file snapshots taken before edits, for undo |
+| `memory.json` | long-term memory, viewable and deletable in the UI |
+| `pi-agent/auth.json` | always `{}`; keys stay in memory |
 
-数据目录：macOS 沿用 `~/.local/share/anna-dsh`，Linux 用 `$XDG_DATA_HOME/anna`，Windows 用 `%APPDATA%\Anna`。
+The data directory is `~/.local/share/anna-dsh` on macOS (kept from earlier releases), `$XDG_DATA_HOME/anna` on Linux
+and `%APPDATA%\Anna` on Windows.

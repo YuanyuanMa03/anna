@@ -1,37 +1,51 @@
-# 智能体内核与外部 agent
+# Kernels and external agents
 
-Anna 有两种使用其他 agent 的方式，都基于 `packages/agents/` 的适配器：
+Anna uses other agents in two ways. Both are built on the adapters in `packages/agents/`.
 
-- **派活**：pi 是 Anna 的大脑，外部 agent 是她的同事。可以用 `@claude 任务` 点名，也可以由 Anna 调用 `anna_delegate` 工具自己派。实现见 `anna-host/delegator.ts`。
-- **换大脑**：在“模型与设置”里把 Anna 的大脑换成 Claude Code 或 Codex。实现见 `kernels/external/kernel.ts`。
+- **Delegation**: pi is Anna's brain and the other agents are her colleagues. Mention one with `@claude <task>`, or let
+  Anna decide through the `anna_delegate` tool. Implemented in `anna-host/delegator.ts`.
+- **Brain swap**: in **Model & Settings**, replace Anna's brain with Claude Code or Codex. Implemented in
+  `kernels/external/kernel.ts`.
 
-## 适配器的组成
+## Adapter parts
 
-| 文件 | 职责 |
+| File | Responsibility |
 |---|---|
-| `agents/catalog.ts` | 与 cc-switch 相同的 10 个应用：识别方式、配置目录、安装/升级命令、能力档位 |
-| `agents/detect.ts` | 在 PATH 和 nvm/fnm/volta/mise/Homebrew/npm 全局目录中查找，读取版本，调用它们自己的登录状态命令 |
-| `agents/launch.ts` | 把 Anna 的模式、服务商、会话、人格映射成各 agent 的命令行参数 |
-| `agents/adapters/*` | 把各 agent 的无头输出逐行解码成 Anna 的 `KernelEvent`，并生成授权回复 |
-| `agents/runner.ts` | 启动进程、解码、把授权请求交给 Anna 的权限闸门、处理中断 |
-| `agents/providers.ts` / `global.ts` | 服务商预设（来自 cc-switch）、派活时注入、应用到全局与恢复 |
+| `agents/catalog.ts` | The same 10 apps as cc-switch: detection, config folders, install and upgrade commands, capability tier |
+| `agents/detect.ts` | Searches `PATH` plus nvm, fnm, volta, mise, Homebrew and npm global folders; reads the version; runs each agent's own login-status command |
+| `agents/launch.ts` | Maps Anna's mode, provider, session and persona to each agent's command-line flags |
+| `agents/adapters/*` | Decodes each agent's headless output line by line into Anna's `KernelEvent`s and writes approval replies |
+| `agents/runner.ts` | Starts the process, decodes it, sends approval requests through Anna's permission gate, handles interrupts |
+| `agents/providers.ts`, `global.ts` | Provider presets (from cc-switch), per-delegation injection, global apply and restore |
 
-## 各 agent 的协议
+## Protocols
 
-| agent | 无头协议 | 授权方式 | 续接会话 | 验证 |
+| Agent | Headless protocol | Approvals | Resume | Verified |
 |---|---|---|---|---|
-| Claude Code | `claude -p --input-format stream-json --output-format stream-json --permission-prompt-tool stdio` | 逐步：`control_request(can_use_tool)` → `control_response` | `--resume` | 真机录制 |
-| Codex | `codex app-server`（JSON-RPC） | 逐步：`item/*/requestApproval` → `{decision}` | `thread/resume` | 真机录制 |
-| Gemini CLI | `gemini -p --output-format stream-json` | 派活前一次确认，`--approval-mode` 跟随模式 | `--resume` | 按源码实现 |
-| OpenCode | `opencode run --format json` | 派活前一次确认，协作/放手模式下加 `--auto` | `--session` | 按源码实现 |
-| Pi | `pi --mode json` | 派活前一次确认，规划/谨慎模式下只给只读工具 | `--session-id` | 按文档实现 |
+| Claude Code | `claude -p --input-format stream-json --output-format stream-json --permission-prompt-tool stdio` | per step: `control_request(can_use_tool)` → `control_response` | `--resume` | recorded on a real machine |
+| Codex | `codex app-server` (JSON-RPC) | per step: `item/*/requestApproval` → `{decision}` | `thread/resume` | recorded on a real machine |
+| Gemini CLI | `gemini -p --output-format stream-json` | once before the task; `--approval-mode` follows the mode | `--resume` | built from the source |
+| OpenCode | `opencode run --format json` | once before the task; `--auto` in Edit and Auto | `--session` | built from the source |
+| Pi | `pi --mode json` | once before the task; read-only tools in Plan and Ask | `--session-id` | built from the docs |
 
-模式映射见 `agents/launch.ts`。Claude Code：规划 → `plan`，谨慎 → `default`，协作和放手 → `acceptEdits`。Codex：规划 → `untrusted` + `read-only`，谨慎 → `untrusted` + `workspace-write`，协作和放手 → `on-request` + `workspace-write`。放手模式下，风险较高的请求仍会经过 Anna 的闸门，其余直接放行。凭据目录会作为 deny 规则传给 Claude Code（`--settings`）。
+`agents/launch.ts` maps each Anna mode to the agent's native setting:
 
-## 新增一个 agent
+| Anna mode | Claude Code | Codex |
+|---|---|---|
+| Plan | `plan` | `untrusted` + `read-only` |
+| Ask | `default` | `untrusted` + `workspace-write` |
+| Edit | `acceptEdits` | `on-request` + `workspace-write` |
+| Auto | `acceptEdits` | `on-request` + `workspace-write` |
 
-1. 在 `catalog.ts` 里加一条（如果 cc-switch 已经支持，与它保持一致）。
-2. 用 `scripts/record-agent.mjs` 录一段真实会话放进 `tests/fixtures/agents/`（脚本会去除个人信息），或者按它的公开协议写一段合成样本。
-3. 写解码器，用 `tests/agents-decoders.test.ts` 回放样本验证。
-4. 在 `launch.ts` 里加上参数映射，在 `tests/agents-launch.test.ts` 里加用例。
-5. 跑 `tests/host-delegation.test.ts`（使用假 agent）。有真实 CLI 时，再跑 `ANNA_REAL_AGENTS=<id> pnpm test tests/agents-real.test.ts`。
+In Auto mode, risky requests still go through Anna's gate and everything else is allowed. Credential folders are passed
+to Claude Code as deny rules through `--settings`.
+
+## Adding an agent
+
+1. Add an entry to `catalog.ts`. If cc-switch already supports the agent, match its entry.
+2. Record a real session into `tests/fixtures/agents/` with `scripts/record-agent.mjs`. The script removes personal
+   details. If you can't record one, write a synthetic sample from the public protocol.
+3. Write the decoder, and replay the sample with `tests/agents-decoders.test.ts`.
+4. Add the flag mapping in `launch.ts` and a case in `tests/agents-launch.test.ts`.
+5. Run `tests/host-delegation.test.ts`, which uses a fake agent. With the real CLI installed, also run
+   `ANNA_REAL_AGENTS=<id> pnpm test tests/agents-real.test.ts`.

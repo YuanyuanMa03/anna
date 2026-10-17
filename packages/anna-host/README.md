@@ -1,7 +1,15 @@
-# Anna Host
+# Anna host
 
-The Host owns settings, credential storage access, one runtime, and product events.
-`SettingsStore` serializes atomic writes. Electron supplies the system credential vault.
+The Host runs inside the core process. It owns:
 
-Desktop Main constructs one Host per data directory.
-Renderer consumers use `packages/shared` contracts. They cannot construct this Node module.
+- the serial task queue;
+- the permission gate and approval broker;
+- checkpoints for undo;
+- long-term memory;
+- settings;
+- delegation to external agents, and the agents hub (detection, providers, global switching).
+
+It talks to a kernel only through the `AgentKernel` interface in `packages/kernels`. It turns kernel events into stage
+state through `Presence`.
+
+The renderer never constructs this module. It uses the contracts in `packages/shared`.

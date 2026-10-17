@@ -1,8 +1,9 @@
-# Anna Desktop
+# Anna desktop
 
-Electron Main owns the Host. A sandboxed Preload exposes the fixed Anna Bridge.
-Vue renders the stage, character cards, conversation, plugin sheet, and model settings.
+- `main.ts`: the Electron main process. Windows, menus, notifications, the OS keychain vault and the updater. It starts
+  the core process and restarts it if it crashes.
+- `core.ts`: the core `utilityProcess`, which runs the Host, kernels, sandbox and WeChat channel.
+- `preload.ts`: a sandboxed preload exposing the fixed Anna bridge.
+- `src/`: the Vue renderer, with the Live2D stage, director, cards and sheets.
 
 From the repository root, run `pnpm dev:desktop`.
-Use this app for the local desktop Demo. Renderer code accesses product commands through the Bridge.
-Runtime and credential operations belong to the Host packages.

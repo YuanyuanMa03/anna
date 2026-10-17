@@ -28,11 +28,8 @@ jobs:
       - name: Linux sandbox and display dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
-      - name: Restore licensed character assets
-        shell: bash
-        run: |
-          curl -fsSL -o assets.zip 'https://github.com/YuanyuanMa03/anna-downloads/releases/download/v0.2.0/anna-character-assets.zip'
-          unzip -oq assets.zip -d .
+      - name: Download the Live2D character assets
+        run: pnpm assets
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
