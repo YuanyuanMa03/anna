@@ -40,7 +40,8 @@ async function main() {
   await cp(app, resolve(stage, 'Anna.app'), { recursive: true, verbatimSymlinks: true })
   await symlink('/Applications', resolve(stage, 'Applications'))
   await writeFile(resolve(stage, '打开前请读 · Read me.txt'), firstLaunch)
-  execFileSync('/usr/bin/hdiutil', ['create', '-volname', `Anna ${version}`, '-srcfolder', stage, '-ov', '-format', 'UDZO', output], { stdio: 'inherit' })
+  // LZMA: half the size of the default zlib image; it needs macOS 10.15, below what Electron supports anyway.
+  execFileSync('/usr/bin/hdiutil', ['create', '-volname', `Anna ${version}`, '-srcfolder', stage, '-ov', '-format', 'ULMO', output], { stdio: 'inherit' })
   execFileSync('/usr/bin/hdiutil', ['verify', output], { stdio: 'inherit' })
   process.stdout.write(`${output}\n`)
 }
