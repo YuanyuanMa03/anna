@@ -154,7 +154,7 @@ function analyze(command: string, context: PolicyContext) {
   let cwd = context.workspace
   const resolveWord = (word: string, base: string) => spellings(resolveToolPath(word.replace(/^\$HOME(?=\/|$)/, '~'), base, platform, home))
   const pieces: Piece[] = (parts ?? looseParts(command)).map((text) => {
-    const words = shellWords(stripWrappers(text))
+    const words = shellWords(stripWrappers(text), platform)
     const paths: string[][] = []
     words.forEach((word, index) => {
       let value = word.replace(/^\d?[<>]+&?/, '')
@@ -168,7 +168,7 @@ function analyze(command: string, context: PolicyContext) {
         return
       paths.push(resolveWord(value, cwd))
     })
-    const scope = searchScope(stripWrappers(text))
+    const scope = searchScope(stripWrappers(text), platform)
     const piece: Piece = { text, paths, metadata: /^(?:ls|find|fd|tree|du|stat|file|wc|realpath|basename|dirname|test)$/.test(words[0] ?? ''), search: scope && { dirs: scope.targets.filter(target => !target.includes('$')).map(target => resolveWord(target, cwd)), reach: scope } }
     if (words[0] === 'cd' || words[0] === 'pushd') {
       const target = words.slice(1).find(word => !word.startsWith('-'))

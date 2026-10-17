@@ -2,6 +2,7 @@ import type { Decision, PolicyContext } from '../packages/permissions/engine'
 import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { classify, commandRule, segments } from '../packages/permissions/commands'
 import { decide } from '../packages/permissions/engine'
@@ -62,12 +63,13 @@ describe('audit regressions: writes cannot leave the workspace unasked', () => {
     for (const mode of modeList) {
       expect(decide('read', { path: join(home, 'anna-data/credential.bin') }, ctx({ mode, rules: everything })).kind).toBe('deny')
       expect(decide('write', { path: join(home, 'anna-data/credential.bin') }, ctx({ mode, rules: everything })).kind).toBe('deny')
-      expect(bash(`cat ${join(home, 'anna-data/credential.bin')}`, { mode, rules: everything }).kind).toBe('deny')
+      // The shell's own path syntax: PowerShell on Windows keeps C:\\Users\\… backslashes literal.
+      expect(bash(`cat ${join(home, 'anna-data/credential.bin')}`, { mode, rules: everything, platform: process.platform }).kind).toBe('deny')
       expect(decide('grep', { pattern: 'x', path: '~' }, ctx({ mode, rules: everything })).kind).toBe('deny')
     }
   })
   it('asks before reading outside the workspace except in auto mode', () => {
-    expect(decide('read', { path: '~/notes.txt' }, ctx({ mode: 'edit' }))).toMatchObject({ kind: 'ask', danger: false, rule: `Read(/${home}/**)` })
+    expect(decide('read', { path: '~/notes.txt' }, ctx({ mode: 'edit' }))).toMatchObject({ kind: 'ask', danger: false, rule: `Read(//${home.split('\\').join('/').replace(/^\//, '')}/**)` })
     expect(decide('read', { path: '~/notes.txt' }, ctx({ mode: 'auto' })).kind).toBe('allow')
     expect(decide('read', { path: 'src/a.ts' }, ctx({ mode: 'plan' })).kind).toBe('allow')
   })
