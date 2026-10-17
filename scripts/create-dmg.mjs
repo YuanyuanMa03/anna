@@ -40,8 +40,12 @@ async function main() {
   await cp(app, resolve(stage, 'Anna.app'), { recursive: true, verbatimSymlinks: true })
   await symlink('/Applications', resolve(stage, 'Applications'))
   await writeFile(resolve(stage, '打开前请读 · Read me.txt'), firstLaunch)
-  // LZMA: half the size of the default zlib image; it needs macOS 10.15, below what Electron supports anyway.
-  execFileSync('/usr/bin/hdiutil', ['create', '-volname', `Anna ${version}`, '-srcfolder', stage, '-ov', '-format', 'ULMO', output], { stdio: 'inherit' })
+  // Build an uncompressed image first, then convert it to LZMA (ULMO): half the size of the default zlib image, and
+  // smaller than creating ULMO directly. ULMO needs macOS 10.15, below what Electron supports anyway.
+  const raw = resolve('.data/Anna-raw.dmg')
+  execFileSync('/usr/bin/hdiutil', ['create', '-volname', `Anna ${version}`, '-srcfolder', stage, '-ov', '-format', 'UDRO', raw], { stdio: 'inherit' })
+  execFileSync('/usr/bin/hdiutil', ['convert', raw, '-format', 'ULMO', '-ov', '-o', output], { stdio: 'inherit' })
+  await rm(raw, { force: true })
   execFileSync('/usr/bin/hdiutil', ['verify', output], { stdio: 'inherit' })
   process.stdout.write(`${output}\n`)
 }
