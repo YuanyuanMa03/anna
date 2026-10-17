@@ -22,9 +22,9 @@ function selectProvider() {
 <template>
   <div class="sheet-backdrop" @click.self="emit('close')">
     <section class="sheet" role="dialog" aria-modal="true" aria-label="模型与设置">
-      <div class="sheet-heading"><div><span class="eyebrow">CONNECTION</span><h2>让 Anna 开始思考</h2></div><button aria-label="关闭设置" class="icon-button" @click="emit('close')">×</button></div>
-      <h3>Anna 的大脑</h3>
-      <div class="brain-options" role="radiogroup" aria-label="Anna 的大脑">
+      <div class="sheet-heading"><div><span class="eyebrow">CONNECTION</span><h2>让 {{ companion(snapshot.settings.characterId).name }} 开始思考</h2></div><button aria-label="关闭设置" class="icon-button" @click="emit('close')">×</button></div>
+      <h3>{{ companion(snapshot.settings.characterId).name }} 的大脑</h3>
+      <div class="brain-options" role="radiogroup" :aria-label="`${companion(snapshot.settings.characterId).name} 的大脑`">
         <button v-for="brain in brains" :key="brain.id" type="button" role="radio" :aria-checked="snapshot.settings.kernel === brain.id" :disabled="busy || !brain.available" @click="snapshot.settings.kernel !== brain.id && emit('command', { type: 'kernel', id: brain.id })"><strong>{{ brain.label }}</strong><small>{{ brain.note }}</small></button>
       </div>
       <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用它们自己的登录和服务商（在“外部 agent”里设置），会开始一个新会话；Anna 的自带工具（记忆、状态、派活）只在 pi 大脑下可用。</p>

@@ -33,17 +33,17 @@ export class MemoryStore {
     await this.save()
   }
 
-  /** Instructions for the kernel: what Anna remembers and how to use the memory tool. */
+  /** Instructions for the kernel: the memory every companion shares, and how to use the memory tool. */
   instructions() {
     const list = this.items.length ? this.items.map(item => `- ${item.text}`).join('\n') : '（暂无）'
-    return `## 关于用户的长期记忆\n以下是用户允许你记住的事（可能过时，与用户当前说法冲突时以当前为准）：\n${list}\n\n需要长期记住用户的偏好、习惯或约定时，调用 anna_memory 的 remember；用户要求忘记时调用 forget。不要把记忆写进工作区文件。不要记住密钥、密码或其他敏感信息。`
+    return `## 关于用户的长期记忆\n这是伙伴们共用的一本日记，以下是用户允许大家记住的事（可能是别的伙伴记下的，也可能过时，与用户当前说法冲突时以当前为准）：\n${list}\n\n需要长期记住用户的偏好、习惯或约定时，调用 anna_memory 的 remember；用户要求忘记时调用 forget。不要把记忆写进工作区文件。不要记住密钥、密码或其他敏感信息。`
   }
 
   tool(onChange: () => void): AnnaTool {
     return {
       name: 'anna_memory',
-      label: 'Anna 记忆',
-      description: '管理 Anna 对用户的长期记忆。action=remember 记住一条（text），action=forget 按 text 中的关键词忘记匹配的条目，action=list 列出全部。',
+      label: '共同记忆',
+      description: '管理伙伴们共用的、关于用户的长期记忆，换伙伴后依然有效。action=remember 记住一条（text），action=forget 按 text 中的关键词忘记匹配的条目，action=list 列出全部。',
       parameters: { type: 'object', properties: { action: { type: 'string', enum: ['remember', 'forget', 'list'] }, text: { type: 'string' } }, required: ['action'] },
       execute: async (args) => {
         const action = String(args.action)

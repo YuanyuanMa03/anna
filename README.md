@@ -34,14 +34,17 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 - ✓ **Honest with you.** No made-up tool results: a test she didn't run is a test she says she didn't run. Anything
   beyond her permissions, she asks first.
 
-Pick a companion: six in all, three women and three men (Anna, Haru, Mao, Natori, Chitose, Mark), all from Live2D's free
-samples. Each has their own name, personality and way of talking; honesty, permissions and memory are the same for
-all of them. Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
+Anna is also the name of a home. She was the first to move in, and five friends live there with her: three women and
+three men in all (Anna, Haru, Mao, Natori, Chitose, Mark), all from Live2D's free samples. Each has their own name,
+personality and way of talking, and none of them is a copy of Anna; honesty and permissions are the same for all of them.
+Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
 and whenever Claude Code or Codex does a job, whether the companion handed it over or you sent it with `@claude` or
 `@codex`, the companion takes the result back, checks the changes with its own tools (and quick tests when there are
 some), and tells you whether you can rely on it. Reviewing an `@` job costs one model turn; you can turn it off under
-“外观与能力” (Appearance & capabilities), and it is skipped when the brain itself is Claude Code or Codex. Switch
-companions or brains: the memory and your conversations carry on.
+“外观与能力” (Appearance & capabilities), and it is skipped when the brain itself is Claude Code or Codex. The companions
+share one diary about you (long-term memory) and one work log, so when you switch companions or brains, the memory and
+your conversations carry on. When one brings up something another said or did, they say whose it was instead of taking
+credit.
 
 ## What she can do
 

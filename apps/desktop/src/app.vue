@@ -297,7 +297,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>
           <pre>{{ snapshot.workspace.path }}</pre>
-          <p class="small">信任后，Anna 会加载其中的 AGENTS.md 等项目说明，并可以使用“协作”和“放手”模式。“先只读看看”会进入规划模式，之后可以随时切换。来源不明的仓库可能包含诱导 AI 的指令，建议只信任你自己的项目。</p>
+          <p class="small">信任后，{{ character.name }} 会读取其中的 AGENTS.md 等项目说明，并可以使用“协作”和“放手”模式。“先只读看看”会进入规划模式，之后可以随时切换。来源不明的仓库可能包含诱导 AI 的指令，建议只信任你自己的项目。</p>
           <div class="card-actions">
             <button :disabled="configuring" @click="run({ type: 'trust', trusted: false })">先只读看看</button>
             <button class="primary" :disabled="configuring" @click="run({ type: 'trust', trusted: true })">信任并开始</button>
@@ -340,7 +340,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">更新并重启</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
-      <div v-if="!canChat" class="setup-notice"><span>为 Anna 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
+      <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `把要做的事交给${character.name}…（@claude、@codex 可以直接派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
