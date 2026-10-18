@@ -22,13 +22,31 @@ const mac = process.platform === 'darwin'
 app.setName('Anna Reborn')
 mkdirSync(join(data, 'electron'), { recursive: true, mode: 0o700 })
 app.setPath('userData', join(data, 'electron'))
+/** An import link the OS handed over on the command line (Windows, Linux). */
+function linkIn(argv: string[]) {
+  return argv.find(arg => arg.startsWith('anna://'))
+}
 if (!app.requestSingleInstanceLock())
   app.exit(0)
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv) => {
+  const link = linkIn(argv)
+  if (link)
+    void openLink(link)
   const existing = BrowserWindow.getAllWindows()[0]
   existing?.show()
   existing?.focus()
 })
+// anna://v1/import?… (and cc-switch's format behind it) opens a confirmation in the providers tab. Registered only
+// for the installed app, so a development build never takes over the scheme.
+const links: string[] = []
+if (app.isPackaged)
+  app.setAsDefaultProtocolClient('anna')
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  void openLink(url)
+})
+if (linkIn(process.argv))
+  links.push(linkIn(process.argv)!)
 if (process.env.ANNA_TEST_CDP) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ANNA_TEST_CDP)
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
@@ -79,6 +97,26 @@ async function runTray(run: NonNullable<TrayItem['run']>) {
     if (Notification.isSupported())
       new Notification({ title: 'Anna', body: error instanceof Error ? error.message : '操作失败' }).show()
   }
+}
+
+/** Hand an import link to the core (which only previews it) and show the providers tab; queued until both exist. */
+async function openLink(url: string) {
+  if (!peer || !window) {
+    links.push(url)
+    return
+  }
+  try {
+    const snapshot = await peer.call<RuntimeSnapshot>('execute', { type: 'provider-link', link: url })
+    emitToRenderer({ type: 'snapshot', snapshot })
+  }
+  catch (error) {
+    if (Notification.isSupported())
+      new Notification({ title: '导入链接没能打开', body: error instanceof Error ? error.message : '链接无效' }).show()
+    return
+  }
+  emitToRenderer({ type: 'navigate', panel: 'providers' })
+  window.show()
+  window.focus()
 }
 
 function onCoreEvent(event: AnnaEvent) {
@@ -188,6 +226,15 @@ async function start() {
         else
           forward = { type: 'workspace', path: choice.filePaths[0] }
       }
+      // File paths for provider export and import only ever come from the user's own dialog.
+      if (request.type === 'providers-export') {
+        const choice = await dialog.showSaveDialog(win, { title: request.includeKeys ? '导出服务商（含密钥）' : '导出服务商', defaultPath: 'anna-providers.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
+        forward = choice.canceled || !choice.filePath ? { type: 'snapshot' } : { type: 'providers-export', includeKeys: request.includeKeys, path: choice.filePath }
+      }
+      if (request.type === 'providers-import') {
+        const choice = await dialog.showOpenDialog(win, { title: '导入服务商', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] })
+        forward = choice.canceled || !choice.filePaths[0] ? { type: 'snapshot' } : { type: 'providers-import', path: choice.filePaths[0] }
+      }
       if (request.type === 'update-check' || request.type === 'update-install') {
         await (request.type === 'update-check' ? updater.check() : updater.install())
         forward = { type: 'snapshot' }
@@ -203,6 +250,7 @@ async function start() {
   if (!app.isPackaged && process.env.ANNA_DEV_URL)
     await win.loadURL(process.env.ANNA_DEV_URL)
   else await win.loadFile(join(root, 'dist/renderer/index.html'))
+  for (const link of links.splice(0)) void openLink(link)
 }
 void start().catch((error) => {
   const message = error instanceof Error ? error.message : 'Anna startup failed'

@@ -84,6 +84,8 @@ export interface AgentsSnapshot {
   mine: Record<string, MyProvider[]>
   universal: (UniversalProvider & { hasKey: boolean })[]
   /** The last speed test per provider (`app:name`), fastest first; candidates already carry the provider's path. */
+  /** A provider from an import link, waiting for the user to confirm (the key only masked). */
+  pendingImport?: { app: 'claude' | 'codex' | 'gemini', name: string, baseUrl: string, endpoints: string[], key: string, model?: string, tiers?: { haiku?: string, sonnet?: string, opus?: string }, env?: Record<string, string>, website?: string, enabled: boolean, warnings: string[] }
   /** The last balance or quota lookup per provider (`app:name`). */
   usage: Record<string, UsageReport>
   speed: Record<string, { at: string, results: { url: string, latency?: number, status?: number, error?: string }[] }>
@@ -172,7 +174,7 @@ export interface RuntimeSnapshot {
   agents: AgentsSnapshot
 }
 /** Only these product events cross the preload boundary. Kernel objects stay in the core process. */
-export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'sponsor' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
+export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'sponsor' | 'providers' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
   | { type: 'weixin', state: WeixinState }
   | ({ type: 'tool' } & ToolActivity)
   | { type: 'anna', state: AnnaState }
@@ -207,6 +209,12 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
   | { type: 'provider-speedtest', app: 'claude' | 'codex' | 'gemini', name: string }
   | { type: 'provider-usage', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-link', link: string }
+  | { type: 'provider-link-confirm', use: boolean }
+  | { type: 'provider-link-cancel' }
+  /** `path` is set by the main process from a save / open dialog; anything the window sends there is replaced. */
+  | { type: 'providers-export', includeKeys: boolean, path?: string }
+  | { type: 'providers-import', path?: string }
   | ({ type: 'universal-save' } & UniversalDraft)
   | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }

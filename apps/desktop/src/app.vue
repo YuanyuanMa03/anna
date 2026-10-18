@@ -214,7 +214,11 @@ onMounted(async () => {
   release = window.anna.subscribe((event) => {
     switch (event.type) {
       case 'weixin': weixin.value = event.state; break
-      case 'navigate': (event.panel === 'sponsor' ? sponsorOpen : settingsOpen).value = true; break
+      case 'navigate':
+        if (event.panel === 'providers')
+          agentsOpen.value = true
+        else (event.panel === 'sponsor' ? sponsorOpen : settingsOpen).value = true
+        break
       case 'snapshot': accept(event.snapshot); break
       case 'tool': tools.value.push(event); break
       case 'anna': anna.value = event.state; break

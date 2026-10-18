@@ -154,3 +154,54 @@ it('balance: looked up with the provider\'s saved key, shown on its card; unsupp
   await expect(host.execute({ type: 'provider-usage', app: 'codex', name: 'Kimi' })).rejects.toThrow('还不支持')
   await host.close()
 })
+
+it('import link: previewed with the key masked, confirmed into a free name with its key, optionally used; or cancelled', async () => {
+  const { host, keys } = await setup()
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'Relay', baseUrl: 'https://old.example.com/v1', model: 'm' })
+  const url = `ccswitch://v1/import?${new URLSearchParams({ resource: 'provider', app: 'codex', name: 'Relay', endpoint: 'https://relay.example.com/v1,https://relay2.example.com/v1', apiKey: 'sk-relay-123456', model: 'gpt-x' })}`
+  await host.execute({ type: 'provider-link', link: url })
+  expect(host.snapshot().agents.pendingImport).toMatchObject({ app: 'codex', name: 'Relay', key: 'sk-r••••3456' })
+  expect(JSON.stringify(host.snapshot())).not.toContain('sk-relay-123456')
+  await host.execute({ type: 'provider-link-confirm', use: true })
+  expect(host.snapshot().agents.pendingImport).toBeUndefined()
+  expect(host.snapshot().agents.mine.codex!.map(item => [item.name, item.baseUrl, item.hasKey])).toEqual([['Relay', 'https://old.example.com/v1', false], ['Relay 2', 'https://relay.example.com/v1', true]])
+  expect(host.snapshot().agents.providers.codex?.provider).toBe('Relay 2')
+  expect(keys()['codex:Relay 2']).toBe('sk-relay-123456')
+
+  await host.execute({ type: 'provider-link', link: url })
+  await host.execute({ type: 'provider-link-cancel' })
+  expect(host.snapshot().agents.pendingImport).toBeUndefined()
+  expect(host.snapshot().agents.mine.codex).toHaveLength(2)
+  await expect(host.execute({ type: 'provider-link-confirm', use: false })).rejects.toThrow('没有待导入')
+  await host.close()
+})
+
+it('export and import: keys only when asked for, names kept free, universal providers rebuilt, loader env vars dropped', async () => {
+  const { host, data } = await setup()
+  await host.execute({ type: 'provider-save', app: 'claude', name: 'DeepSeek', from: 'DeepSeek', key: 'sk-ds' })
+  await host.execute({ type: 'universal-save', name: 'NewAPI', baseUrl: 'https://gw.example.com', key: 'sk-gw', apps: { claude: true, codex: false, gemini: false }, models: {} })
+  const plain = join(data, 'plain.json')
+  const withKeys = join(data, 'keys.json')
+  await host.execute({ type: 'providers-export', includeKeys: false, path: plain })
+  await host.execute({ type: 'providers-export', includeKeys: true, path: withKeys })
+  expect(await readFile(plain, 'utf8')).not.toContain('sk-')
+  const exported = JSON.parse(await readFile(withKeys, 'utf8'))
+  expect(exported).toMatchObject({ format: 'anna-providers', version: 1, keys: { 'claude:DeepSeek': 'sk-ds', 'universal:NewAPI': 'sk-gw' } })
+  expect(exported.providers.map((item: { name: string }) => item.name)).toEqual(['DeepSeek'])
+  if (process.platform !== 'win32')
+    expect((await import('node:fs')).statSync(withKeys).mode & 0o777).toBe(0o600)
+  await host.close()
+
+  // Another machine: an imported file with a hostile env var, into a list that already has a DeepSeek.
+  exported.providers[0].preset.env.NODE_OPTIONS = '--require /tmp/x.js'
+  await writeFile(withKeys, JSON.stringify(exported))
+  const other = await setup()
+  await other.host.execute({ type: 'provider-save', app: 'claude', name: 'DeepSeek', from: 'DeepSeek' })
+  await other.host.execute({ type: 'providers-import', path: withKeys })
+  const mine = other.host.snapshot().agents.mine.claude!
+  expect(mine.map(item => [item.name, item.source, item.hasKey])).toEqual([['DeepSeek', 'preset', false], ['NewAPI', 'universal', true], ['DeepSeek 2', 'preset', true]])
+  expect(JSON.stringify(other.host.snapshot().settings)).not.toContain('NODE_OPTIONS')
+  expect(other.keys()).toMatchObject({ 'claude:DeepSeek 2': 'sk-ds', 'universal:NewAPI': 'sk-gw', 'claude:NewAPI': 'sk-gw' })
+  await expect(other.host.execute({ type: 'providers-import', path: plain.replace('plain', 'missing') })).rejects.toThrow('JSON')
+  await other.host.close()
+})

@@ -701,6 +701,29 @@ export class Host {
         await this.hub.checkUsage(command.app, command.name)
         await this.refreshAgents(false)
         return this.snapshot()
+      case 'provider-link':
+        this.hub.previewLink(command.link)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-link-confirm':
+        await this.hub.confirmLink(command.use)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-link-cancel':
+        this.hub.cancelLink()
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'providers-export':
+        if (!command.path)
+          throw new Error('没有选择保存位置')
+        await this.hub.exportTo(command.path, command.includeKeys)
+        return this.snapshot()
+      case 'providers-import':
+        if (!command.path)
+          throw new Error('没有选择文件')
+        await this.hub.importFrom(command.path)
+        await this.refreshAgents(false)
+        return this.snapshot()
       case 'universal-save':
         await this.hub.saveUniversal(command)
         await this.refreshAgents(false)

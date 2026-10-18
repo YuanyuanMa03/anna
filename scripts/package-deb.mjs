@@ -20,6 +20,7 @@ Icon=anna
 Type=Application
 Terminal=false
 Categories=Development;Utility;
+MimeType=x-scheme-handler/anna;
 StartupWMClass=Anna
 `
 

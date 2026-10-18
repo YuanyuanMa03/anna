@@ -64,6 +64,10 @@ function save() {
   editor.value = undefined
 }
 const use = (name?: string) => emit('command', { type: 'agent-provider', agent: current.value, provider: name })
+const pending = computed(() => agents.value.pendingImport)
+const linkOpen = ref(false)
+const link = ref('')
+const exportKeys = ref(false)
 const speed = (name: string) => agents.value.speed?.[`${current.value}:${name}`]
 const usage = (name: string) => agents.value.usage?.[`${current.value}:${name}`]
 /** The provider whose balance or quota is being looked up; cleared when the answer arrives. */
@@ -92,6 +96,34 @@ function speedtest(name: string) {
 <template>
   <div class="providers">
     <p class="small muted">派活或把它当大脑时，Anna 只给那个 agent 的进程注入这里选的服务商，不改你的配置文件。“应用到全局”才会像 cc-switch 一样写入它的配置：只改连接相关的字段，首次写入前会备份，可以一键恢复。预设来自 cc-switch（MIT）。</p>
+    <div class="card-actions left provider-tools">
+      <button :disabled="locked" @click="linkOpen = !linkOpen">从链接导入</button>
+      <button :disabled="locked" @click="emit('command', { type: 'providers-import' })">导入文件</button>
+      <button :disabled="locked" @click="emit('command', { type: 'providers-export', includeKeys: exportKeys })">导出</button>
+      <label class="check small"><input v-model="exportKeys" type="checkbox" aria-label="导出时包含密钥">含密钥</label>
+    </div>
+    <p v-if="exportKeys" class="small warn">导出的文件里会有明文密钥，只给你自己的设备用，别发给别人。</p>
+    <form v-if="linkOpen && !pending" class="link-import" @submit.prevent="emit('command', { type: 'provider-link', link }); link = ''">
+      <input v-model="link" required aria-label="导入链接" placeholder="粘贴 anna:// 或 ccswitch:// 开头的导入链接">
+      <button type="submit" :disabled="locked">识别</button>
+    </form>
+    <section v-if="pending" class="card approval-request link-confirm" role="alert" aria-label="确认导入">
+      <strong>导入 {{ labels[pending.app] }} 服务商：{{ pending.name }}</strong>
+      <dl class="small">
+        <dt>请求地址</dt><dd>{{ pending.baseUrl }}<template v-if="pending.endpoints.length">（另有 {{ pending.endpoints.length }} 个备用地址）</template></dd>
+        <dt>API Key</dt><dd>{{ pending.key }}</dd>
+        <template v-if="pending.model"><dt>模型</dt><dd>{{ pending.model }}</dd></template>
+        <template v-if="pending.tiers"><dt>Haiku / Sonnet / Opus</dt><dd>{{ [pending.tiers.haiku, pending.tiers.sonnet, pending.tiers.opus].map(item => item ?? '—').join(' / ') }}</dd></template>
+        <template v-if="pending.website"><dt>网站</dt><dd>{{ pending.website }}</dd></template>
+      </dl>
+      <p v-for="warning in pending.warnings" :key="warning" class="small warn">⚠ {{ warning }}</p>
+      <p class="small muted">密钥会发到上面的地址。只导入你信任的网站给的链接。</p>
+      <div class="card-actions">
+        <button @click="emit('command', { type: 'provider-link-cancel' })">取消</button>
+        <button :class="{ primary: !pending.enabled }" :disabled="locked" @click="emit('command', { type: 'provider-link-confirm', use: false })">导入</button>
+        <button :class="{ primary: pending.enabled }" :disabled="locked" @click="emit('command', { type: 'provider-link-confirm', use: true })">导入并让{{ whoInline }}用它</button>
+      </div>
+    </section>
     <div class="app-tabs" role="tablist" aria-label="选择 agent">
       <button v-for="id in apps" :key="id" role="tab" :aria-selected="app === id" :data-app="id" @click="app = id; editor = undefined; removing = undefined">{{ labels[id] }}</button>
       <button role="tab" :aria-selected="app === 'universal'" data-app="universal" @click="app = 'universal'; editor = undefined">统一</button>

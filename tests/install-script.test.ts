@@ -78,7 +78,7 @@ describe.skipIf(process.platform !== 'linux')('install.sh on Linux', () => {
     const { stdout } = await run('/bin/bash', [script], { env: { ...env, ANNA_USERNS_SYSCTL: '/nonexistent' } })
     expect(stdout).toContain('Anna 0.5.0')
     expect(await readFile(join(home, '.local/bin/anna'), 'utf8')).toBe('#!/bin/sh\n')
-    expect(await readFile(join(home, '.local/share/applications/anna.desktop'), 'utf8')).toContain(`Exec=${dest}/anna\n`)
+    expect(await readFile(join(home, '.local/share/applications/anna.desktop'), 'utf8')).toContain(`Exec=${dest}/anna %U\nIcon=`)
     expect(stdout).not.toContain('AppArmor')
     const { readdir } = await import('node:fs/promises')
     expect(await readdir(apparmor)).toEqual([])

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AgentStatus, Command, RuntimeSnapshot } from '../../../../packages/shared/contracts'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import ProvidersPanel from './providers-panel.vue'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string }>()
@@ -8,7 +8,12 @@ const emit = defineEmits<{ command: [command: Command], close: [] }>()
 const installing = ref<string>()
 const confirmInstall = ref<AgentStatus>()
 /** The panel grows section by section as cc-switch's features arrive. */
-const tab = ref<'agents' | 'providers'>('agents')
+const tab = ref<'agents' | 'providers'>(props.snapshot.agents.pendingImport ? 'providers' : 'agents')
+// An import link waiting for confirmation brings the providers tab forward.
+watch(() => props.snapshot.agents.pendingImport, (pending) => {
+  if (pending)
+    tab.value = 'providers'
+})
 const agents = computed(() => props.snapshot.agents)
 const delegates = computed(() => agents.value.detected.filter(agent => agent.tier === 'delegate'))
 const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier === 'switch'))
