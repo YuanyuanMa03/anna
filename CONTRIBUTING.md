@@ -37,5 +37,11 @@ macOS, Windows and Linux.
 
 ## Live2D assets
 
-The sample characters are Live2D's and are not MIT-licensed. Don't commit model files. If you contribute a new
+The sample characters are Live2D's and are not covered by Anna's license. Don't commit model files. If you contribute a new
 character, include its license and make sure redistribution is allowed.
+
+## License of contributions
+
+Anna is free for noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE), and the author also
+sells commercial licenses ([COMMERCIAL.md](COMMERCIAL.md)). By opening a pull request, you agree that your contribution
+may be distributed under both: the PolyForm Noncommercial license and commercial licenses granted by the author.

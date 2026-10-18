@@ -128,7 +128,7 @@ export interface RuntimeSnapshot {
   agents: AgentsSnapshot
 }
 /** Only these product events cross the preload boundary. Kernel objects stay in the core process. */
-export type AnnaEvent = { type: 'navigate', panel: 'settings' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
+export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'sponsor' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
   | { type: 'weixin', state: WeixinState }
   | ({ type: 'tool' } & ToolActivity)
   | { type: 'anna', state: AnnaState }

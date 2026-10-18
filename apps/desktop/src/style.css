@@ -160,6 +160,13 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .weixin-sheet { text-align: center }
 .weixin-sheet .sheet-heading { text-align: left }
 .weixin-qr { width: 260px; max-width: 100%; border-radius: 16px }
+.header-actions button.sponsor { background: #fdeef3; border-color: #f2c4d3; color: #c2577b }
+.sponsor-sheet { text-align: center }
+.sponsor-sheet .sheet-heading { text-align: left }
+.sponsor-sheet > p:first-of-type { text-align: left; line-height: 1.7 }
+.payment-tabs { display: flex; justify-content: center; gap: 6px; margin: 6px 0 14px }
+.payment-tabs button[aria-selected=true] { background: #ece3f5; border-color: #cdbbe0 }
+.sponsor-qr { display: block; margin: 0 auto; width: 240px; max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 16px }
 .boot { display: grid; place-items: center; height: 100dvh; color: #9a80ab }
 
 @media (max-width: 1100px) {

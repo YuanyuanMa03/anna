@@ -1,6 +1,10 @@
 # Notices
 
-Anna code: Copyright (c) 2026 YuanyuanMa03. MIT license.
+Required Notice: Copyright (c) 2026 YuanyuanMa03 (https://github.com/YuanyuanMa03/anna)
+
+Anna's code is licensed under the PolyForm Noncommercial License 1.0.0 (see `LICENSE`); commercial use needs a license
+from the author (see `COMMERCIAL.md`). Anna v0.4.1 and earlier were released under the MIT license, and those releases
+keep it.
 
 Anna retains selected Project AIRI rendering patterns under MIT. Original copyright: 2024-PRESENT Neko Ayaka.
 The original license is in `assets/licenses/AIRI-MIT.txt`.
@@ -8,7 +12,7 @@ The original license is in `assets/licenses/AIRI-MIT.txt`.
 The renderer uses AIRI's Pixi 6 and pixi-live2d-display foundation. The Vue stage owns the canvas, ticker, model, resize observer, and disposal.
 This project does not copy the AIRI monorepo or its agent runtime.
 
-Hiyori, Haru Greeter, Mark, Niziiro Mao, Natori Jin and Chitose are Live2D sample assets. Anna does not relicense them as MIT.
+Hiyori, Haru Greeter, Mark, Niziiro Mao, Natori Jin and Chitose are Live2D sample assets. Anna's license does not cover them.
 The companions' names, personalities and lines in `packages/character/manifest.ts` are Anna's own writing; the characters' designs belong to Live2D Inc.
 Their models, textures, motions, previews, and Cubism Core are not tracked in Git. `pnpm assets` downloads them from
 this repository's `assets-v1` and `assets-v2` releases and verifies each file against `docs/asset-inventory.json`.
