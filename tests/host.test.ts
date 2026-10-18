@@ -20,7 +20,7 @@ async function setup(script: ScriptStep[], options: { mode?: PermissionMode, tru
   const workspace = join(data, 'project')
   await mkdir(workspace)
   await writeFile(join(workspace, 'tasks.txt'), 'alpha\nbeta\n')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: options.trusted === false ? {} : { [workspace]: { trusted: true, mode: options.mode ?? 'edit', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: options.trusted === false ? {} : { [workspace]: { trusted: true, mode: options.mode ?? 'edit', rules: { allow: [], ask: [], deny: [] } } } }))
   let backend: Awaited<ReturnType<typeof scriptedBackend>> | undefined
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
@@ -168,7 +168,7 @@ it.skipIf(process.platform === 'win32' || process.env.CI_NO_SANDBOX === '1')('au
   const data = await mkdtemp(join(tmpdir(), 'anna-sbx-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend([
     { tools: [{ name: 'bash', args: { command: `echo inside > out.txt; echo outside > ${escape}; curl -sS -m 5 -o /dev/null https://example.com/ && echo NET-OK || echo NET-BLOCKED` } }] },
     { text: '做完了。' },
@@ -264,7 +264,7 @@ function cannedKernel(outcomes: TurnOutcome[]) {
 
 it('a key is only "verified" after a real reply, and an auth failure says so in plain words', async () => {
   const data = await mkdtemp(join(tmpdir(), 'anna-key-'))
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspaces: {} }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspaces: {} }))
   const host = new Host(resolve('.'), data, { read: async () => 'sk-wrong', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     kernel: cannedKernel([

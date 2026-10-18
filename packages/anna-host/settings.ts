@@ -47,10 +47,13 @@ export function migrate(raw: Record<string, unknown>): Settings {
     const { workEnabled: _work, sessionId: _session, ...rest } = value
     value = { ...rest, version: 2, workspaces }
   }
+  // Hiyori left the cast; Haru took over as Anna.
+  if (value.characterId === 'hiyori')
+    value.characterId = 'haru'
   return v.parse(settingsSchema, value) as Settings
 }
 
-export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, reviewDelegations: true, workspaces: {}, model: { provider: 'deepseek-official', model: 'deepseek-flash', baseURL: 'https://api.deepseek.com', api: 'openai-completions' } })
+export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, reviewDelegations: true, workspaces: {}, model: { provider: 'deepseek-official', model: 'deepseek-flash', baseURL: 'https://api.deepseek.com', api: 'openai-completions' } })
 
 /** The host is the sole writer. Atomic replacement prevents truncated settings after a crash. */
 export class SettingsStore {

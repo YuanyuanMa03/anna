@@ -12,9 +12,9 @@ describe('model containment', () => {
 })
 
 describe('companions', () => {
-  it('has three women and three men, each with a card, a voice and a working model path', async () => {
+  it('has two women and three men, each with a card, a voice and a working model path', async () => {
     const { characters } = await import('../packages/character/manifest')
-    expect(characters.filter(item => item.gender === 'female')).toHaveLength(3)
+    expect(characters.filter(item => item.gender === 'female')).toHaveLength(2)
     expect(characters.filter(item => item.gender === 'male')).toHaveLength(3)
     expect(new Set(characters.map(item => item.name)).size).toBe(characters.length)
     for (const item of characters) {
@@ -26,7 +26,8 @@ describe('companions', () => {
     const { companion } = await import('../packages/character/manifest')
     expect(companion('natori').name).toBe('名执尽')
     expect(companion('ren').name).toBe('Anna')
-    expect(companion(undefined).id).toBe('hiyori')
+    expect(companion(undefined).id).toBe('haru')
+    expect(companion('hiyori').name).toBe('Anna')
   })
   it('maps standard parameter names onto Cubism 2-era and renamed parameters', async () => {
     const { companion, paramId } = await import('../packages/character/manifest')
@@ -37,6 +38,6 @@ describe('companions', () => {
     expect(paramId(chitose, 'ParamBrowLY')).toBe('PARAM_BROW_L_Y')
     expect(paramId(chitose, 'ParamEyeBallX')).toBe('PARAM_EYE_BALL_X')
     expect(paramId(companion('mao'), 'ParamMouthOpenY')).toBe('ParamA')
-    expect(paramId(companion('hiyori'), 'ParamMouthOpenY')).toBe('ParamMouthOpenY')
+    expect(paramId(companion('haru'), 'ParamMouthOpenY')).toBe('ParamMouthOpenY')
   })
 })

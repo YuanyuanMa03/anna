@@ -32,7 +32,10 @@ describe('settings', () => {
     expect(store.value).toMatchObject({ version: 2, characterId: 'haru', workspaces: { '/Users/x/project': { trusted: true, mode: 'edit' } } })
     expect(store.value).not.toHaveProperty('sessionId')
     expect(JSON.parse(await readFile(join(dir, 'settings.json'), 'utf8')).version).toBe(2)
-    expect(migrate({ characterId: 'hiyori', statusEnabled: true, workEnabled: false, workspace: '/p', model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).workspaces['/p']!.mode).toBe('plan')
+    expect(migrate({ characterId: 'haru', statusEnabled: true, workEnabled: false, workspace: '/p', model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).workspaces['/p']!.mode).toBe('plan')
+  })
+  it('moves people who had Hiyori over to Anna, who is now Haru', () => {
+    expect(migrate({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).characterId).toBe('haru')
   })
   it.each(['http://example.com', 'https://user:secret@example.com', 'https://example.com?key=secret'])('refuses credential-bearing or cleartext endpoints', (baseURL) => {
     expect(() => validateModel({ provider: 'custom', model: 'test-model', api: 'anthropic-messages', baseURL })).toThrow()
