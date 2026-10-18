@@ -1,7 +1,7 @@
 {
   "source": {
     "repo": "https://github.com/farion1231/cc-switch",
-    "commit": "797e027",
+    "commit": "77c6dc7",
     "license": "MIT",
     "copyright": "Jason Young"
   },
@@ -609,6 +609,28 @@
       "env": {
         "ANTHROPIC_BASE_URL": "https://modelflare.dev",
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "EveryAPI",
+      "website": "https://everyapi.ai/",
+      "apiKeyUrl": "https://app.everyapi.ai/signin",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.everyapi.ai"
+      }
+    },
+    {
+      "name": "AllTokens",
+      "website": "https://alltokens.cc/",
+      "apiKeyUrl": "https://alltokens.cc/register",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://alltokens.cc"
       }
     },
     {
@@ -1595,6 +1617,46 @@
       "wireApi": "responses"
     },
     {
+      "name": "Kimi",
+      "website": "https://platform.kimi.com/",
+      "apiKeyUrl": "https://platform.kimi.com/console/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Kimi Global",
+      "website": "https://platform.kimi.ai/",
+      "apiKeyUrl": "https://platform.kimi.ai/console/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.moonshot.ai/v1",
+      "model": "kimi-k3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Kimi For Coding",
+      "website": "https://www.kimi.com/code/",
+      "apiKeyUrl": "https://www.kimi.com/code/",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "model": "kimi-for-coding",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Kimi For Coding Global",
+      "website": "https://www.kimi.ai/code",
+      "apiKeyUrl": "https://www.kimi.ai/code",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.kimi.ai/coding/v1",
+      "model": "kimi-for-coding",
+      "wireApi": "responses"
+    },
+    {
       "name": "PackyCode",
       "website": "https://www.packyapi.ai/",
       "apiKeyUrl": "https://www.packyapi.ai/register",
@@ -1611,6 +1673,16 @@
       "official": false,
       "category": "aggregator",
       "baseUrl": "https://api.zetaapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "APINebula",
+      "website": "https://apinebula.ai/",
+      "apiKeyUrl": "https://apinebula.ai/VjM74M",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://apinebula.ai/v1",
       "model": "gpt-5.6-sol",
       "wireApi": "responses"
     },
@@ -1675,6 +1747,16 @@
       "wireApi": "responses"
     },
     {
+      "name": "TokenFactory",
+      "website": "https://tokenfactory.cn/",
+      "apiKeyUrl": "https://console.tokenfactory.cn/login",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.tokenfactory.cn/v1",
+      "model": "glm-5.3",
+      "wireApi": "responses"
+    },
+    {
       "name": "Shengsuanyun",
       "website": "https://www.shengsuanyun.com/",
       "apiKeyUrl": "https://www.shengsuanyun.com/",
@@ -1735,6 +1817,16 @@
       "wireApi": "responses"
     },
     {
+      "name": "APIKEY.FUN",
+      "website": "https://apikey.fan/",
+      "apiKeyUrl": "https://apikey.fan/register",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.apikey.fan/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
       "name": "9527CODE",
       "website": "https://9527.codes/",
       "apiKeyUrl": "https://9527.codes/register",
@@ -1772,6 +1864,46 @@
       "category": "third_party",
       "baseUrl": "https://claudecn.top/v1",
       "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "火山 Agent Plan",
+      "website": "https://www.volcengine.com/activity/agentplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "apiKeyUrl": "https://www.volcengine.com/activity/agentplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
+      "model": "ark-code-latest",
+      "wireApi": "responses"
+    },
+    {
+      "name": "火山 Coding Plan",
+      "website": "https://www.volcengine.com/activity/codingplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "apiKeyUrl": "https://www.volcengine.com/activity/codingplan?ac=MMAP8JTTCAQ2&rc=6J6FV5N2",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "model": "ark-code-latest",
+      "wireApi": "responses"
+    },
+    {
+      "name": "BytePlus",
+      "website": "https://www.byteplus.com/en/product/modelark",
+      "apiKeyUrl": "https://www.byteplus.com/en/product/modelark",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+      "model": "ark-code-latest",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Volcengine Doubao",
+      "website": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "model": "doubao-seed-2-1-pro-260628",
       "wireApi": "responses"
     },
     {
@@ -1884,6 +2016,26 @@
       "wireApi": "responses"
     },
     {
+      "name": "SudoCode.chat",
+      "website": "https://sudocode.chat/",
+      "apiKeyUrl": "https://sudocode.chat/sign-up",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.sudocode.chat/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SudoCode.us",
+      "website": "https://sudocode.us/",
+      "apiKeyUrl": "https://sudocode.us/",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://sudocode.us/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
       "name": "XycAi",
       "website": "https://xycai.us/",
       "apiKeyUrl": "https://xycai.us/register",
@@ -1900,6 +2052,26 @@
       "official": false,
       "category": "aggregator",
       "baseUrl": "https://modelflare.dev/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "EveryAPI",
+      "website": "https://everyapi.ai/",
+      "apiKeyUrl": "https://app.everyapi.ai/signin",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.everyapi.ai/v1",
+      "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "AllTokens",
+      "website": "https://alltokens.cc/",
+      "apiKeyUrl": "https://alltokens.cc/register",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://alltokens.cc/v1",
       "model": "gpt-5.6-sol",
       "wireApi": "responses"
     },
@@ -1940,6 +2112,332 @@
       "category": "third_party",
       "baseUrl": "https://YOUR_RESOURCE_NAME.openai.azure.com/openai",
       "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "DeepSeek",
+      "website": "https://platform.deepseek.com/",
+      "apiKeyUrl": "https://platform.deepseek.com/api_keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Zhipu GLM",
+      "website": "https://open.bigmodel.cn/",
+      "apiKeyUrl": "https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://open.bigmodel.cn/api/v1",
+      "model": "glm-5.3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Zhipu GLM en",
+      "website": "https://z.ai/",
+      "apiKeyUrl": "https://z.ai/subscribe?ic=8JVLJQFSKB",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.z.ai/api/v1",
+      "model": "glm-5.3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Baidu Qianfan",
+      "website": "https://cloud.baidu.com/product/qianfan_modelbuilder",
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://qianfan.baidubce.com/v2",
+      "model": "deepseek-v4-pro",
+      "wireApi": "responses"
+    },
+    {
+      "name": "千问AI平台",
+      "website": "https://platform.qianwenai.com/",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen3.8-max",
+      "wireApi": "responses"
+    },
+    {
+      "name": "千问AI平台 Token Plan",
+      "website": "https://platform.qianwenai.com/pricing/token-plan",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen3.8-max",
+      "wireApi": "responses"
+    },
+    {
+      "name": "QwenCloud",
+      "website": "https://home.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen3.8-max",
+      "wireApi": "responses"
+    },
+    {
+      "name": "QwenCloud Token Plan",
+      "website": "https://www.qwencloud.com/pricing/token-plan",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen3.8-max",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Tencent Hunyuan",
+      "website": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/apikey",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://tokenhub.tencentmaas.com/v1",
+      "model": "hy3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "StepFun API",
+      "website": "https://platform.stepfun.com/",
+      "apiKeyUrl": "https://platform.stepfun.com/interface-key",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.stepfun.com/v1",
+      "model": "step-3.7-flash",
+      "wireApi": "responses"
+    },
+    {
+      "name": "StepFun API en",
+      "website": "https://platform.stepfun.ai/",
+      "apiKeyUrl": "https://platform.stepfun.ai/interface-key",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.stepfun.ai/v1",
+      "model": "step-3.7-flash",
+      "wireApi": "responses"
+    },
+    {
+      "name": "StreamLake",
+      "website": "https://www.streamlake.com/",
+      "apiKeyUrl": "https://console.streamlake.com/console/wanqing/api-key",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://wanqing.streamlakeapi.com/api/gateway/v1/endpoints",
+      "model": "kat-coder-pro-v2.5",
+      "wireApi": "responses"
+    },
+    {
+      "name": "StreamLake en",
+      "website": "https://console.streamlake.ai/",
+      "apiKeyUrl": "https://console.streamlake.ai/console/api-key",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://vanchin.streamlake.ai/api/gateway/v1/endpoints",
+      "model": "kat-coder-pro-v2.5",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Longcat",
+      "website": "https://longcat.chat/platform",
+      "apiKeyUrl": "https://longcat.chat/platform/api_keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.longcat.chat/openai/v1",
+      "model": "LongCat-2.0",
+      "wireApi": "responses"
+    },
+    {
+      "name": "MiniMax",
+      "website": "https://platform.minimax.cn/",
+      "apiKeyUrl": "https://platform.minimax.cn/subscribe/token-plan",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.minimax.cn/v1",
+      "model": "MiniMax-M3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "MiniMax en",
+      "website": "https://platform.minimax.io/",
+      "apiKeyUrl": "https://platform.minimax.io/subscribe/coding-plan",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.minimax.io/v1",
+      "model": "MiniMax-M3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Astron Coding Plan",
+      "website": "https://maas.xfyun.cn/packageSubscription",
+      "apiKeyUrl": "https://maas.xfyun.cn/packageSubscription",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v1",
+      "model": "astron-code-latest",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Xiaomi MiMo",
+      "website": "https://platform.xiaomimimo.com/",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/api-keys",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.xiaomimimo.com/v1",
+      "model": "mimo-v2.6-pro",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Xiaomi MiMo Token Plan (China)",
+      "website": "https://platform.xiaomimimo.com/#/token-plan",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/plan-manage",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+      "model": "mimo-v2.6-pro",
+      "wireApi": "responses"
+    },
+    {
+      "name": "xAI (Grok)",
+      "website": "https://x.ai/api",
+      "apiKeyUrl": "https://console.x.ai/",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.x.ai/v1",
+      "model": "grok-4.5",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Ollama Cloud",
+      "website": "https://ollama.com/",
+      "apiKeyUrl": "https://ollama.com/settings/keys",
+      "official": false,
+      "category": "cloud_provider",
+      "baseUrl": "https://ollama.com/v1",
+      "model": "glm-5.3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Ollama",
+      "website": "https://ollama.com/",
+      "official": false,
+      "category": "local",
+      "baseUrl": "http://localhost:11434/v1",
+      "model": "gpt-oss:20b",
+      "wireApi": "responses"
+    },
+    {
+      "name": "LM Studio",
+      "website": "https://lmstudio.ai/",
+      "official": false,
+      "category": "local",
+      "baseUrl": "http://localhost:1234/v1",
+      "model": "openai/gpt-oss-20b",
+      "wireApi": "responses"
+    },
+    {
+      "name": "llama.cpp",
+      "website": "https://github.com/ggml-org/llama.cpp",
+      "official": false,
+      "category": "local",
+      "baseUrl": "http://127.0.0.1:9931/v1",
+      "model": "ggml-org/Qwen3-Coder-30B-A3B-Instruct-Q8_0-GGUF",
+      "wireApi": "responses"
+    },
+    {
+      "name": "vLLM",
+      "website": "https://vllm.ai/",
+      "official": false,
+      "category": "local",
+      "baseUrl": "http://localhost:8000/v1",
+      "model": "Qwen/Qwen3.6-27B",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Meta Model API",
+      "website": "https://dev.meta.ai/",
+      "apiKeyUrl": "https://dev.meta.ai/",
+      "official": false,
+      "category": "cn_official",
+      "baseUrl": "https://api.meta.ai/v1",
+      "model": "muse-wonder-1.0",
+      "wireApi": "responses"
+    },
+    {
+      "name": "DeepInfra",
+      "website": "https://deepinfra.com/",
+      "apiKeyUrl": "https://deepinfra.com/dash/api_keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.deepinfra.com/v1",
+      "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Vercel AI Gateway",
+      "website": "https://vercel.com/ai-gateway",
+      "apiKeyUrl": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://ai-gateway.vercel.sh/codex/v1",
+      "model": "openai/gpt-6-astra",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Nebius Token Factory",
+      "website": "https://nebius.com/token-factory",
+      "apiKeyUrl": "https://tokenfactory.nebius.com/project/api-keys",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://api.tokenfactory.nebius.com/v1",
+      "model": "zai-org/GLM-5.3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "SambaNova",
+      "website": "https://sambanova.ai/",
+      "apiKeyUrl": "https://cloud.sambanova.ai/apis",
+      "official": false,
+      "category": "cloud_provider",
+      "baseUrl": "https://api.sambanova.ai/v1",
+      "model": "MiniMax-M3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "DigitalOcean",
+      "website": "https://www.digitalocean.com/products/ai-platform",
+      "apiKeyUrl": "https://cloud.digitalocean.com/model-studio/manage-keys",
+      "official": false,
+      "category": "cloud_provider",
+      "baseUrl": "https://inference.do-ai.run/v1",
+      "model": "openai-gpt-6-1-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Fireworks AI",
+      "website": "https://fireworks.ai/",
+      "apiKeyUrl": "https://app.fireworks.ai/settings/users/api-keys",
+      "official": false,
+      "category": "cloud_provider",
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Cloudflare AI Gateway",
+      "website": "https://developers.cloudflare.com/ai-gateway/",
+      "apiKeyUrl": "https://dash.cloudflare.com/profile/api-tokens",
+      "official": false,
+      "category": "cloud_provider",
+      "baseUrl": "https://gateway.ai.cloudflare.com/v1/YOUR_ACCOUNT_ID/default/openai",
+      "model": "gpt-6.1-sol",
       "wireApi": "responses"
     },
     {
@@ -2029,6 +2527,26 @@
       "category": "aggregator",
       "baseUrl": "https://api.aicodewith.ai/v1",
       "model": "gpt-5.6-sol",
+      "wireApi": "responses"
+    },
+    {
+      "name": "Command Code",
+      "website": "https://commandcode.ai/",
+      "apiKeyUrl": "https://commandcode.ai/settings/keys",
+      "official": false,
+      "category": "third_party",
+      "baseUrl": "https://api.commandcode.ai/provider/v1",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "wireApi": "responses"
+    },
+    {
+      "name": "模力方舟",
+      "website": "https://moark.com/",
+      "apiKeyUrl": "https://moark.com/dashboard/tokens",
+      "official": false,
+      "category": "aggregator",
+      "baseUrl": "https://moark.com/v1",
+      "model": "deepseek-v4-flash-0731",
       "wireApi": "responses"
     },
     {
@@ -2359,6 +2877,17 @@
       "env": {
         "GOOGLE_GEMINI_BASE_URL": "https://modelflare.dev",
         "GEMINI_MODEL": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "AllTokens",
+      "website": "https://alltokens.cc/",
+      "apiKeyUrl": "https://alltokens.cc/register",
+      "official": false,
+      "category": "aggregator",
+      "env": {
+        "GOOGLE_GEMINI_BASE_URL": "https://alltokens.cc",
+        "GEMINI_MODEL": "gemini-3.8-flash"
       }
     },
     {
