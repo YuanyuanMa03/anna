@@ -46,6 +46,18 @@ export const copy = {
       shot: '真实截图 · 连接 DeepSeek 完成一个任务',
       chips: ['协作模式 · 命令在沙箱中运行', '读取 → 写入 → 终端 → 交付'],
     },
+    cast: {
+      label: '六位伙伴',
+      note: '六位伙伴住在同一个家里，各有各的性格，共用一本关于你的日记。点一位，和 TA 一起干次活。',
+      people: {
+        hiyori: { name: 'Anna', tagline: '温柔、理性、真诚' },
+        haru: { name: '春', tagline: '有条不紊的前台姐姐' },
+        mao: { name: 'Mao', tagline: '爱折腾的小魔法师' },
+        natori: { name: '名执尽', tagline: '一丝不苟的执事先生' },
+        chitose: { name: '千岁', tagline: '靠谱又随和的学长' },
+        mark: { name: '马克君', tagline: '元气满满的小伙伴' },
+      },
+    },
     strip: { lead: '不只是 agent，是数字生命。', items: ['有性格，也有记忆', '真诚：不编造，不越权', '会干活，也会派活', '源码公开，个人免费'] },
     demo: {
       eyebrow: 'LIVE DEMO',
@@ -67,7 +79,7 @@ export const copy = {
       modified: '修改',
       status: { done: '完成', denied: '你拒绝了', blocked: '规划模式不执行', running: '进行中', waiting: '等你确认' },
       lines: {
-        idle: '嗨，我是 Anna。今天想一起做点什么？选一个模式，把任务交给我吧。',
+        idle: (name: string) => `嗨，我是${name}。今天想一起做点什么？选一个模式，把任务交给我吧。`,
         thinking: '让我想想……',
         supervising: 'Claude Code 在干活，我在旁边盯着。',
         waiting: '这一步要你点头才能继续。',
@@ -154,6 +166,18 @@ export const copy = {
       shot: 'Real screenshot · a task finished with DeepSeek',
       chips: ['Edit mode · commands run in the sandbox', 'read → write → shell → deliver'],
     },
+    cast: {
+      label: 'Six companions',
+      note: 'Six companions share one home, each their own person, with one diary about you. Pick one and get some work done together.',
+      people: {
+        hiyori: { name: 'Anna', tagline: 'Gentle, rational, honest' },
+        haru: { name: 'Haru', tagline: 'The organized receptionist' },
+        mao: { name: 'Mao', tagline: 'A tinkering apprentice witch' },
+        natori: { name: 'Natori', tagline: 'A meticulous butler' },
+        chitose: { name: 'Chitose', tagline: 'The easygoing senior' },
+        mark: { name: 'Mark', tagline: 'Full of energy' },
+      },
+    },
     strip: { lead: 'More than an agent: a digital life.', items: ['A personality and a memory', 'Honest: no made-up results, no overreach', 'Works, and delegates', 'Source available, free for personal use'] },
     demo: {
       eyebrow: 'LIVE DEMO',
@@ -175,7 +199,7 @@ export const copy = {
       modified: 'modified',
       status: { done: 'done', denied: 'you denied', blocked: 'skipped in Plan', running: 'running', waiting: 'waiting for you' },
       lines: {
-        idle: 'Hi, I\'m Anna. What shall we do today? Pick a mode and hand me the task.',
+        idle: (name: string) => `Hi, I'm ${name}. What shall we do today? Pick a mode and hand me the task.`,
         thinking: 'Let me think…',
         supervising: 'Claude Code is on it. I\'m keeping an eye on things.',
         waiting: 'I need your OK before this step.',
