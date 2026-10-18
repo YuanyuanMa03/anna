@@ -2,6 +2,7 @@ import type { Command } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
 import process from 'node:process'
 import { Host } from '../../packages/anna-host/host'
+import { companion } from '../../packages/character/manifest'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { WeixinChannel } from '../../packages/weixin/channel'
 
@@ -72,7 +73,7 @@ async function main() {
     status: () => {
       const snapshot = h.snapshot()
       const anna = snapshot.anna
-      const lines = [`Anna：${phaseNames[anna.phase] ?? anna.phase}${anna.line ? ` · ${anna.line}` : ''}`, `权限模式：微信任务按「谨慎」执行`]
+      const lines = [`${companion(snapshot.settings.characterId).name}：${phaseNames[anna.phase] ?? anna.phase}${anna.line ? ` · ${anna.line}` : ''}`, `权限模式：微信任务按「谨慎」执行`]
       if (anna.step)
         lines.push(`本轮已执行 ${anna.step} 步`)
       if (snapshot.queue.length)

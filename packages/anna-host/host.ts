@@ -281,12 +281,12 @@ export class Host {
   }
 
   private announceApproval(question: ApprovalQuestion) {
-    this.emit({ type: 'notify', title: 'Anna 需要你确认', body: `${question.reason}：${question.details.slice(0, 120)}` })
+    this.emit({ type: 'notify', title: `${this.companionName} 需要你确认`, body: `${question.reason}：${question.details.slice(0, 120)}` })
     const channel = this.channels.get(question.origin)
     if (channel) {
       const body = question.danger
-        ? `Anna 需要你确认一个高风险操作（${question.reason}）：\n${question.details}\n请回到 Anna 桌面端处理。`
-        : `Anna 需要你确认（${question.reason}）：\n${question.details}\n回复 1 允许，0 拒绝。`
+        ? `${this.companionName} 需要你确认一个高风险操作（${question.reason}）：\n${question.details}\n请回到 Anna 桌面端处理。`
+        : `${this.companionName} 需要你确认（${question.reason}）：\n${question.details}\n回复 1 允许，0 拒绝。`
       void channel.notify(body)
     }
   }
@@ -346,6 +346,9 @@ export class Host {
       },
     }
   }
+
+  /** The companion on stage: "Anna" names the app, the active companion names whoever is talking. */
+  private get companionName() { return companion(this.store.value.characterId).name }
 
   private async instructions() {
     const persona = await readFile(join(this.root, 'plugins/anna-persona/persona.md'), 'utf8')
@@ -519,7 +522,7 @@ export class Host {
       this.refreshHistory()
       this.emit({ type: 'result', result: this.result })
       if (outcome.status !== 'aborted')
-        this.emit({ type: 'notify', title: outcome.status === 'failed' ? 'Anna 遇到问题' : 'Anna 完成了', body: this.result.summary || line })
+        this.emit({ type: 'notify', title: `${this.companionName}${outcome.status === 'failed' ? ' 遇到问题' : ' 完成了'}`, body: this.result.summary || line })
       this.publish()
       if (outcome.status === 'failed')
         task.reject(new Error(this.error))
@@ -657,7 +660,7 @@ export class Host {
         return this.snapshot()
       case 'undo': {
         if (this.current)
-          throw new Error('Anna 正在工作，请先等她完成或中断')
+          throw new Error(`${this.companionName} 正在工作，请先等任务完成或中断`)
         const { restored, conflicts } = await this.checkpoints.undo(command.taskId, command.force)
         if (conflicts.length && !command.force)
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
