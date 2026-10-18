@@ -36,7 +36,7 @@ it('refuses what Anna can\'t or shouldn\'t take, with the reason', () => {
   expect(bad({}, 'ccswitch://v2/import?resource=provider')).toThrow('v1/import')
   expect(bad({ resource: 'mcp' })).toThrow('下一阶段')
   expect(bad({ app: 'opencode', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k' })).toThrow('opencode')
-  expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', apiFormat: 'openai_chat' })).toThrow('本地路由')
+  expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', apiFormat: 'gemini_native' })).toThrow('本地路由')
   expect(bad({ app: 'codex', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', apiFormat: 'anthropic' })).toThrow('本地路由')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com' })).toThrow('API Key')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', configUrl: 'https://evil.example.com/c.json' })).toThrow('远程')
@@ -45,8 +45,9 @@ it('refuses what Anna can\'t or shouldn\'t take, with the reason', () => {
   expect(bad({ app: 'claude', name: 'x', endpoint: 'javascript:alert(1)', apiKey: 'k' })).toThrow('请求地址无效')
 })
 
-it('takes a Chat Completions provider for Codex, which goes through Anna\'s local routing', () => {
+it('takes a Chat Completions provider for Codex or Claude Code, which goes through Anna\'s local routing', () => {
   expect(parseProviderLink(link({ app: 'codex', name: 'C', endpoint: 'https://c.example.com/v1', apiKey: 'k', model: 'glm-5.3', apiFormat: 'openai_chat' }))).toMatchObject({ app: 'codex', baseUrl: 'https://c.example.com/v1', apiFormat: 'openai_chat' })
+  expect(parseProviderLink(link({ app: 'claude', name: 'C', endpoint: 'https://c.example.com', apiKey: 'k', model: 'glm-5.3', apiFormat: 'openai_chat' }))).toMatchObject({ app: 'claude', apiFormat: 'openai_chat' })
   expect(parseProviderLink(link({ app: 'codex', name: 'R', endpoint: 'https://r.example.com/v1', apiKey: 'k' }))).not.toHaveProperty('apiFormat')
 })
 

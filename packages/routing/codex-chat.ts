@@ -297,7 +297,7 @@ export function injectIncludeUsage(result: Json) {
 }
 
 /** Models that take `reasoning_effort` when the provider says nothing about reasoning: o-series, GPT-5+, Grok 4.5+. */
-function supportsReasoningEffort(model: string) {
+export function supportsReasoningEffort(model: string) {
   const name = model.toLowerCase()
   const grokMinor = /^grok-4\.(\d+)/.exec(name)?.[1]
   return isOpenAiOSeries(name) || /^gpt-[5-9]/.test(name) || (grokMinor !== undefined && Number(grokMinor) >= 5) || name.startsWith('grok-build-')

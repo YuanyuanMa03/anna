@@ -33,7 +33,7 @@ export interface Preset {
   reasoningEffort?: string
   /** codex: the preset's model rows, for the model catalog. */
   models?: CatalogRow[]
-  /** codex: a Chat Completions provider, which Codex reaches through Anna's local routing. */
+  /** claude / codex: a Chat Completions provider, which the agent reaches through Anna's local routing. */
   apiFormat?: 'openai_chat'
   /** codex, Chat providers: how the provider takes reasoning settings. */
   chatReasoning?: ChatReasoning
@@ -68,7 +68,7 @@ export function providerEnv(preset: Preset): Record<string, string> {
 }
 
 /** Whether the agent reaches this provider through Anna's local routing rather than directly. */
-export const routedThroughAnna = (app: ProviderApp, preset: Preset) => app === 'codex' && preset.apiFormat === 'openai_chat'
+export const routedThroughAnna = (app: ProviderApp, preset: Preset) => (app === 'codex' || app === 'claude') && preset.apiFormat === 'openai_chat'
 
 /** cc-switch's `codexChatReasoning`, from a file or a link: known fields of the right type only. */
 export function chatReasoningOf(value: unknown): ChatReasoning | undefined {
@@ -106,8 +106,14 @@ function catalogRowsOf(value: unknown): CatalogRow[] | undefined {
 }
 
 /** What Anna's routing needs to reach the provider: the address, the real key, and how it takes reasoning. */
-export function chatRouteOf(choice: ProviderChoice): ChatRoute {
-  const { preset, key } = choice
+export function chatRouteOf(app: 'codex' | 'claude', choice: ProviderChoice): ChatRoute {
+  const { preset, key, model } = choice
+  if (app === 'claude') {
+    // Claude Code asks for its tiers by the names in these settings, or by Claude's own names when one is missing.
+    const env = preset.env ?? {}
+    const models = { default: model ?? env.ANTHROPIC_MODEL, haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL, fable: env.ANTHROPIC_DEFAULT_FABLE_MODEL }
+    return { client: 'claude', label: preset.name, baseUrl: env.ANTHROPIC_BASE_URL ?? '', key, models: JSON.parse(JSON.stringify(models)) }
+  }
   const effortLevels = Object.fromEntries((preset.models ?? []).filter(row => row.reasoningLevels?.length).map(row => [row.model, row.reasoningLevels!]))
   return { label: preset.name, baseUrl: preset.baseUrl!, key, reasoning: preset.chatReasoning, effortLevels }
 }
@@ -131,8 +137,15 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice, route?:
     const env = providerEnv(preset)
     if (model)
       env.ANTHROPIC_MODEL = model
-    if (key)
+    if (routed) {
+      // Claude Code talks to the route with its token; the provider's address and key stay with Anna.
+      env.ANTHROPIC_BASE_URL = route!.baseUrl
+      delete env.ANTHROPIC_API_KEY
+      env.ANTHROPIC_AUTH_TOKEN = route!.token
+    }
+    else if (key) {
       env[keyFieldOf(preset)] = key
+    }
     return { env, args: [] }
   }
   if (app === 'codex') {
@@ -200,7 +213,7 @@ export function importCcSwitch(path: string): ImportedProvider[] {
       const env = config.env ?? {}
       const keyField = row.app_type === 'claude' ? (env.ANTHROPIC_API_KEY && !env.ANTHROPIC_AUTH_TOKEN ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN') : 'GEMINI_API_KEY'
       const connection = Object.fromEntries(Object.entries(env).filter(([key, value]) => key !== keyField && !/(?:KEY|TOKEN)$/.test(key) && typeof value === 'string' && value))
-      return [{ app: row.app_type, name: row.name, current: Boolean(row.is_current), key: env[keyField] || undefined, preset: { name: row.name, ...base, env: connection, ...(row.app_type === 'claude' ? { keyField } : {}) } }]
+      return [{ app: row.app_type, name: row.name, current: Boolean(row.is_current), key: env[keyField] || undefined, preset: { name: row.name, ...base, env: connection, ...(row.app_type === 'claude' ? { keyField, ...(meta.apiFormat === 'openai_chat' ? { apiFormat: 'openai_chat' as const } : {}) } : {}) } }]
     })
   }
   finally { db.close() }

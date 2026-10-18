@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { globalPlan } from '../packages/agents/global'
-import { findPreset, providerLaunch } from '../packages/agents/providers'
+import { chatRouteOf, findPreset, providerLaunch } from '../packages/agents/providers'
 
 describe('providerLaunch: a provider for one delegated run, without touching any config file', () => {
   it('claude: endpoint and models via ANTHROPIC_* env, key in the preset key field', () => {
@@ -88,5 +88,43 @@ describe('provider env from any source is safe to launch with and to write globa
     expect(settings.env).toEqual({ ANTHROPIC_BASE_URL: 'https://h.example.com', API_TIMEOUT_MS: '600000', ANTHROPIC_AUTH_TOKEN: 'sk-1' })
     const dotenv = globalPlan('gemini', {}, { preset: { ...hostile, env: { GOOGLE_GEMINI_BASE_URL: 'https://g.example.com', SPLIT: 'a\nNODE_OPTIONS=x' } }, key: 'k' }).writes['.env']!
     expect(dotenv).toBe('GOOGLE_GEMINI_BASE_URL=https://g.example.com\nGEMINI_API_KEY=k\n')
+  })
+})
+
+describe('claude Code on a Chat Completions provider, through Anna\'s routing', () => {
+  const groq = findPreset('claude', 'Groq')!
+  const route = { baseUrl: 'http://127.0.0.1:4567/claude', token: 'anna-route-abc' }
+
+  it('launch: Claude Code gets the route and its token; the provider\'s address and key stay with Anna', () => {
+    expect(groq.apiFormat).toBe('openai_chat')
+    expect(() => providerLaunch('claude', { preset: groq, key: 'gsk-real' })).toThrow('local routing')
+    const { env } = providerLaunch('claude', { preset: { ...groq, env: { ...groq.env, ANTHROPIC_API_KEY: 'leftover' } }, key: 'gsk-real', model: 'openai/gpt-oss-20b' }, route)
+    expect(env).toMatchObject({ ANTHROPIC_BASE_URL: route.baseUrl, ANTHROPIC_AUTH_TOKEN: route.token, ANTHROPIC_MODEL: 'openai/gpt-oss-20b' })
+    expect(env).not.toHaveProperty('ANTHROPIC_API_KEY')
+    expect(JSON.stringify(env)).not.toContain('gsk-real')
+    expect(JSON.stringify(env)).not.toContain('api.groq.com')
+  })
+
+  it('route: the real address and key, and the model tiers Claude Code asks for', () => {
+    expect(chatRouteOf('claude', { preset: groq, key: 'gsk-real' })).toEqual({ client: 'claude', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', key: 'gsk-real', models: { default: groq.env!.ANTHROPIC_MODEL, haiku: groq.env!.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: groq.env!.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: groq.env!.ANTHROPIC_DEFAULT_OPUS_MODEL } })
+    expect(chatRouteOf('claude', { preset: groq, model: 'my-model' }).models!.default).toBe('my-model')
+  })
+
+  it('global switch: refused until global routing', () => {
+    expect(() => globalPlan('claude', { 'settings.json': '{}' }, { preset: groq, key: 'k' })).toThrow('本地路由')
+  })
+
+  it('import from cc-switch keeps the format', async () => {
+    const { DatabaseSync } = await import('node:sqlite')
+    const { mkdtemp } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { importCcSwitch } = await import('../packages/agents/providers')
+    const path = join(await mkdtemp(join(tmpdir(), 'ccswitch-')), 'cc-switch.db')
+    const db = new DatabaseSync(path)
+    db.exec(`CREATE TABLE providers (id TEXT NOT NULL, app_type TEXT NOT NULL, name TEXT NOT NULL, settings_config TEXT NOT NULL, website_url TEXT, category TEXT, meta TEXT NOT NULL DEFAULT '{}', is_current BOOLEAN NOT NULL DEFAULT 0, PRIMARY KEY (id, app_type))`)
+    db.prepare('INSERT INTO providers (id, app_type, name, settings_config, website_url, category, meta, is_current) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('1', 'claude', 'Chat Relay', JSON.stringify({ env: { ANTHROPIC_BASE_URL: 'https://relay.example.com', ANTHROPIC_AUTH_TOKEN: 'k', ANTHROPIC_MODEL: 'glm-5.3' } }), null, null, JSON.stringify({ apiFormat: 'openai_chat' }), 0)
+    db.close()
+    expect(importCcSwitch(path)[0]!.preset).toMatchObject({ apiFormat: 'openai_chat', env: { ANTHROPIC_BASE_URL: 'https://relay.example.com', ANTHROPIC_MODEL: 'glm-5.3' } })
   })
 })

@@ -1,6 +1,7 @@
 # Spec: local routing (cc-switch in Anna, phase 2)
 
-> Status: agreed 2026-10-18; P2a (Codex → Chat Completions for Anna's own runs) built. This document is the source of truth; change it before changing the
+> Status: agreed 2026-10-18; P2a (Codex → Chat Completions) and P2b (Claude Code → Chat Completions) built, for
+> Anna's own runs. This document is the source of truth; change it before changing the
 > behavior. Built after cc-switch's local routing (https://github.com/farion1231/cc-switch, MIT), whose conversion code
 > and test cases are ported.
 
@@ -67,6 +68,24 @@ provider, converts the format, and can move a request to another provider when o
   ended; P4 turns them into statistics.
 - Applying such a provider globally is refused with the reason until P2d.
 
+### P2b as built
+
+- `claude-chat.ts` (request, non-streaming reply, usage) and `claude-chat-stream.ts` (Chat SSE → Anthropic SSE), from
+  cc-switch's `transform.rs` and `streaming.rs` with their test cases. The service answers `POST /claude/v1/messages`
+  for Claude Code's routes and takes the token from `x-api-key` or `Authorization`; Claude Code gets the route as
+  `ANTHROPIC_BASE_URL` and the token as `ANTHROPIC_AUTH_TOKEN`.
+- The provider's endpoint follows each agent's convention for base URLs, as cc-switch builds it: Codex's include the
+  version (`…/v1` + `/chat/completions`), Claude Code's don't (`…` + `/v1/chat/completions`, a doubled `/v1/v1`
+  collapsed). A full `…/chat/completions` address is used as it is.
+- Model names: one of the provider's own models (its `ANTHROPIC_*_MODEL` settings) goes as it is; a Claude tier name
+  (haiku, sonnet, opus, fable) maps to that tier's model; anything else to the default. The `[1M]` suffix, which only
+  tells Claude Code the context size, is dropped.
+- DeepSeek and MiMo get a tool-call turn's thinking back as `reasoning_content` (cc-switch's rule, by model or
+  address); `reasoning_effort` only for models that take it (o-series, GPT-5+, Grok 4.5+).
+- Beyond cc-switch: an error event in the provider's stream is passed to Claude Code as an Anthropic `error` event
+  (cc-switch drops it and the turn just stops); `message_start` carries the full message shape (`content: []`).
+- Presets: cc-switch's four Chat-format Claude Code presets. `count_tokens` is not served (404), as in cc-switch.
+
 ## 5. Failover (P2c)
 
 - Per agent, a queue of providers; a request that fails before its first byte reaches the agent (connection error,
@@ -88,7 +107,10 @@ routing, where the user picks models in the agent itself; Anna's runs already pi
 - Real agents without keys: a fake upstream that speaks Chat Completions, with the real Codex (P2a) and Claude Code
   (P2b) pointed at the routing service, finishing a turn with tool calls. P2a: `ANNA_REAL_AGENTS=codex pnpm vitest run
   tests/agents-real.test.ts -t "local routing"` (Codex 0.160: a freeform `apply_patch` call, and Codex as Anna's brain
-  calling `anna_memory`).
+  calling `anna_memory`). P2b: `ANNA_REAL_AGENTS=claude … -t "real Claude Code through"` (Claude Code 2.1.302: its
+  `Write` tool, and Claude Code as Anna's brain calling `anna_memory`).
 - With a key the user provides: one real provider per conversion. P2a: DeepSeek's Chat API (`deepseek-flash`) with
   `ANNA_REAL_CHAT_KEY` (`-t "real Chat provider"`): a delegated file edit over six turns, all 200, prompt cache hits
-  from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`.
+  from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`. P2b, the same key and model with
+  Claude Code: a delegated file edit in two turns (21120 of 21353 input tokens cached on the second) and the brain
+  saving a memory.

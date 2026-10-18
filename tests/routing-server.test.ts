@@ -4,7 +4,7 @@ import { Buffer } from 'node:buffer'
 import { createServer } from 'node:http'
 import { gzipSync } from 'node:zlib'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { chatEndpoint, startRouting } from '../packages/routing/server'
+import { chatEndpoint, claudeModelFor, startRouting } from '../packages/routing/server'
 
 interface Seen { path: string, headers: IncomingMessage['headers'], body: any }
 let upstream: Server
@@ -182,11 +182,92 @@ describe('who may use a route', () => {
   })
 })
 
+describe('routing a Claude Code run to a Chat provider', () => {
+  const messages = { model: 'claude-haiku-4-5', max_tokens: 1024, stream: true, system: [{ type: 'text', text: 'Be brief.' }], messages: [{ role: 'user', content: 'ping' }] }
+  const claude = (route: { baseUrl: string, token: string }, body: unknown = messages, headers: Record<string, string> = { 'x-api-key': route.token }) => fetch(`${route.baseUrl}/v1/messages?beta=true`, { method: 'POST', headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...headers }, body: JSON.stringify(body) })
+  const models = { default: 'deepseek-v4-pro[1M]', haiku: 'deepseek-flash[1M]' }
+
+  it('takes Claude Code\'s key in either header, maps its model, and streams Anthropic events back', async () => {
+    const route = routing.open({ client: 'claude', label: 'DS', baseUrl: upstreamUrl, key: 'sk-real', models })
+    expect(route.baseUrl).toBe(`${routing.url}/claude`)
+    for (const headers of [{ 'x-api-key': route.token }, { authorization: `Bearer ${route.token}` }] as Record<string, string>[]) {
+      const response = await claude(route, messages, headers)
+      expect(response.status).toBe(200)
+      const out = events(await response.text())
+      expect(out[0]).toMatchObject({ type: 'message_start' })
+      expect(out.find(event => event.type === 'content_block_delta').delta).toEqual({ type: 'text_delta', text: 'pong' })
+      expect(out.at(-1)).toEqual({ type: 'message_stop' })
+    }
+    expect(seen[0]!.path).toBe('/v1/chat/completions')
+    expect(seen[0]!.headers.authorization).toBe('Bearer sk-real')
+    expect(seen[0]!.body).toMatchObject({ model: 'deepseek-flash', stream: true, stream_options: { include_usage: true }, messages: [{ role: 'system', content: 'Be brief.' }, { role: 'user', content: 'ping' }] })
+    expect(routing.records().at(-1)).toEqual({ at: expect.any(String), provider: 'DS', model: 'deepseek-flash', status: 200, latency: expect.any(Number), usage: { input: 3, output: 1, cached: 0 } })
+    route.close()
+  })
+
+  it('a DeepSeek tool turn carries its reasoning back', async () => {
+    const route = routing.open({ client: 'claude', baseUrl: `${upstreamUrl}/v1`, key: 'k', models })
+    const turn = { ...messages, model: 'deepseek-v4-pro[1M]', messages: [{ role: 'user', content: 'date?' }, { role: 'assistant', content: [{ type: 'thinking', thinking: 'Need the date.' }, { type: 'tool_use', id: 'call_date', name: 'get_date', input: {} }] }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call_date', content: '2026-10-18' }] }] }
+    await (await claude(route, turn)).text()
+    expect(seen[0]!.path).toBe('/v1/chat/completions')
+    expect(seen[0]!.body.model).toBe('deepseek-v4-pro')
+    expect(seen[0]!.body.messages[2]).toMatchObject({ role: 'assistant', reasoning_content: 'Need the date.' })
+    route.close()
+  })
+
+  it('a non-streaming request gets one Anthropic message; errors come in Anthropic\'s format with the status', async () => {
+    reply = (response) => {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ id: 'chatcmpl_9', model: 'm', choices: [{ message: { role: 'assistant', content: 'done' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } }))
+    }
+    const route = routing.open({ client: 'claude', baseUrl: upstreamUrl, key: 'k', models })
+    expect(await (await claude(route, { ...messages, stream: false })).json()).toMatchObject({ id: 'chatcmpl_9', type: 'message', content: [{ type: 'text', text: 'done' }], stop_reason: 'end_turn' })
+    reply = (response) => {
+      response.writeHead(429, { 'content-type': 'application/json', 'retry-after': '3' })
+      response.end(JSON.stringify({ error: { message: 'slow down' } }))
+    }
+    const limited = await claude(route)
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get('retry-after')).toBe('3')
+    expect(await limited.json()).toEqual({ type: 'error', error: { type: 'rate_limit_error', message: 'slow down' } })
+    route.close()
+  })
+
+  it('a route serves only its own agent\'s endpoint', async () => {
+    const claudeRoute = routing.open({ client: 'claude', baseUrl: upstreamUrl, key: 'k' })
+    const codexRoute = routing.open({ baseUrl: `${upstreamUrl}/v1`, key: 'k' })
+    expect((await fetch(`${routing.url}/codex/v1/responses`, { method: 'POST', headers: { authorization: `Bearer ${claudeRoute.token}` }, body: JSON.stringify(request) })).status).toBe(404)
+    expect((await fetch(`${routing.url}/claude/v1/messages`, { method: 'POST', headers: { 'x-api-key': codexRoute.token }, body: JSON.stringify(messages) })).status).toBe(404)
+    const countTokens = await fetch(`${claudeRoute.baseUrl}/v1/messages/count_tokens`, { method: 'POST', headers: { 'x-api-key': claudeRoute.token }, body: '{}' })
+    expect(countTokens.status).toBe(404)
+    expect((await countTokens.json()).type).toBe('error')
+    expect(seen).toEqual([])
+    claudeRoute.close()
+    codexRoute.close()
+  })
+
+  it('claude Code\'s model names: the route\'s own as they are, Claude tiers by tier, the rest to the default; [1m] dropped', () => {
+    const tiers = { default: 'glm-5.3[1M]', haiku: 'glm-5.3-flash', opus: 'glm-5.3-pro' }
+    expect(claudeModelFor('glm-5.3-flash', tiers)).toBe('glm-5.3-flash')
+    expect(claudeModelFor('glm-5.3[1m]', tiers)).toBe('glm-5.3')
+    expect(claudeModelFor('claude-haiku-4-5-20251001', tiers)).toBe('glm-5.3-flash')
+    expect(claudeModelFor('claude-opus-5-5', tiers)).toBe('glm-5.3-pro')
+    expect(claudeModelFor('claude-fable-5-1', tiers)).toBe('glm-5.3-pro')
+    expect(claudeModelFor('claude-sonnet-5-5', tiers)).toBe('glm-5.3')
+    expect(claudeModelFor('anything-else', tiers)).toBe('glm-5.3')
+    expect(claudeModelFor('my-model[1M]')).toBe('my-model')
+  })
+})
+
 describe('the provider endpoint', () => {
   it('appends /chat/completions unless the base URL already is the endpoint', () => {
     expect(chatEndpoint('https://api.example.com/v1')).toBe('https://api.example.com/v1/chat/completions')
     expect(chatEndpoint('https://api.example.com/v1/')).toBe('https://api.example.com/v1/chat/completions')
     expect(chatEndpoint(' https://api.example.com/v4/chat/completions/ ')).toBe('https://api.example.com/v4/chat/completions')
     expect(chatEndpoint('https://api.example.com/openai?api-version=1')).toBe('https://api.example.com/openai/chat/completions?api-version=1')
+    // Claude Code's base URLs leave the version out.
+    expect(chatEndpoint('https://integrate.api.nvidia.com', 'claude')).toBe('https://integrate.api.nvidia.com/v1/chat/completions')
+    expect(chatEndpoint('https://api.groq.com/openai/v1', 'claude')).toBe('https://api.groq.com/openai/v1/chat/completions')
+    expect(chatEndpoint('https://open.bigmodel.cn/api/paas/v4/chat/completions', 'claude')).toBe('https://open.bigmodel.cn/api/paas/v4/chat/completions')
   })
 })

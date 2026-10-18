@@ -76,6 +76,24 @@ it('a Chat Completions provider for Codex: marked as routed, its runs go through
   await host.close()
 })
 
+it('a Chat Completions provider for Claude Code: @claude runs go through Anna\'s routing, never with the real address or key', async () => {
+  const { host, data } = await setup()
+  await host.execute({ type: 'provider-save', app: 'claude', name: 'Chat Relay', baseUrl: 'https://relay.example.com', model: 'glm-5.3', key: 'sk-relay', apiFormat: 'openai_chat' })
+  expect(host.snapshot().agents.mine.claude).toEqual([expect.objectContaining({ name: 'Chat Relay', routed: true, baseUrl: 'https://relay.example.com' })])
+  expect(host.snapshot().agents.presets.claude!.find(preset => preset.name === 'Groq')).toMatchObject({ routed: true })
+  await host.execute({ type: 'agent-provider', agent: 'claude', provider: 'Chat Relay' })
+  // Approve whatever the run asks (in Auto, nothing).
+  const approving = setInterval(() => host.snapshot().approvals.forEach(question => void host.execute({ type: 'approval', id: question.id, allow: true })), 50)
+  await host.execute({ type: 'send', text: '@claude 你好' }).finally(() => clearInterval(approving))
+  const run = (await readFile(join(data, 'fake.log'), 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.agent).toBe('claude')
+  expect(run.env.ANTHROPIC_BASE_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/claude$/)
+  await expect(host.execute({ type: 'provider-global', app: 'claude', provider: 'Chat Relay' })).rejects.toThrow('本地路由')
+  await host.execute({ type: 'provider-save', app: 'claude', name: 'Chat Relay', previous: 'Chat Relay', apiFormat: 'anthropic' })
+  expect(host.snapshot().agents.mine.claude[0]).not.toHaveProperty('routed')
+  await host.close()
+})
+
 it('custom providers by hand for each app: endpoint and model land where that app reads them', async () => {
   const { host } = await setup()
   await host.execute({ type: 'provider-save', app: 'claude', name: 'My relay', baseUrl: 'https://relay.example.com/anthropic/', model: 'claude-x' })

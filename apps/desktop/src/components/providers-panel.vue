@@ -23,7 +23,11 @@ const inUse = computed(() => agents.value.providers[current.value]?.provider)
 const global = computed(() => agents.value.global[current.value])
 
 /** The add/edit form: `previous` is set while editing, `from` when starting from a preset. */
-const editor = ref<{ previous?: string, from?: string, name: string, baseUrl: string, model: string, key: string, apiKeyUrl?: string, website?: string, apiFormat: 'openai_responses' | 'openai_chat' }>()
+type ApiFormat = 'anthropic' | 'openai_responses' | 'openai_chat'
+const editor = ref<{ previous?: string, from?: string, name: string, baseUrl: string, model: string, key: string, apiKeyUrl?: string, website?: string, apiFormat: ApiFormat }>()
+/** The protocol the agent speaks itself; Chat Completions goes through Anna's local routing. */
+const nativeFormat = computed<ApiFormat>(() => current.value === 'codex' ? 'openai_responses' : 'anthropic')
+const nativeLabel: Record<App, string> = { claude: 'Anthropic Messages', codex: 'OpenAI Responses', gemini: 'Gemini' }
 const search = ref('')
 const removing = ref<string>()
 /** Writing a provider by hand instead of picking a preset. */
@@ -49,18 +53,18 @@ function startAdd() {
   removing.value = undefined
   search.value = ''
   custom.value = false
-  editor.value = { name: '', baseUrl: '', model: '', key: '', apiFormat: 'openai_responses' }
+  editor.value = { name: '', baseUrl: '', model: '', key: '', apiFormat: nativeFormat.value }
 }
 function pick(preset: PresetSummary) {
-  editor.value = { from: preset.name, name: mine.value.some(item => item.name === preset.name) ? `${preset.name} 2` : preset.name, baseUrl: preset.baseUrl ?? '', model: preset.model ?? '', key: '', apiKeyUrl: preset.apiKeyUrl, website: preset.website, apiFormat: preset.routed ? 'openai_chat' : 'openai_responses' }
+  editor.value = { from: preset.name, name: mine.value.some(item => item.name === preset.name) ? `${preset.name} 2` : preset.name, baseUrl: preset.baseUrl ?? '', model: preset.model ?? '', key: '', apiKeyUrl: preset.apiKeyUrl, website: preset.website, apiFormat: preset.routed ? 'openai_chat' : nativeFormat.value }
 }
 function edit(provider: MyProvider) {
   removing.value = undefined
-  editor.value = { previous: provider.name, name: provider.name, baseUrl: provider.baseUrl ?? '', model: provider.model ?? '', key: '', apiKeyUrl: provider.apiKeyUrl, website: provider.website, apiFormat: provider.routed ? 'openai_chat' : 'openai_responses' }
+  editor.value = { previous: provider.name, name: provider.name, baseUrl: provider.baseUrl ?? '', model: provider.model ?? '', key: '', apiKeyUrl: provider.apiKeyUrl, website: provider.website, apiFormat: provider.routed ? 'openai_chat' : nativeFormat.value }
 }
 function save() {
   const draft = editor.value!
-  emit('command', { type: 'provider-save', app: current.value, name: draft.name, previous: draft.previous, from: draft.from, baseUrl: draft.baseUrl, model: draft.model, key: draft.key || undefined, ...(current.value === 'codex' ? { apiFormat: draft.apiFormat } : {}) })
+  emit('command', { type: 'provider-save', app: current.value, name: draft.name, previous: draft.previous, from: draft.from, baseUrl: draft.baseUrl, model: draft.model, key: draft.key || undefined, ...(current.value !== 'gemini' ? { apiFormat: draft.apiFormat } : {}) })
   editor.value = undefined
 }
 const use = (name?: string) => emit('command', { type: 'agent-provider', agent: current.value, provider: name })
@@ -146,7 +150,7 @@ function speedtest(name: string) {
             <span v-if="inUse === provider.name" class="badge ok">{{ who }} 正在用</span>
             <span v-if="global?.switched && global.provider === provider.name" class="badge">全局</span>
             <span class="badge" :class="provider.hasKey ? 'ok' : 'warn'">{{ provider.hasKey ? '已存密钥' : '没有密钥' }}</span>
-            <span v-if="provider.routed" class="badge" title="Codex 经 Anna 的本地路由连接它，真实密钥只留在 Anna 里">经本地路由</span>
+            <span v-if="provider.routed" class="badge" :title="`${labels[current]} 经 Anna 的本地路由连接它，真实密钥只留在 Anna 里`">经本地路由</span>
           </div>
           <p class="small muted">{{ host(provider.baseUrl) || '未设置地址' }}{{ provider.model ? ` · ${provider.model}` : '' }}</p>
           <div v-if="removing === provider.name" class="card approval-request" role="alert">
@@ -201,12 +205,12 @@ function speedtest(name: string) {
       <form v-else-if="editor" class="provider-editor" @submit.prevent="save(); custom = false">
         <div class="sheet-heading"><h3>{{ editor.previous ? `编辑 ${editor.previous}` : editor.from ? `添加 ${editor.from}` : '自定义服务商' }}</h3><button type="button" class="link" @click="editor = undefined; custom = false">取消</button></div>
         <label>名称<input v-model="editor.name" required maxlength="60" aria-label="服务商名称"></label>
-        <label v-if="current === 'codex'">接口<select v-model="editor.apiFormat" aria-label="接口格式"><option value="openai_responses">OpenAI Responses（直连）</option><option value="openai_chat">Chat Completions（经本地路由）</option></select></label>
-        <label>请求地址<input v-model="editor.baseUrl" :required="!editor.from && !editor.previous" aria-label="请求地址" :placeholder="current === 'claude' ? 'https://…（Anthropic Messages 接口）' : current === 'codex' ? (editor.apiFormat === 'openai_chat' ? 'https://…/v1（Chat Completions 接口）' : 'https://…（OpenAI Responses 接口）') : 'https://…'"></label>
+        <label v-if="current !== 'gemini'">接口<select v-model="editor.apiFormat" aria-label="接口格式"><option :value="nativeFormat">{{ nativeLabel[current] }}（直连）</option><option value="openai_chat">Chat Completions（经本地路由）</option></select></label>
+        <label>请求地址<input v-model="editor.baseUrl" :required="!editor.from && !editor.previous" aria-label="请求地址" :placeholder="current === 'gemini' ? 'https://…' : editor.apiFormat === 'openai_chat' ? (current === 'codex' ? 'https://…/v1（Chat Completions 接口）' : 'https://…（Chat Completions 接口，会补上 /v1/chat/completions）') : `https://…（${nativeLabel[current]} 接口）`"></label>
         <label>模型<input v-model="editor.model" :required="current === 'codex' && !editor.from && !editor.previous" aria-label="模型" placeholder="留空用预设的默认模型"></label>
         <label>API Key<input v-model="editor.key" type="password" autocomplete="off" aria-label="API Key" :placeholder="editor.previous && mine.find(item => item.name === editor!.previous)?.hasKey ? '已保存，留空保持' : '输入服务商密钥'"></label>
         <a v-if="editor.apiKeyUrl" class="link small" :href="editor.apiKeyUrl" target="_blank" rel="noreferrer">去获取密钥 ↗</a>
-        <p v-if="current === 'codex' && editor.apiFormat === 'openai_chat'" class="small muted">Codex 只说 Responses 接口，Anna 在本机替它转换成 Chat Completions。真实密钥只留在 Anna 里，Codex 每次只拿到一个用完即废的令牌。这类服务商暂时只能在 Anna 里用，不能应用到全局。</p>
+        <p v-if="current !== 'gemini' && editor.apiFormat === 'openai_chat'" class="small muted">{{ labels[current] }} 只说 {{ nativeLabel[current] }} 接口，Anna 在本机替它转换成 Chat Completions。真实密钥只留在 Anna 里，{{ labels[current] }} 每次只拿到一个用完即废的令牌。这类服务商暂时只能在 Anna 里用，不能应用到全局。</p>
         <div class="card-actions"><button type="submit" class="primary" :disabled="locked">保存</button></div>
       </form>
     </template>

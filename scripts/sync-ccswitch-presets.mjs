@@ -9,8 +9,8 @@ import { build } from 'esbuild'
 /**
  * Regenerate packages/agents/presets.json from a cc-switch checkout (https://github.com/farion1231/cc-switch, MIT).
  * Usage: node scripts/sync-ccswitch-presets.mjs /path/to/cc-switch
- * Only connection fields are kept. Codex presets in Chat Completions format go through Anna's own local routing
- * (packages/routing); other presets that need cc-switch's format-converting proxy are skipped.
+ * Only connection fields are kept. Claude Code and Codex presets in Chat Completions format go through Anna's own
+ * local routing (packages/routing); other presets that need cc-switch's format-converting proxy are skipped.
  */
 const source = resolve(process.argv[2] ?? '')
 if (!process.argv[2])
@@ -40,13 +40,13 @@ function plain(url) {
 }
 const pick = (preset, extra) => ({ name: preset.name, website: plain(preset.websiteUrl), apiKeyUrl: plain(preset.apiKeyUrl), official: Boolean(preset.isOfficial), category: preset.category ?? 'third_party', ...extra, ...(preset.endpointCandidates?.length ? { endpoints: preset.endpointCandidates } : {}) })
 /**
- * The protocols Anna can serve per app: each app's native one, plus Chat Completions for Codex through Anna's routing.
+ * The protocols Anna can serve per app: each app's native one, plus Chat Completions through Anna's routing.
  * For Codex, `openai_responses` (`responses` in older cc-switch) is native.
  */
-const native = { claude: ['anthropic'], codex: ['openai_responses', 'responses', 'openai_chat'] }
+const native = { claude: ['anthropic', 'openai_chat'], codex: ['openai_responses', 'responses', 'openai_chat'] }
 const proxyOnly = (app, value) => typeof value === 'string' && !native[app].includes(value)
 
-const claude = (await load('claudeProviderPresets')).providerPresets.filter(preset => !proxyOnly('claude', preset.apiFormat) && !preset.requiresOAuth && !preset.hidden).filter(preset => !Object.keys(preset.settingsConfig?.env ?? {}).some(key => key.startsWith('AWS_') || key.startsWith('CLAUDE_CODE_USE_'))).map(preset => pick(preset, { keyField: preset.apiKeyField ?? 'ANTHROPIC_AUTH_TOKEN', env: Object.fromEntries(Object.entries(preset.settingsConfig?.env ?? {}).filter(([key, value]) => key !== 'ANTHROPIC_AUTH_TOKEN' && key !== 'ANTHROPIC_API_KEY' && typeof value === 'string' && value)) }))
+const claude = (await load('claudeProviderPresets')).providerPresets.filter(preset => !proxyOnly('claude', preset.apiFormat) && !preset.requiresOAuth && !preset.hidden).filter(preset => !Object.keys(preset.settingsConfig?.env ?? {}).some(key => key.startsWith('AWS_') || key.startsWith('CLAUDE_CODE_USE_'))).map(preset => pick(preset, { keyField: preset.apiKeyField ?? 'ANTHROPIC_AUTH_TOKEN', ...(preset.apiFormat === 'openai_chat' ? { apiFormat: 'openai_chat' } : {}), env: Object.fromEntries(Object.entries(preset.settingsConfig?.env ?? {}).filter(([key, value]) => key !== 'ANTHROPIC_AUTH_TOKEN' && key !== 'ANTHROPIC_API_KEY' && typeof value === 'string' && value)) }))
 
 /** cc-switch's per-preset Codex model rows (name, window, modalities, reasoning levels), undefined fields dropped. */
 function catalogRows(rows) {

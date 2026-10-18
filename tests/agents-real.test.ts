@@ -304,3 +304,172 @@ describe.skipIf(!chatKey)('real Codex through Anna\'s routing to a real Chat pro
     }
   }, 300000)
 })
+
+describe.skipIf(!chatKey)('real Claude Code through Anna\'s routing to a real Chat provider', () => {
+  it('delegated: creates a file and says so', async () => {
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { routing } = await import('../packages/routing/server')
+    const { openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const claude = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'claude')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-chat-claude-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    const preset = { name: 'Real Chat (Claude Code)', official: false, category: 'custom', apiFormat: 'openai_chat' as const, env: { ANTHROPIC_BASE_URL: chatUrl, ANTHROPIC_MODEL: chatModel, ANTHROPIC_DEFAULT_HAIKU_MODEL: chatModel } }
+    const provider = { preset, key: chatKey }
+    const route = await openRoute('claude', provider)
+    try {
+      const launch = buildLaunch('claude', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK. Then reply with one short sentence.', mode: 'edit', denyPaths: [], provider, route })
+      launch.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
+      const result = await runAgent({ agent: 'claude', command: claude.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      const records = (await routing()).records().filter(item => item.provider === preset.name)
+      process.stdout.write(`real chat (${chatModel}) claude delegated: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 160)}\nrequests: ${JSON.stringify(records.map(({ model, status, latency, usage, outcome }) => ({ model, status, latency, usage, outcome })))}\n`)
+      expect(result.status).toBe('completed')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(records.every(item => item.status === 200)).toBe(true)
+    }
+    finally {
+      route?.close()
+    }
+  }, 300000)
+
+  it('as Anna\'s brain: remembers through anna_memory and answers', async () => {
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-chat-claude-brain-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    const previousConfig = process.env.CLAUDE_CONFIG_DIR
+    process.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const secrets: Record<string, string> = {}
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
+    try {
+      await host.initialize()
+      await host.execute({ type: 'provider-save', app: 'claude', name: 'Real Chat', baseUrl: chatUrl, model: chatModel, key: chatKey, apiFormat: 'openai_chat' })
+      await host.execute({ type: 'agent-provider', agent: 'claude', provider: 'Real Chat' })
+      await host.execute({ type: 'send', text: '请记住：我最喜欢的茶是龙井。用共同记忆工具记下来，然后用一句话告诉我。' })
+      const snapshot = host.snapshot()
+      process.stdout.write(`real chat (${chatModel}) claude brain: memories ${JSON.stringify(snapshot.memories.map(item => item.text))} reply: ${snapshot.messages!.at(-1)?.text.slice(0, 160)}\n`)
+      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.memories.some(item => item.text.includes('龙井'))).toBe(true)
+    }
+    finally {
+      await host.close()
+      if (previousConfig === undefined)
+        delete process.env.CLAUDE_CONFIG_DIR
+      else
+        process.env.CLAUDE_CONFIG_DIR = previousConfig
+    }
+  }, 300000)
+})
+
+/**
+ * Real Claude Code with a scripted Chat Completions provider behind Anna's routing: its Anthropic requests become
+ * Chat requests and the Chat stream becomes Anthropic events it accepts, tool calls included. Needs no login; a fresh
+ * CLAUDE_CONFIG_DIR keeps this machine's settings out.
+ */
+describe.skipIf(!wanted.includes('claude'))('real Claude Code through Anna\'s local routing', () => {
+  async function fakeChat(pick: (tools: string[]) => { name: string, input: object } | undefined, answer: string) {
+    const { createServer } = await import('node:http')
+    const requests: { path: string, authorization?: string, body: any }[] = []
+    const server = createServer((request, response) => {
+      let text = ''
+      request.on('data', (part) => { text += part })
+      request.on('end', () => {
+        const body = JSON.parse(text)
+        requests.push({ path: request.url!, authorization: request.headers.authorization, body })
+        const tools: string[] = (body.tools ?? []).map((tool: any) => tool.function.name)
+        const answered = body.messages.some((message: any) => message.role === 'tool')
+        const call = answered ? undefined : pick(tools)
+        const chunk = (delta: object, finish?: string) => `data: ${JSON.stringify({ id: `chatcmpl_${requests.length}`, model: body.model, choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`
+        const usage = `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 40, completion_tokens: 6, prompt_tokens_details: { cached_tokens: 32 } } })}\n\n`
+        const reply = call
+          ? `${chunk({ reasoning_content: 'Use the tool.' })}${chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: call.name, arguments: '' } }] })}${chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify(call.input) } }] })}${chunk({}, 'tool_calls')}${usage}data: [DONE]\n\n`
+          : `${chunk({ content: answered ? answer : 'ok' })}${chunk({}, 'stop')}${usage}data: [DONE]\n\n`
+        if (body.stream) {
+          response.writeHead(200, { 'content-type': 'text/event-stream' })
+          return response.end(reply)
+        }
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ id: 'chatcmpl_plain', model: body.model, choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 5, completion_tokens: 1 } }))
+      })
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    return { requests, url: `http://127.0.0.1:${(server.address() as { port: number }).port}`, close: () => { server.closeAllConnections(); server.close() } }
+  }
+
+  it('a Chat provider writes a file with Claude Code\'s Write tool and answers', async () => {
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const claude = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'claude')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-claude-route-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    const upstream = await fakeChat(tools => tools.includes('Write') ? { name: 'Write', input: { file_path: join(workspace, 'anna.txt'), content: 'OK' } } : undefined, 'Done: anna.txt says OK.')
+    const preset = { name: 'Fake Chat', official: false, category: 'custom', apiFormat: 'openai_chat' as const, env: { ANTHROPIC_BASE_URL: upstream.url, ANTHROPIC_MODEL: 'fake-chat-pro', ANTHROPIC_DEFAULT_HAIKU_MODEL: 'fake-chat-flash' } }
+    const provider = { preset, key: 'sk-fake-real' }
+    const route = await openRoute('claude', provider)
+    try {
+      const launch = buildLaunch('claude', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK, then say so.', mode: 'edit', denyPaths: [], provider, route })
+      launch.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
+      const result = await runAgent({ agent: 'claude', command: claude.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      process.stdout.write(`claude via routing: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 120)} requests: ${upstream.requests.length} models: ${JSON.stringify([...new Set(upstream.requests.map(item => item.body.model))])}\n`)
+      expect(result.status).toBe('completed')
+      expect(result.text).toContain('Done')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(upstream.requests.every(item => item.path === '/v1/chat/completions' && item.authorization === 'Bearer sk-fake-real')).toBe(true)
+      expect(upstream.requests.every(item => item.body.model.startsWith('fake-chat-'))).toBe(true)
+      const second = upstream.requests.find(item => item.body.messages.some((message: any) => message.role === 'tool'))!.body
+      expect(second.messages).toContainEqual(expect.objectContaining({ role: 'assistant', tool_calls: [expect.objectContaining({ id: 'call_1', function: expect.objectContaining({ name: 'Write' }) })] }))
+    }
+    finally {
+      route?.close()
+      upstream.close()
+    }
+  }, 180000)
+
+  it('as Anna\'s brain on a Chat provider, Claude Code calls Anna\'s own memory tool and answers', async () => {
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-claude-route-brain-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    const upstream = await fakeChat(tools => tools.find(name => name.includes('anna_memory')) ? { name: tools.find(name => name.includes('anna_memory'))!, input: { action: 'remember', text: '最喜欢的茶是龙井' } } : undefined, '记好了，你最喜欢龙井。')
+    const previousConfig = process.env.CLAUDE_CONFIG_DIR
+    process.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const secrets: Record<string, string> = {}
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
+    try {
+      await host.initialize()
+      await host.execute({ type: 'provider-save', app: 'claude', name: 'Fake Chat', baseUrl: upstream.url, model: 'fake-chat-pro', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await host.execute({ type: 'agent-provider', agent: 'claude', provider: 'Fake Chat' })
+      await host.execute({ type: 'send', text: '请记住：我最喜欢的茶是龙井。' })
+      const snapshot = host.snapshot()
+      process.stdout.write(`claude brain via routing: memories ${JSON.stringify(snapshot.memories.map(item => item.text))} reply: ${snapshot.messages!.at(-1)?.text}\n`)
+      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.memories.some(item => item.text.includes('龙井'))).toBe(true)
+      expect(snapshot.messages!.at(-1)?.text).toContain('记好了')
+    }
+    finally {
+      await host.close()
+      upstream.close()
+      if (previousConfig === undefined)
+        delete process.env.CLAUDE_CONFIG_DIR
+      else
+        process.env.CLAUDE_CONFIG_DIR = previousConfig
+    }
+  }, 180000)
+})
