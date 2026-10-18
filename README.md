@@ -50,8 +50,8 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 - ✓ **Honest with you.** No made-up tool results: a test she didn't run is a test she says she didn't run. Anything
   beyond her permissions, she asks first.
 
-Anna is also the name of a home. She was the first to move in, and five friends live there with her: three women and
-three men in all (Anna, Haru, Mao, Natori, Chitose, Mark), all from Live2D's free samples. Each has their own name,
+Anna is also the name of a home. She was the first to move in, and four friends live there with her: two women and
+three men in all (Anna, Mao, Natori, Chitose, Mark), all from Live2D's free samples. Each has their own name,
 personality and way of talking, and none of them is a copy of Anna; honesty and permissions are the same for all of them.
 Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
 and whenever Claude Code or Codex does a job, whether the companion handed it over or you sent it with `@claude` or
@@ -294,7 +294,7 @@ Anna's source is public and free for personal and noncommercial use under the
 company needs a commercial license: see [COMMERCIAL.md](COMMERCIAL.md). Versions up to v0.4.1 were released under MIT
 and keep that license.
 
-The Live2D sample characters (Hiyori, Haru, Mark, Niziiro Mao, Natori, Chitose) and Cubism Core are **not** covered by
+The Live2D sample characters (Haru, Mark, Niziiro Mao, Natori, Chitose) and Cubism Core are **not** covered by
 Anna's license. They are downloaded separately and remain under Live2D's own terms; see [NOTICE.md](NOTICE.md).
 
 <div align="center">
