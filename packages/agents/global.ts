@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { codexCatalog, rejectsWebSearch } from './codex-catalog'
-import { keyFieldOf, providerEnv, usesOwnLogin } from './providers'
+import { keyFieldOf, providerEnv, routedThroughAnna, usesOwnLogin } from './providers'
 
 /**
  * Global provider switching, following cc-switch's ownership rule: Anna owns only the connection fields of a client's
@@ -61,6 +61,8 @@ function claudePlan(files: Record<string, string | undefined>, choice: ProviderC
 }
 
 const tomlString = (value: string) => JSON.stringify(value)
+/** A provider behind Anna's routing has no address the CLI could use on its own (until global routing, P2d). */
+export const routedOnlyInAnna = (name: string) => `${name} 要经过 Anna 的本地路由，现在只能在 Anna 里使用，还不能设为全局服务商`
 
 /** Edit config.toml line by line: top-level connection keys and the [model_providers.custom] table only. */
 function codexPlan(files: Record<string, string | undefined>, choice: ProviderChoice, dir: string): GlobalPlan {
@@ -77,6 +79,8 @@ function codexPlan(files: Record<string, string | undefined>, choice: ProviderCh
     const end = rest.findIndex((line, index) => index > start && /^\s*\[/.test(line))
     rest = [...rest.slice(0, start), ...(end === -1 ? [] : rest.slice(end))]
   }
+  if (routedThroughAnna('codex', choice.preset))
+    throw new Error(routedOnlyInAnna(choice.preset.name))
   const writes: Record<string, string> = {}
   if (usesOwnLogin('codex', choice.preset)) {
     writes['config.toml'] = [...top, ...rest].join('\n')

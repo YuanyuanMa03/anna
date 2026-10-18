@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { approvalStyle } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
 import { buildLaunch } from '../agents/launch'
+import { openRoute } from '../agents/route'
 import { runAgent } from '../agents/runner'
 import { workspaceFiles } from '../agents/snapshot'
 import { modes } from '../permissions/modes'
@@ -87,7 +88,8 @@ export class Delegator {
     const before = await workspaceFiles(workspace)
     for (const path of before) await this.deps.checkpoints.capture(context.taskId, workspace, path).catch(() => {})
     const sessionId = (await this.sessions())[workspace]?.[agent]
-    const launch = buildLaunch(agent, { cwd: workspace, prompt: task, mode, sessionId, provider, denyPaths: this.deps.denyPaths() })
+    const route = await openRoute(agent, provider)
+    const launch = buildLaunch(agent, { cwd: workspace, prompt: task, mode, sessionId, provider, denyPaths: this.deps.denyPaths(), route })
     this.abort = new AbortController()
     const card = (state: 'running' | 'done' | 'failed', line: string, step: number) => this.deps.emit({ type: 'collaborator', agent, label, provider: providerName, state, line, step })
     card('running', '开始工作', 0)
@@ -118,6 +120,7 @@ export class Delegator {
       return finish(result.status, text, result.error)
     }
     finally {
+      route?.close()
       this.deps.supervise(undefined)
       this.abort = undefined
     }

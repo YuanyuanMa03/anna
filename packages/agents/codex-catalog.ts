@@ -1,4 +1,5 @@
 import type { Preset } from './providers'
+import classicTemplate from './codex-catalog/classic-tools.json'
 import deepseekCatalog from './codex-catalog/deepseek.json'
 import nativeTemplate from './codex-catalog/native-responses.json'
 
@@ -76,6 +77,22 @@ function nativeEntry(row: CatalogRow, index: number): Entry {
   return entry
 }
 
+/**
+ * An entry for a Chat provider behind Anna's routing, from Codex's classic GPT entry: the routing turns its custom
+ * tools (the freeform apply_patch) into plain functions, so they stay. Strict Chat gateways reject `original` image
+ * detail, so Codex must not ask for it. Unlike cc-switch, MCP tools are listed up front rather than behind
+ * `tool_search`, as on the native profile: Anna's own tools (memory, delegation) must be in front of the model every
+ * turn, not one search away.
+ */
+function chatEntry(row: CatalogRow, index: number): Entry {
+  const entry: Entry = structuredClone(classicTemplate)
+  const name = row.displayName ?? row.model
+  const window = row.contextWindow ?? 128_000
+  Object.assign(entry, { slug: row.model, visibility: 'list', display_name: name, description: name, context_window: window, max_context_window: window, priority: 1000 + index, additional_speed_tiers: [], service_tiers: [], availability_nux: null, upgrade: null, input_modalities: row.inputModalities?.length ? row.inputModalities : ['text', 'image'], supports_image_detail_original: false, supports_search_tool: false })
+  applyReasoning(entry, row)
+  return entry
+}
+
 /** An entry from a vendor's official catalog: matched by slug (an unknown model copies the flagship), rows override. */
 function vendorEntry(vendor: Entry[], row: CatalogRow, index: number): Entry {
   const matched = vendor.find(entry => String(entry.slug).toLowerCase() === row.model.toLowerCase())
@@ -102,9 +119,9 @@ function vendorEntry(vendor: Entry[], row: CatalogRow, index: number): Entry {
 }
 
 /**
- * The Codex model catalog (`model_catalog_json`) for a native Responses provider, ported from cc-switch: tells Codex
- * each model's context window, reasoning levels, image support and tool profile, which it otherwise guesses for any
- * model it doesn't know. Undefined for Codex's own login or a preset without a base URL.
+ * The Codex model catalog (`model_catalog_json`) for a third-party provider, ported from cc-switch: tells Codex each
+ * model's context window, reasoning levels, image support and tool profile, which it otherwise guesses for any model
+ * it doesn't know. Undefined for Codex's own login or a preset without a base URL.
  */
 export function codexCatalog(preset: Preset, model?: string): { models: Entry[] } | undefined {
   if (!preset.baseUrl)
@@ -118,6 +135,8 @@ export function codexCatalog(preset: Preset, model?: string): { models: Entry[] 
   }
   if (!rows.length)
     return undefined
+  if (preset.apiFormat === 'openai_chat')
+    return { models: rows.map(chatEntry) }
   const vendor = officialCatalogs.find(([domain]) => hostMatches(preset.baseUrl!, domain))?.[1]
   return { models: rows.map((row, index) => vendor ? vendorEntry(vendor, row, index) : nativeEntry(row, index)) }
 }

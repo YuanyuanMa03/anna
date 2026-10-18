@@ -36,7 +36,7 @@ export interface Settings {
   providers?: CustomProvider[]
   universal?: UniversalProvider[]
 }
-export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported' | 'universal', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, reasoningEffort?: string, models?: { model: string }[] } }
+export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported' | 'universal', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, reasoningEffort?: string, models?: { model: string }[], apiFormat?: 'openai_chat', chatReasoning?: { supportsThinking?: boolean, supportsEffort?: boolean, thinkingParam?: string, effortParam?: string, effortValueMode?: string } } }
 export interface AgentStatus {
   id: string
   label: string
@@ -65,6 +65,8 @@ export interface MyProvider {
   hasKey: boolean
   /** Anna can look up this provider's account balance or Coding Plan quota. */
   usage?: 'balance' | 'quota'
+  /** The agent reaches it through Anna's local routing (Codex and a Chat Completions provider). */
+  routed?: boolean
 }
 export interface UsageReport {
   at: string
@@ -75,7 +77,7 @@ export interface UsageReport {
   keyRejected?: boolean
   error?: string
 }
-export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string }
+export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string, routed?: boolean }
 export interface AgentsSnapshot {
   detected: AgentStatus[]
   providers: Record<string, { provider?: string, hasKey: boolean }>
@@ -85,7 +87,7 @@ export interface AgentsSnapshot {
   universal: (UniversalProvider & { hasKey: boolean })[]
   /** The last speed test per provider (`app:name`), fastest first; candidates already carry the provider's path. */
   /** A provider from an import link, waiting for the user to confirm (the key only masked). */
-  pendingImport?: { app: 'claude' | 'codex' | 'gemini', name: string, baseUrl: string, endpoints: string[], key: string, model?: string, tiers?: { haiku?: string, sonnet?: string, opus?: string }, env?: Record<string, string>, website?: string, enabled: boolean, warnings: string[] }
+  pendingImport?: { app: 'claude' | 'codex' | 'gemini', name: string, baseUrl: string, endpoints: string[], key: string, model?: string, tiers?: { haiku?: string, sonnet?: string, opus?: string }, env?: Record<string, string>, website?: string, enabled: boolean, warnings: string[], apiFormat?: 'openai_chat' }
   /** The last balance or quota lookup per provider (`app:name`). */
   usage: Record<string, UsageReport>
   speed: Record<string, { at: string, results: { url: string, latency?: number, status?: number, error?: string }[] }>
@@ -104,7 +106,8 @@ export interface UniversalProvider {
 }
 export type UniversalDraft = UniversalProvider & { previous?: string, key?: string }
 /** Add or edit one of the user's providers. `from` names the preset it starts from; `previous` the entry being edited. */
-export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string }
+/** `apiFormat` (codex): the provider's protocol; Chat Completions goes through Anna's local routing. */
+export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string, apiFormat?: 'openai_responses' | 'openai_chat' }
 export type Origin = 'desktop' | 'weixin'
 export interface ApprovalQuestion {
   id: string

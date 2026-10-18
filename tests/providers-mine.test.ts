@@ -55,6 +55,27 @@ it('my providers: add from a preset with a different model, use it, rename it (k
   await host.close()
 })
 
+it('a Chat Completions provider for Codex: marked as routed, its runs go through Anna\'s routing, no global switch', async () => {
+  const { host, data } = await setup()
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'My Chat', baseUrl: 'https://chat.example.com/v1', model: 'glm-5.3', key: 'sk-chat', apiFormat: 'openai_chat' })
+  expect(host.snapshot().agents.mine.codex).toEqual([expect.objectContaining({ name: 'My Chat', routed: true })])
+  expect(host.snapshot().agents.presets.codex!.find(preset => preset.name === 'PPIO')).toMatchObject({ routed: true })
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'My Chat' })
+  const sent = host.execute({ type: 'send', text: '@codex 你好' })
+  await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000 })
+  await host.execute({ type: 'approval', id: host.snapshot().approvals[0]!.id, allow: true })
+  await sent
+  const run = (await readFile(join(data, 'fake.log'), 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.args.join(' ')).toMatch(/model_providers\.anna\.base_url="http:\/\/127\.0\.0\.1:\d+\/codex\/v1"/)
+  expect(run.args.join(' ')).not.toContain('chat.example.com')
+  expect(run.env.ANNA_PROVIDER_KEY).toBe('set')
+  await expect(host.execute({ type: 'provider-global', app: 'codex', provider: 'My Chat' })).rejects.toThrow('本地路由')
+  // Switching back to Responses is a plain edit.
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'My Chat', previous: 'My Chat', apiFormat: 'openai_responses' })
+  expect(host.snapshot().agents.mine.codex[0]).not.toHaveProperty('routed')
+  await host.close()
+})
+
 it('custom providers by hand for each app: endpoint and model land where that app reads them', async () => {
   const { host } = await setup()
   await host.execute({ type: 'provider-save', app: 'claude', name: 'My relay', baseUrl: 'https://relay.example.com/anthropic/', model: 'claude-x' })

@@ -1,6 +1,6 @@
 import type { PermissionMode } from '../permissions/modes'
 import type { DelegateAgent } from './adapters'
-import type { ProviderApp, ProviderChoice } from './providers'
+import type { ProviderApp, ProviderChoice, RouteAddress } from './providers'
 import { mcpServerName } from '../kernels/external/mcp'
 import { providerLaunch } from './providers'
 
@@ -17,6 +17,8 @@ export interface LaunchInput {
   instructions?: string
   /** Anna's own tools as a local MCP server (when the agent is Anna's brain). */
   tools?: { url: string, token: string }
+  /** This run's route through Anna's local routing, for a provider the agent can't reach directly. */
+  route?: RouteAddress
 }
 
 export interface Launch {
@@ -66,7 +68,7 @@ function codexTools(tools: LaunchInput['tools']) {
  */
 export function buildLaunch(agent: DelegateAgent, input: LaunchInput): Launch {
   const app = (['claude', 'codex', 'gemini'] as string[]).includes(agent) ? agent as ProviderApp : undefined
-  const provider = app && input.provider ? providerLaunch(app, input.provider) : { env: {}, args: [] }
+  const provider = app && input.provider ? providerLaunch(app, input.provider, input.route) : { env: {}, args: [] }
   switch (agent) {
     case 'claude': {
       const deny = input.denyPaths.flatMap(pathRules)

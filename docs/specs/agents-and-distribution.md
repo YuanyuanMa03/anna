@@ -57,6 +57,9 @@
   - never write a file Anna can't parse.
 
   The original config can be restored in one click.
+- **Through Anna's local routing.** A provider in a format the agent doesn't speak (Chat Completions for Codex) is
+  reached through the routing service (see [local-routing.md](local-routing.md)): the agent gets a route token per
+  run, never the real key. Such a provider can't be applied globally until global routing (P2d).
 - When cc-switch is installed, import its providers read-only, and warn the user not to switch from both apps at once.
 - Neither Anna's brain nor any delegated agent can read or write `~/.claude`, `~/.codex` and similar folders. Only the
   Host writes them.
