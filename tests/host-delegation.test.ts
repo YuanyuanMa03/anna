@@ -16,14 +16,14 @@ const fake = resolve('tests/fixtures/fake-agent.mjs')
  * A host whose external agents are the protocol-faithful fake (tests/fixtures/fake-agent.mjs).
  * `review` is written to the settings (undefined keeps the default, on); `installed: false` hides the agents.
  */
-async function setup(script: ScriptStep[], mode: PermissionMode = 'ask', options: { review?: boolean, installed?: boolean } = { review: false }) {
+async function setup(script: ScriptStep[], mode: PermissionMode = 'ask', options: { review?: boolean, installed?: boolean, characterId?: string } = { review: false }) {
   const data = await mkdtemp(join(tmpdir(), 'anna-delegate-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
   await writeFile(join(workspace, 'README.md'), '# demo\n')
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: options.characterId ?? 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend(script, data)
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
@@ -122,14 +122,17 @@ it('@codex: a declined command is reported, nothing is written', async () => {
   await host.close()
 })
 
-it('anna decides to delegate with anna_delegate: asks first in ask mode, then relays the result', async () => {
+it('the companion decides to delegate with anna_delegate: asks first in ask mode, in its own name, then relays the result', async () => {
   const { host, workspace } = await setup([
     { tools: [{ name: 'anna_delegate', args: { agent: 'claude', task: '创建 done.txt' } }] },
     { text: 'Claude Code 已经替你创建好了 done.txt。' },
-  ])
+  ], 'ask', { review: false, characterId: 'mark' })
   const sent = host.execute({ type: 'send', text: '找个合适的 agent 帮我创建 done.txt' })
   const ask = await approve(host)
   expect(ask).toMatchObject({ toolName: 'anna_delegate', reason: expect.stringContaining('Claude Code') })
+  // The card speaks for whoever is on stage, not for Anna.
+  expect(ask.reason).toContain('马克君')
+  expect(ask.reason).not.toContain('Anna')
   const write = await approve(host)
   expect(write.toolName).toBe('write')
   await sent

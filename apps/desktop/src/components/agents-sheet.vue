@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AgentStatus, Command, RuntimeSnapshot } from '../../../../packages/shared/contracts'
 import { computed, reactive, ref } from 'vue'
+import { companion } from '../../../../packages/character/manifest'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
@@ -9,6 +10,7 @@ const installing = ref<string>()
 const confirmInstall = ref<AgentStatus>()
 const drafts = reactive<Record<string, { provider: string, key: string }>>({})
 const agents = computed(() => props.snapshot.agents)
+const name = computed(() => companion(props.snapshot.settings.characterId).name)
 const delegates = computed(() => agents.value.detected.filter(agent => agent.tier === 'delegate'))
 const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier === 'switch'))
 const draft = (app: string) => (drafts[app] ??= { provider: agents.value.providers[app]?.provider ?? '', key: '' })
@@ -30,7 +32,7 @@ function install(agent: AgentStatus) {
   <div class="sheet-backdrop" @click.self="emit('close')">
     <section class="sheet agents" role="dialog" aria-modal="true" aria-label="外部 agent">
       <div class="sheet-heading"><div><span class="eyebrow">COLLEAGUES</span><h2>外部 agent</h2></div><button class="icon-button" aria-label="关闭外部 agent" @click="emit('close')">×</button></div>
-      <p class="muted small">Anna 会像 cc-switch 一样识别这台电脑上的 coding agent。在输入框写 <code>@claude 任务</code> 或 <code>@codex 任务</code> 把活交给它，或者让 Anna 自己判断要不要派。它们的修改同样受权限模式约束，交付后可以查看 diff 和撤销。</p>
+      <p class="muted small">Anna 会像 cc-switch 一样识别这台电脑上的 coding agent。在输入框写 <code>@claude 任务</code> 或 <code>@codex 任务</code> 把活交给它，或者让 {{ name }} 自己判断要不要派。它们的修改同样受权限模式约束，交付后可以查看 diff 和撤销。</p>
       <div class="card-actions left"><button :disabled="locked" @click="emit('command', { type: 'agents-refresh' })">重新检测</button><button v-if="agents.ccSwitch" :disabled="locked" @click="emit('command', { type: 'ccswitch-import' })">从 cc-switch 导入服务商</button></div>
 
       <h3>能派活的 agent</h3>
