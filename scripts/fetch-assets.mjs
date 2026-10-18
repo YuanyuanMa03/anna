@@ -19,7 +19,8 @@ const archives = [
 ]
 const inventory = JSON.parse(await readFile(join(root, 'docs/asset-inventory.json'), 'utf8'))
 // The v1 archive still carries Hiyori. Everything under assets/ ships with the app and the website, so she must not stay.
-const retired = join(root, 'assets/characters/hiyori')
+const retired = [join(root, 'assets/characters/hiyori'), join(root, 'assets/licenses/Hiyori-ReadMe.txt')]
+const retire = () => Promise.all(retired.map(path => rm(path, { recursive: true, force: true })))
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
 async function mismatches() {
@@ -32,7 +33,7 @@ async function mismatches() {
   return bad
 }
 
-await rm(retired, { recursive: true, force: true })
+await retire()
 if ((await mismatches()).length === 0) {
   console.log(`Character assets are already in place (${inventory.length} files verified).`)
   process.exit(0)
@@ -59,7 +60,7 @@ try {
 }
 finally {
   await rm(work, { recursive: true, force: true })
-  await rm(retired, { recursive: true, force: true })
+  await retire()
 }
 
 const bad = await mismatches()
