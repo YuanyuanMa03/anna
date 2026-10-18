@@ -59,10 +59,19 @@ export class ExternalKernel implements AgentKernel {
     return [...this.context.instructions, ...tools].join('\n\n')
   }
 
-  private async save() {
-    await mkdir(join(this.context.data, 'external-sessions'), { recursive: true, mode: 0o700 })
-    await writeFile(`${this.file}.tmp`, JSON.stringify(this.transcript), { mode: 0o600 })
-    await rename(`${this.file}.tmp`, this.file)
+  private saving: Promise<void> = Promise.resolve()
+  /**
+   * Writes queue behind each other: a delegation recorded mid-turn (`remember`) and the end of the turn both save,
+   * and two writes sharing one temp file would lose a rename.
+   */
+  private save() {
+    const run = this.saving.then(async () => {
+      await mkdir(join(this.context.data, 'external-sessions'), { recursive: true, mode: 0o700 })
+      await writeFile(`${this.file}.tmp`, JSON.stringify(this.transcript), { mode: 0o600 })
+      await rename(`${this.file}.tmp`, this.file)
+    })
+    this.saving = run.catch(() => {})
+    return run
   }
 
   async prompt(text: string, meta: { origin: Origin }): Promise<TurnOutcome> {

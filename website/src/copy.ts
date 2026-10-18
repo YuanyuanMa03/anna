@@ -47,11 +47,10 @@ export const copy = {
       chips: ['协作模式 · 命令在沙箱中运行', '读取 → 写入 → 终端 → 交付'],
     },
     cast: {
-      label: '六位伙伴',
-      note: '六位伙伴住在同一个家里，各有各的性格，共用一本关于你的日记。点一位，和 TA 一起干次活。',
+      label: '五位伙伴',
+      note: '五位伙伴住在同一个家里，各有各的性格，共用一本关于你的日记。点一位，和 TA 一起干次活。',
       people: {
-        hiyori: { name: 'Anna', tagline: '温柔、理性、真诚' },
-        haru: { name: '春', tagline: '有条不紊的前台姐姐' },
+        haru: { name: 'Anna', tagline: '温柔、理性、真诚' },
         mao: { name: 'Mao', tagline: '爱折腾的小魔法师' },
         natori: { name: '名执尽', tagline: '一丝不苟的执事先生' },
         chitose: { name: '千岁', tagline: '靠谱又随和的学长' },
@@ -94,7 +93,7 @@ export const copy = {
     meet: {
       eyebrow: 'MEET ANNA',
       title: ['她是谁？', '一个住在你桌面上的数字生命。'],
-      desc: '大脑可以换，她始终是她。Anna 也是一个家的名字：另外五位伙伴和她住在一起，各有各的性格，共用一本关于你的日记。换谁来陪你，记忆和对话都接得上。',
+      desc: '大脑可以换，她始终是她。Anna 也是一个家的名字：另外四位伙伴和她住在一起，各有各的性格，共用一本关于你的日记。换谁来陪你，记忆和对话都接得上。',
       traits: [
         { icon: '✿', title: '有自己的样子', body: '真实的 Live2D 角色。思考、读文件、等你确认、完成任务，她都有不同的神态；换个权限模式，连站姿都会变。' },
         { icon: '♡', title: '有自己的性格', body: '善良、理性、真诚。她有自己的观点，也尊重你的最终决定。闲聊时简短温暖，做事时先说结论。' },
@@ -167,11 +166,10 @@ export const copy = {
       chips: ['Edit mode · commands run in the sandbox', 'read → write → shell → deliver'],
     },
     cast: {
-      label: 'Six companions',
-      note: 'Six companions share one home, each their own person, with one diary about you. Pick one and get some work done together.',
+      label: 'Five companions',
+      note: 'Five companions share one home, each their own person, with one diary about you. Pick one and get some work done together.',
       people: {
-        hiyori: { name: 'Anna', tagline: 'Gentle, rational, honest' },
-        haru: { name: 'Haru', tagline: 'The organized receptionist' },
+        haru: { name: 'Anna', tagline: 'Gentle, rational, honest' },
         mao: { name: 'Mao', tagline: 'A tinkering apprentice witch' },
         natori: { name: 'Natori', tagline: 'A meticulous butler' },
         chitose: { name: 'Chitose', tagline: 'The easygoing senior' },
@@ -214,7 +212,7 @@ export const copy = {
     meet: {
       eyebrow: 'MEET ANNA',
       title: ['Who is she?', 'A digital life on your desktop.'],
-      desc: 'Her brain can change and she stays herself. Anna is also the name of a home: five more companions live there with her, each their own person, sharing one diary about you. Whoever keeps you company, the memory and your conversations carry on.',
+      desc: 'Her brain can change and she stays herself. Anna is also the name of a home: four more companions live there with her, each their own person, sharing one diary about you. Whoever keeps you company, the memory and your conversations carry on.',
       traits: [
         { icon: '✿', title: 'A face of her own', body: 'A real Live2D character. Thinking, reading, waiting for you, finishing up: each has its own look, and even her stance shifts with the permission mode.' },
         { icon: '♡', title: 'A personality', body: 'Kind, rational and honest. She has her own opinions and respects your final call. Warm and brief in small talk, conclusion first at work.' },

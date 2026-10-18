@@ -15,7 +15,7 @@ async function setup(options: { fetch?: typeof fetch, script?: import('../packag
   const workspace = join(data, 'project')
   await mkdir(workspace)
   process.env.ANNA_FAKE_LOG = join(data, 'fake.log')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: options.characterId ?? 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: options.characterId ?? 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const secrets: Record<string, string> = {}
   const backend = await scriptedBackend(options.script ?? [], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {

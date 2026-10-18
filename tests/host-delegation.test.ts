@@ -23,7 +23,7 @@ async function setup(script: ScriptStep[], mode: PermissionMode = 'ask', options
   await writeFile(join(workspace, 'README.md'), '# demo\n')
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend(script, data)
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
@@ -147,7 +147,7 @@ it('manages agents like cc-switch: detection list, per-agent provider for delega
   await writeFile(join(claudeDir, 'settings.json'), JSON.stringify({ env: { FOO: '1' }, model: 'opus' }, null, 2))
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const secrets: Record<string, string> = {}
   const backend = await scriptedBackend([], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
@@ -187,7 +187,7 @@ it('switching Anna\'s brain to Claude Code: plain messages go to it, with Anna\'
   await mkdir(workspace)
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
   const make = () => new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
@@ -278,7 +278,7 @@ it('the Codex brain uses the provider chosen for Codex (DeepSeek here), with the
   await mkdir(workspace)
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'hiyori', statusEnabled: false, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'haru', statusEnabled: false, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
@@ -295,4 +295,14 @@ it('the Codex brain uses the provider chosen for Codex (DeepSeek here), with the
   const catalog = JSON.parse(run.args.find((arg: string) => arg.startsWith('model_catalog_json=')).slice('model_catalog_json='.length)) as string
   expect(JSON.parse(await readFile(catalog, 'utf8')).models[0].slug).toBe('deepseek-flash')
   await host.close()
+})
+
+it('an external brain\'s transcript survives saves that overlap (a delegation recorded mid-turn, then the turn\'s end)', async () => {
+  const { ExternalKernel } = await import('../packages/kernels/external/kernel')
+  const data = await mkdtemp(join(tmpdir(), 'anna-external-save-'))
+  const kernel = new ExternalKernel({ root: '.', data, workspace: data, trusted: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, key: '', instructions: [], gate: async () => ({ allow: true }), tools: [], emit: () => {} }, 'claude')
+  for (let index = 0; index < 20; index++) kernel.remember('delegation', { task: `t${index}`, text: 'ok', delegation: { agent: 'codex', label: 'Codex', task: `t${index}`, status: 'completed', steps: 0 }, nested: true })
+  await (kernel as unknown as { save: () => Promise<void> }).save()
+  const saved = JSON.parse(await readFile(kernel.sessionFile, 'utf8'))
+  expect(saved.entries).toHaveLength(20)
 })
