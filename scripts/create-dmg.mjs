@@ -16,7 +16,7 @@ const firstLaunch = `打开 Anna · Opening Anna
 3. 如果 macOS 提示“无法验证 Anna”，点“完成”，然后打开
    系统设置 → 隐私与安全性，在页面底部点“仍要打开”，再确认一次。
 
-只有第一次需要这样做。Anna 是开源软件，作者没有付费的 Apple 开发者账号，
+只有第一次需要这样做。Anna 由个人开发，作者没有付费的 Apple 开发者账号，
 所以没有经过公证；每个版本都用同一个自签名身份签名，之后在应用内更新。
 
 1. Drag Anna into the Applications folder.
@@ -24,7 +24,7 @@ const firstLaunch = `打开 Anna · Opening Anna
 3. If macOS says it could not verify Anna, click Done, then open
    System Settings → Privacy & Security and click "Open Anyway" near the bottom.
 
-You only need to do this once. Anna is open source and not notarized (no paid
+You only need to do this once. Anna is made by one person and not notarized (no paid
 Apple developer account); every release carries the same self-signed identity,
 and later updates happen inside the app.
 `
