@@ -35,7 +35,7 @@ export interface Settings {
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
 }
-export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, preset: { name: string, official: boolean, category: string, website?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string } }
+export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, models?: { model: string }[] } }
 export interface AgentStatus {
   id: string
   label: string
@@ -52,13 +52,28 @@ export interface AgentStatus {
   /** Its adapter has been verified against a real recorded session. */
   verified?: boolean
 }
+/** A provider in the user's own list for one app: added from a preset, written by hand, or imported from cc-switch. */
+export interface MyProvider {
+  name: string
+  source: 'preset' | 'custom' | 'imported'
+  category: string
+  baseUrl?: string
+  model?: string
+  website?: string
+  apiKeyUrl?: string
+  hasKey: boolean
+}
+export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string }
 export interface AgentsSnapshot {
   detected: AgentStatus[]
   providers: Record<string, { provider?: string, hasKey: boolean }>
   global: Record<string, { switched: boolean, provider?: string }>
-  presets: Record<string, { name: string, category: string, official: boolean, apiKeyUrl?: string }[]>
+  presets: Record<string, PresetSummary[]>
+  mine: Record<string, MyProvider[]>
   ccSwitch: boolean
 }
+/** Add or edit one of the user's providers. `from` names the preset it starts from; `previous` the entry being edited. */
+export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string }
 export type Origin = 'desktop' | 'weixin'
 export interface ApprovalQuestion {
   id: string
@@ -159,6 +174,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
+  | ({ type: 'provider-save' } & ProviderDraft)
+  | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
   | { type: 'ccswitch-import' }
   | { type: 'agent-install', agent: string }
   | { type: 'kernel', id: 'pi' | 'claude-code' | 'codex' }

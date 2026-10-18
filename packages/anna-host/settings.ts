@@ -22,7 +22,7 @@ const settingsSchema = v.object({
   workspace: v.optional(v.string()),
   workspaces: v.optional(v.record(v.string(), workspaceSchema), {}),
   agents: v.optional(v.record(v.string(), v.object({ provider: v.optional(v.string()) }))),
-  providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
+  providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), source: v.optional(v.picklist(['preset', 'custom', 'imported'])), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
 })
 
 /** Validate the endpoint before a credential crosses the host network boundary. */
