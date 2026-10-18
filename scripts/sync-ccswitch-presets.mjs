@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
@@ -31,7 +31,7 @@ function plain(url) {
   try {
     const parsed = new URL(url)
     for (const key of [...parsed.searchParams.keys()]) {
-      if (/^(?:aff|affiliate|ref|referral|invite|track_id|utm_\w+|from|source|channel|code|inviteCode|invite_code)$/i.test(key))
+      if (/^(?:aff|affiliate|ref|referral|invite|track_id|utm_\w+|from|source|channel|code|inviteCode|invite_code|ic|ch|ytag|ac|rc)$/i.test(key))
         parsed.searchParams.delete(key)
     }
     return parsed.toString().replace(/\?$/, '')
@@ -48,14 +48,24 @@ const proxyOnly = (app, value) => typeof value === 'string' && !native[app].incl
 
 const claude = (await load('claudeProviderPresets')).providerPresets.filter(preset => !proxyOnly('claude', preset.apiFormat) && !preset.requiresOAuth && !preset.hidden).filter(preset => !Object.keys(preset.settingsConfig?.env ?? {}).some(key => key.startsWith('AWS_') || key.startsWith('CLAUDE_CODE_USE_'))).map(preset => pick(preset, { keyField: preset.apiKeyField ?? 'ANTHROPIC_AUTH_TOKEN', env: Object.fromEntries(Object.entries(preset.settingsConfig?.env ?? {}).filter(([key, value]) => key !== 'ANTHROPIC_AUTH_TOKEN' && key !== 'ANTHROPIC_API_KEY' && typeof value === 'string' && value)) }))
 
+/** cc-switch's per-preset Codex model rows (name, window, modalities, reasoning levels), undefined fields dropped. */
+function catalogRows(rows) {
+  return rows?.length ? rows.map(row => JSON.parse(JSON.stringify(row))) : undefined
+}
+
 function tomlValue(text, key) {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"([^"]*)"`, 'm').exec(text)
   return match?.[1]
 }
-const codex = (await load('codexProviderPresets')).codexProviderPresets.filter(preset => !proxyOnly('codex', preset.apiFormat) && !preset.requiresOAuth && !preset.hidden && !preset.isCustomTemplate).map(preset => pick(preset, { baseUrl: tomlValue(preset.config ?? '', 'base_url'), model: tomlValue(preset.config ?? '', 'model'), wireApi: tomlValue(preset.config ?? '', 'wire_api') ?? 'responses' })).filter(preset => preset.official || preset.baseUrl)
+const codex = (await load('codexProviderPresets')).codexProviderPresets.filter(preset => !proxyOnly('codex', preset.apiFormat) && !preset.requiresOAuth && !preset.hidden && !preset.isCustomTemplate).map(preset => pick(preset, { baseUrl: tomlValue(preset.config ?? '', 'base_url'), model: tomlValue(preset.config ?? '', 'model'), wireApi: tomlValue(preset.config ?? '', 'wire_api') ?? 'responses', models: catalogRows(preset.modelCatalog) })).filter(preset => preset.official || preset.baseUrl)
 
 const gemini = (await load('geminiProviderPresets')).geminiProviderPresets.filter(preset => !preset.hidden).map(preset => pick(preset, { env: Object.fromEntries(Object.entries(preset.settingsConfig?.env ?? {}).filter(([key, value]) => !/KEY|TOKEN/.test(key) && typeof value === 'string' && value)) }))
 
 const data = { source: { repo: 'https://github.com/farion1231/cc-switch', commit, license: 'MIT', copyright: 'Jason Young' }, claude, codex, gemini }
 await writeFile('packages/agents/presets.json', `${JSON.stringify(data, null, 2)}\n`)
+// The templates Codex model catalogs are built from: cc-switch's neutral native-Responses entry and DeepSeek's
+// official Codex catalog (the file DeepSeek's own integration script writes).
+await mkdir('packages/agents/codex-catalog', { recursive: true })
+for (const [from, to] of [['codex_native_responses_template.json', 'native-responses.json'], ['codex_deepseek_catalog_template.json', 'deepseek.json']])
+  await writeFile(join('packages/agents/codex-catalog', to), `${JSON.stringify(JSON.parse(await readFile(join(source, 'src-tauri/src/resources', from), 'utf8')), null, 2)}\n`)
 console.log(`claude ${claude.length}, codex ${codex.length}, gemini ${gemini.length} presets from cc-switch ${commit}`)

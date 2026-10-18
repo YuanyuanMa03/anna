@@ -2,6 +2,7 @@ import type { ProviderApp, ProviderChoice } from './providers'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { codexCatalog, rejectsWebSearch } from './codex-catalog'
 import { usesOwnLogin } from './providers'
 
 /**
@@ -22,7 +23,9 @@ function geminiConnectionKey(key: string) {
   return key.startsWith('GOOGLE_') || ['GEMINI_API_KEY', 'GEMINI_MODEL', 'GEMINI_API_KEY_AUTH_MECHANISM', 'GEMINI_CLI_CUSTOM_HEADERS', 'GEMINI_DEFAULT_AUTH_TYPE', 'GEMINI_CLI_USE_COMPUTE_ADC', 'CODE_ASSIST_ENDPOINT', 'CODE_ASSIST_API_VERSION'].includes(key)
 }
 /** Codex config.toml top-level keys that belong to the connection. */
-const codexTopKeys = ['model_provider', 'openai_base_url', 'model', 'model_reasoning_effort', 'experimental_bearer_token', 'base_url', 'wire_api']
+const codexTopKeys = ['model_provider', 'openai_base_url', 'model', 'model_reasoning_effort', 'experimental_bearer_token', 'base_url', 'wire_api', 'model_catalog_json']
+/** The model catalog Anna writes next to config.toml. */
+const codexCatalogFile = 'anna-model-catalog.json'
 
 function parseJson(name: string, text: string | undefined): Record<string, any> {
   if (text === undefined || !text.trim())
@@ -60,7 +63,7 @@ function claudePlan(files: Record<string, string | undefined>, choice: ProviderC
 const tomlString = (value: string) => JSON.stringify(value)
 
 /** Edit config.toml line by line: top-level connection keys and the [model_providers.custom] table only. */
-function codexPlan(files: Record<string, string | undefined>, choice: ProviderChoice): GlobalPlan {
+function codexPlan(files: Record<string, string | undefined>, choice: ProviderChoice, dir: string): GlobalPlan {
   const original = files['config.toml'] ?? ''
   if (/^\s*model_providers\s*=|^\s*model_providers\.custom\./m.test(original))
     throw new Error('config.toml 用内联或点号写法定义了 model_providers，无法安全解析，未做修改')
@@ -80,7 +83,14 @@ function codexPlan(files: Record<string, string | undefined>, choice: ProviderCh
     return { writes }
   }
   const model = choice.model ?? choice.preset.model
-  const head = [`model_provider = "custom"`, ...(model ? [`model = ${tomlString(model)}`] : [])]
+  const catalog = codexCatalog(choice.preset, choice.model)
+  // `web_search` is the user's own setting, except on gateways that reject the tool (cc-switch's rule).
+  const noSearch = rejectsWebSearch(choice.preset.baseUrl!, model)
+  const head = [`model_provider = "custom"`, ...(model ? [`model = ${tomlString(model)}`] : []), ...(catalog ? [`model_catalog_json = ${tomlString(join(dir, codexCatalogFile))}`] : []), ...(noSearch ? ['web_search = "disabled"'] : [])]
+  if (catalog)
+    writes[codexCatalogFile] = `${JSON.stringify(catalog, null, 2)}\n`
+  if (noSearch)
+    top.splice(0, top.length, ...top.filter(line => !/^\s*web_search\s*=/.test(line)))
   const table = ['[model_providers.custom]', `name = ${tomlString(choice.preset.name)}`, `base_url = ${tomlString(choice.preset.baseUrl!)}`, `wire_api = ${tomlString(choice.preset.wireApi ?? 'responses')}`, 'requires_openai_auth = true']
   const trimmedTop = top.join('\n').replace(/\n+$/, '')
   const trimmedRest = rest.join('\n').replace(/^\n+|\n+$/g, '')
@@ -107,16 +117,17 @@ function geminiPlan(files: Record<string, string | undefined>, choice: ProviderC
   return { writes }
 }
 
-export function globalPlan(app: ProviderApp, files: Record<string, string | undefined>, choice: ProviderChoice): GlobalPlan {
+/** `dir`: the app's config directory (Codex's catalog path is written into config.toml). */
+export function globalPlan(app: ProviderApp, files: Record<string, string | undefined>, choice: ProviderChoice, dir = ''): GlobalPlan {
   if (app === 'claude')
     return claudePlan(files, choice)
   if (app === 'codex')
-    return codexPlan(files, choice)
+    return codexPlan(files, choice, dir)
   return geminiPlan(files, choice)
 }
 
 /** The files each app's global switch may touch, relative to its config directory. */
-export const globalFiles: Record<ProviderApp, string[]> = { claude: ['settings.json'], codex: ['config.toml', 'auth.json'], gemini: ['.env', 'settings.json'] }
+export const globalFiles: Record<ProviderApp, string[]> = { claude: ['settings.json'], codex: ['config.toml', 'auth.json', codexCatalogFile], gemini: ['.env', 'settings.json'] }
 
 interface SwitchState { switched: boolean, provider?: string, at?: string, originals: Record<string, boolean> }
 
@@ -161,7 +172,7 @@ export class GlobalSwitcher {
       const dir = this.dirs[app]
       const files: Record<string, string | undefined> = {}
       for (const name of globalFiles[app]) files[name] = existsSync(join(dir, name)) ? await readFile(join(dir, name), 'utf8') : undefined
-      const { writes } = globalPlan(app, files, choice)
+      const { writes } = globalPlan(app, files, choice, dir)
       const state = this.load(app)
       await mkdir(join(this.backupRoot, app), { recursive: true, mode: 0o700 })
       for (const name of Object.keys(writes)) {

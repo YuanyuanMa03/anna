@@ -35,6 +35,7 @@ is the brain, `kernels/external/mcp.ts` serves the same tools as a Streamable HT
 | `agents/adapters/*` | Decodes each agent's headless output line by line into Anna's `KernelEvent`s and writes approval replies |
 | `agents/runner.ts` | Starts the process, decodes it, sends approval requests through Anna's permission gate, handles interrupts |
 | `agents/providers.ts`, `global.ts` | Provider presets (from cc-switch), per-delegation injection, global apply and restore |
+| `agents/codex-catalog.ts` | Codex model catalog (`model_catalog_json`) for third-party providers, ported from cc-switch: context window, reasoning levels, image input and tool profile per model; DeepSeek uses its official catalog; `web_search` is turned off on gateways that reject it |
 
 ## Protocols
 

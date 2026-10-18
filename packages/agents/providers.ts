@@ -1,4 +1,9 @@
+import type { CatalogRow } from './codex-catalog'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { codexCatalog, rejectsWebSearch } from './codex-catalog'
 import presets from './presets.json'
 
 const require = createRequire(import.meta.url)
@@ -19,11 +24,14 @@ export interface Preset {
   baseUrl?: string
   model?: string
   wireApi?: string
+  /** codex: the preset's model rows, for the model catalog. */
+  models?: CatalogRow[]
 }
 
 /** A provider instance: a preset plus the user's key (and optional model override). */
 export interface ProviderChoice { preset: Preset, key?: string, model?: string }
-export interface Launch { env: Record<string, string>, args: string[] }
+/** `files`: absolute path → content, written (0600) before the agent starts. */
+export interface Launch { env: Record<string, string>, args: string[], files?: Record<string, string> }
 
 const catalog = presets as unknown as Record<ProviderApp, Preset[]> & { source: { repo: string, commit: string, license: string } }
 
@@ -62,8 +70,19 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
       `model_providers.anna.wire_api=${toml(preset.wireApi ?? 'responses')}`,
       'model_providers.anna.env_key="ANNA_PROVIDER_KEY"',
       ...(model ?? preset.model ? [`model=${toml((model ?? preset.model)!)}`] : []),
-    ].flatMap(value => ['-c', value])
-    return { env: key ? { ANNA_PROVIDER_KEY: key } : {}, args }
+    ]
+    // The model catalog, written once per distinct content to a temp file Codex reads at startup.
+    const catalog = codexCatalog(preset, model)
+    const files: Record<string, string> = {}
+    if (catalog) {
+      const text = `${JSON.stringify(catalog, null, 2)}\n`
+      const path = join(tmpdir(), 'anna-codex-catalogs', `${createHash('sha256').update(text).digest('hex').slice(0, 16)}.json`)
+      files[path] = text
+      args.push(`model_catalog_json=${toml(path)}`)
+    }
+    if (rejectsWebSearch(preset.baseUrl!, model ?? preset.model))
+      args.push('web_search="disabled"')
+    return { env: key ? { ANNA_PROVIDER_KEY: key } : {}, args: args.flatMap(value => ['-c', value]), files }
   }
   const env = { ...preset.env }
   if (model)
