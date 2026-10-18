@@ -1,16 +1,18 @@
-import type { UtilityProcess } from 'electron'
+import type { MenuItemConstructorOptions, UtilityProcess } from 'electron'
 import type { AnnaEvent, Command, RuntimeSnapshot } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
+import type { TrayItem } from './tray-menu'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, safeStorage, utilityProcess } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, Tray, utilityProcess } from 'electron'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
 import { dataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { createVault } from '../../packages/shared/vault'
+import { trayTemplate } from './tray-menu'
 import { Updater } from './updater'
 
 const root = app.isPackaged ? app.getAppPath() : process.env.ANNA_ROOT ?? resolve(import.meta.dirname, '../../../..')
@@ -44,8 +46,45 @@ let restarts: number[] = []
 let emitToRenderer: (event: AnnaEvent) => void = () => {}
 const updater = new Updater(process.env.ANNA_RELEASE_BASE ?? 'https://anna.mayuanyuan.top', state => emitToRenderer({ type: 'update', ...state }))
 
+let tray: Tray | undefined
+let trayLatest: RuntimeSnapshot | undefined
+let trayShown = ''
+
+/** Rebuild the tray menu when what it shows changed (snapshots arrive often while the model streams). */
+function refreshTray(snapshot?: RuntimeSnapshot) {
+  trayLatest = snapshot ?? trayLatest
+  const template = trayTemplate(trayLatest)
+  const shown = JSON.stringify(template)
+  if (!tray || shown === trayShown)
+    return
+  trayShown = shown
+  const electron = (items: TrayItem[]): MenuItemConstructorOptions[] => items.map(({ run, submenu, ...item }) => ({ ...item, ...(submenu ? { submenu: electron(submenu) } : {}), ...(run ? { click: () => void runTray(run) } : {}) }))
+  tray.setContextMenu(Menu.buildFromTemplate(electron(template)))
+}
+
+async function runTray(run: NonNullable<TrayItem['run']>) {
+  if (run === 'quit')
+    return app.quit()
+  if (run === 'show') {
+    window?.show()
+    window?.focus()
+    return
+  }
+  try {
+    if (!peer)
+      throw new Error('Anna 核心进程尚未启动')
+    refreshTray(await peer.call<RuntimeSnapshot>('execute', run))
+  }
+  catch (error) {
+    if (Notification.isSupported())
+      new Notification({ title: 'Anna', body: error instanceof Error ? error.message : '操作失败' }).show()
+  }
+}
+
 function onCoreEvent(event: AnnaEvent) {
   emitToRenderer(event)
+  if (event.type === 'snapshot')
+    refreshTray(event.snapshot)
   if (event.type === 'notify' && window && !window.isFocused() && Notification.isSupported())
     new Notification({ title: event.title, body: event.body, silent: false }).show()
 }
@@ -126,6 +165,13 @@ async function start() {
   win.on('closed', () => { dispose(); emitToRenderer = () => {} })
   app.setAboutPanelOptions({ applicationName: 'Anna', applicationVersion: app.getVersion(), copyright: 'Copyright © 2026 YuanyuanMa03' })
   Menu.setApplicationMenu(menu(context))
+  // The tray switches providers like cc-switch's; on macOS it sits in the menu bar.
+  tray = new Tray(nativeImage.createFromPath(join(root, 'dist/renderer/favicon.png')).resize({ width: mac ? 18 : 24, height: mac ? 18 : 24 }))
+  tray.setToolTip('Anna')
+  refreshTray()
+  // The scripted acceptance reads the tray menu it can't click.
+  if (process.env.ANNA_TEST_SCRIPT)
+    Object.assign(globalThis, { annaTrayMenu: () => JSON.parse(trayShown || '[]') as TrayItem[] })
   startCore()
   // Quietly check for updates shortly after launch and then every six hours.
   setTimeout(() => void updater.check(true), 10000)
@@ -148,7 +194,9 @@ async function start() {
       }
       if (!peer)
         throw new Error('Anna 核心进程尚未启动')
-      return { ok: true as const, snapshot: await peer.call<RuntimeSnapshot>('execute', forward) }
+      const snapshot = await peer.call<RuntimeSnapshot>('execute', forward)
+      refreshTray(snapshot)
+      return { ok: true as const, snapshot }
     }
     catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : 'Anna 操作失败' } }
   })

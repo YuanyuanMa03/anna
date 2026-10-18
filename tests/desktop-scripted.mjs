@@ -146,6 +146,10 @@ try {
   await until(page, s => s.agents.mine.codex?.some(p => p.name === 'DeepSeek' && p.model === 'deepseek-flash' && !p.hasKey), 'DeepSeek added')
   await page.locator('.provider-list li[data-provider="DeepSeek"]').getByRole('button', { name: /^让.+用它$/ }).click()
   await until(page, s => s.agents.providers.codex?.provider === 'DeepSeek', 'DeepSeek in use')
+  // The tray follows: Codex's submenu shows DeepSeek checked.
+  const trayCodex = (await desktop.evaluate(() => globalThis.annaTrayMenu())).find(item => item.label?.startsWith('Codex'))
+  assert.equal(trayCodex?.label, 'Codex：DeepSeek')
+  assert.deepEqual(trayCodex.submenu.filter(item => item.type === 'radio').map(item => [item.label, item.checked]), [['它自己的登录', false], ['DeepSeek', true]])
   await page.screenshot({ path: 'artifacts/scripted-providers.png' })
   await page.locator('.provider-list li[data-provider="DeepSeek"]').getByRole('button', { name: '编辑', exact: true }).click()
   await page.getByRole('textbox', { name: '服务商名称', exact: true }).fill('DeepSeek 工作')
@@ -155,6 +159,7 @@ try {
   await page.locator('.provider-list li[data-provider="DeepSeek 工作"]').getByRole('button', { name: '删除', exact: true }).click()
   await page.locator('.provider-list .approval-request').getByRole('button', { name: '删除', exact: true }).click()
   await until(page, s => !s.agents.mine.codex?.length && !s.agents.providers.codex?.provider, 'deleted, back to its own login')
+  assert.equal((await desktop.evaluate(() => globalThis.annaTrayMenu())).some(item => item.label?.startsWith('Codex')), false)
   // A universal provider: one gateway for Claude Code and Codex at once, linked under each app.
   await page.locator('.app-tabs button[data-app="universal"]').click()
   await page.getByRole('button', { name: '＋ 添加统一服务商', exact: true }).click()
