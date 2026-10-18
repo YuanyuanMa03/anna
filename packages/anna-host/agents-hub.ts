@@ -1,19 +1,24 @@
 import type { DelegateAgent } from '../agents/adapters'
+import type { LinkImport } from '../agents/deeplink'
 import type { AgentInfo } from '../agents/detect'
 import type { ImportedProvider, Preset, ProviderApp, ProviderChoice } from '../agents/providers'
-import type { AgentsSnapshot, AgentStatus, CustomProvider } from '../shared/contracts'
+import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, UniversalDraft, UniversalProvider } from '../shared/contracts'
 import type { SettingsStore } from './settings'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
+import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
 import { GlobalSwitcher } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
-import { findPreset, importCcSwitch, presetsFor } from '../agents/providers'
+import { findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv } from '../agents/providers'
+import { testEndpoints } from '../agents/speedtest'
+import { queryUsage, usageKind } from '../agents/usage'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -21,10 +26,69 @@ export interface AgentsOptions {
   detect?: () => Promise<AgentInfo[]>
   configDirs?: Record<ProviderApp, string>
   ccSwitchDb?: string
+  /** The speed test's HTTP client (tests point it at a local server). */
+  fetch?: typeof fetch
 }
 
 const providerApps: Record<string, ProviderApp | undefined> = { claude: 'claude', codex: 'codex', gemini: 'gemini' }
 export const providerAppOf = (agent: string) => providerApps[agent]
+const apps: ProviderApp[] = ['claude', 'codex', 'gemini']
+
+/** Where each app keeps its endpoint and model when the provider speaks through env vars. */
+const envFields: Partial<Record<ProviderApp, { url: string, model: string }>> = { claude: { url: 'ANTHROPIC_BASE_URL', model: 'ANTHROPIC_MODEL' }, gemini: { url: 'GOOGLE_GEMINI_BASE_URL', model: 'GEMINI_MODEL' } }
+
+/**
+ * An endpoint a key may be sent to: HTTPS anywhere, plain HTTP only to this machine or the local network (Ollama,
+ * LM Studio, vLLM), never with credentials, a query or a fragment in the URL.
+ */
+export function providerEndpoint(value: string) {
+  let url: URL
+  try { url = new URL(value.trim()) }
+  catch { throw new Error('请求地址不是有效的网址') }
+  const host = url.hostname.replace(/^\[|\]$/g, '')
+  const local = host === 'localhost' || host === '::1' || host.endsWith('.local') || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(?:1[6-9]|2\d|3[01])\./.test(host)
+  if (url.username || url.password || url.search || url.hash)
+    throw new Error('请求地址里不能带账号、密码或查询参数')
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local))
+    throw new Error('请求地址必须是 HTTPS（只有本机或局域网地址可以用 HTTP）')
+  return url.toString().replace(/\/$/, '')
+}
+
+/** Codex speaks /v1/responses: a bare gateway origin gets /v1, a URL with a path is used as written (cc-switch's rule). */
+export function codexBase(url: string) {
+  const trimmed = url.replace(/\/+$/, '')
+  return trimmed.endsWith('/v1') || new URL(trimmed).pathname !== '/' ? trimmed : `${trimmed}/v1`
+}
+
+/** The provider each enabled app gets from a universal one (cc-switch's to_claude/codex/gemini_provider). */
+export function universalPresets(universal: UniversalProvider): Partial<Record<ProviderApp, Preset>> {
+  const base = { name: universal.name, official: false, category: 'aggregator', website: universal.website }
+  const { claude, codex, gemini } = universal.models
+  const out: Partial<Record<ProviderApp, Preset>> = {}
+  if (universal.apps.claude) {
+    const model = claude?.model
+    out.claude = { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ANTHROPIC_BASE_URL: universal.baseUrl, ...(model ? { ANTHROPIC_MODEL: model } : {}), ...(claude?.haiku ?? model ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: (claude?.haiku ?? model)! } : {}), ...(claude?.sonnet ?? model ? { ANTHROPIC_DEFAULT_SONNET_MODEL: (claude?.sonnet ?? model)! } : {}), ...(claude?.opus ?? model ? { ANTHROPIC_DEFAULT_OPUS_MODEL: (claude?.opus ?? model)! } : {}) } }
+  }
+  if (universal.apps.codex)
+    out.codex = { ...base, baseUrl: codexBase(universal.baseUrl), model: codex?.model, wireApi: 'responses', reasoningEffort: codex?.reasoningEffort }
+  if (universal.apps.gemini)
+    out.gemini = { ...base, env: { GOOGLE_GEMINI_BASE_URL: universal.baseUrl, ...(gemini?.model ? { GEMINI_MODEL: gemini.model } : {}) } }
+  return out
+}
+
+/** A candidate origin takes the in-use address's path (`https://b.example` + `/v1`); one with its own path is kept. */
+export function withPath(candidate: string, current?: string) {
+  const url = new URL(candidate)
+  if (url.pathname !== '/' || !current)
+    return candidate.replace(/\/+$/, '')
+  return `${url.origin}${new URL(current).pathname.replace(/\/+$/, '')}`
+}
+
+/** Endpoint and model as the UI shows them, wherever the app keeps them. */
+function describe(app: ProviderApp, preset: Preset) {
+  const fields = envFields[app]
+  return fields ? { baseUrl: preset.env?.[fields.url], model: preset.env?.[fields.model] } : { baseUrl: preset.baseUrl, model: preset.model }
+}
 
 /**
  * The cc-switch side of Anna: which agents are installed, which provider each one uses when Anna delegates,
@@ -35,6 +99,10 @@ export class AgentsHub {
   private detected: AgentInfo[] = []
   private detecting?: Promise<AgentInfo[]>
   private keys?: Record<string, string>
+  private speed: AgentsSnapshot['speed'] = {}
+  private usage: AgentsSnapshot['usage'] = {}
+  /** A link's provider waiting for confirmation; its key never leaves this process unmasked. */
+  private pending?: LinkImport
   readonly switcher: GlobalSwitcher
   constructor(private data: string, private store: SettingsStore, private secrets: SecretVault, private options: AgentsOptions = {}) {
     const home = homedir()
@@ -100,6 +168,276 @@ export class AgentsHub {
     await this.store.save()
   }
 
+  /** The user's own providers for one app; a provider chosen before this list existed shows up as well. */
+  mine(app: ProviderApp, keys: Record<string, string>): MyProvider[] {
+    const listed = (this.store.value.providers ?? []).filter(item => item.app === app)
+    const chosen = this.store.value.agents?.[app]?.provider
+    const legacy = chosen && !listed.some(item => item.name === chosen) ? findPreset(app, chosen) : undefined
+    const entries: { name: string, source: MyProvider['source'], preset: Preset }[] = [
+      ...listed.map(item => ({ name: item.name, source: item.source ?? (item.preset.category === 'imported' ? 'imported' : 'preset'), preset: item.preset as Preset })),
+      ...(legacy ? [{ name: legacy.name, source: 'preset' as const, preset: legacy }] : []),
+    ]
+    return entries.map(({ name, source, preset }) => ({ name, source, category: preset.category, ...describe(app, preset), website: preset.website, apiKeyUrl: preset.apiKeyUrl, hasKey: Boolean(keys[`${app}:${name}`]), usage: usageKind(describe(app, preset).baseUrl) }))
+  }
+
+  /**
+   * Add a provider (from a preset or by hand) or edit one: endpoint and model can be overridden, the rest of the
+   * preset (extra env vars, model rows) is kept. Renaming moves its key and keeps it chosen.
+   */
+  async saveProvider(draft: ProviderDraft) {
+    const app = providerAppOf(draft.app)
+    if (!app)
+      throw new Error('这个 agent 不能设置服务商')
+    const name = draft.name.trim()
+    if (!name || name.length > 60)
+      throw new Error('服务商名称要有 1 到 60 个字')
+    const list = this.store.value.providers ?? []
+    const previous = draft.previous ? list.find(item => item.app === app && item.name === draft.previous) : undefined
+    if (previous?.source === 'universal')
+      throw new Error(`${previous.name} 来自统一服务商，请在“统一”里修改`)
+    if (name !== draft.previous && (list.some(item => item.app === app && item.name === name)))
+      throw new Error(`已经有一个叫 ${name} 的服务商`)
+    const from = draft.from ? findPreset(app, draft.from) : undefined
+    if (draft.from && !from)
+      throw new Error(`没有找到 ${draft.from} 这个预设`)
+    const base: Preset = structuredClone((previous?.preset as Preset | undefined) ?? from ?? (draft.previous ? findPreset(app, draft.previous) : undefined) ?? { name, official: false, category: 'custom', ...(app === 'claude' ? { keyField: 'ANTHROPIC_AUTH_TOKEN' } : {}), ...(app === 'codex' ? { wireApi: 'responses' } : {}) })
+    const baseUrl = draft.baseUrl?.trim() ? providerEndpoint(draft.baseUrl) : undefined
+    const model = draft.model?.trim() || undefined
+    const fields = envFields[app]
+    if (fields) {
+      base.env = { ...base.env }
+      if (baseUrl)
+        base.env[fields.url] = baseUrl
+      if (model)
+        base.env[fields.model] = model
+      if (!base.env[fields.url])
+        throw new Error('请填写请求地址')
+    }
+    else {
+      base.baseUrl = baseUrl ?? base.baseUrl
+      base.model = model ?? base.model
+      if (!base.baseUrl)
+        throw new Error('请填写请求地址')
+      if (!base.model)
+        throw new Error('Codex 需要一个模型名')
+    }
+    base.name = name
+    const source: CustomProvider['source'] = previous?.source ?? (from || (draft.previous && findPreset(app, draft.previous)) ? 'preset' : 'custom')
+    const entry = { app, name, source, preset: base } as CustomProvider
+    this.store.value.providers = [...list.filter(item => !(item.app === app && (item.name === name || item.name === draft.previous))), entry]
+    const keys = await this.allKeys()
+    if (draft.previous && draft.previous !== name && keys[`${app}:${draft.previous}`]) {
+      keys[`${app}:${name}`] = keys[`${app}:${draft.previous}`]!
+      delete keys[`${app}:${draft.previous}`]
+      await this.secrets.write(JSON.stringify(keys))
+    }
+    if (draft.key?.trim())
+      await this.saveKey(`${app}:${name}`, draft.key.trim())
+    if (draft.previous && this.store.value.agents?.[app]?.provider === draft.previous)
+      this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
+    await this.store.save()
+  }
+
+  /**
+   * Add or edit a universal provider: one key, stored once and copied to each enabled app's linked provider. An app
+   * switched off loses its linked provider (and goes back to its own login if it was using it).
+   */
+  async saveUniversal(draft: UniversalDraft) {
+    const name = draft.name.trim()
+    if (!name || name.length > 60)
+      throw new Error('服务商名称要有 1 到 60 个字')
+    const list = this.store.value.universal ?? []
+    if (name !== draft.previous && list.some(item => item.name === name))
+      throw new Error(`已经有一个叫 ${name} 的统一服务商`)
+    if (!draft.apps.claude && !draft.apps.codex && !draft.apps.gemini)
+      throw new Error('至少要用在一个 agent 上')
+    if (draft.apps.codex && !draft.models.codex?.model?.trim())
+      throw new Error('Codex 需要一个模型名')
+    const trim = (value?: string) => value?.trim() || undefined
+    const universal: UniversalProvider = {
+      name,
+      baseUrl: providerEndpoint(draft.baseUrl),
+      apps: { claude: Boolean(draft.apps.claude), codex: Boolean(draft.apps.codex), gemini: Boolean(draft.apps.gemini) },
+      models: {
+        claude: { model: trim(draft.models.claude?.model), haiku: trim(draft.models.claude?.haiku), sonnet: trim(draft.models.claude?.sonnet), opus: trim(draft.models.claude?.opus) },
+        codex: { model: trim(draft.models.codex?.model), reasoningEffort: trim(draft.models.codex?.reasoningEffort) },
+        gemini: { model: trim(draft.models.gemini?.model) },
+      },
+      website: trim(draft.website),
+    }
+    const presets = universalPresets(universal)
+    if ((this.store.value.providers ?? []).some(item => item.source !== 'universal' && item.name === name && presets[item.app]))
+      throw new Error(`${name} 和你已有的一个服务商重名，换个名字`)
+    const old = draft.previous ? list.find(item => item.name === draft.previous) : undefined
+    const keys = await this.allKeys()
+    const key = draft.key?.trim() || (old ? keys[`universal:${old.name}`] : undefined)
+    // Linked providers of the old entry go; this entry's come back for each enabled app, with the shared key.
+    const linked = (item: CustomProvider) => item.source === 'universal' && (item.name === draft.previous || item.name === name)
+    for (const app of apps) {
+      if (old && keys[`${app}:${old.name}`])
+        delete keys[`${app}:${old.name}`]
+      const chosen = this.store.value.agents?.[app]?.provider
+      if (old && chosen === old.name)
+        this.store.value.agents = { ...this.store.value.agents, [app]: universal.apps[app] ? { provider: name } : {} }
+    }
+    if (old)
+      delete keys[`universal:${old.name}`]
+    this.store.value.providers = [...(this.store.value.providers ?? []).filter(item => !linked(item)), ...apps.flatMap(app => presets[app] ? [{ app, name, source: 'universal' as const, preset: presets[app]! } as CustomProvider] : [])]
+    if (key) {
+      keys[`universal:${name}`] = key
+      for (const app of apps) {
+        if (presets[app])
+          keys[`${app}:${name}`] = key
+      }
+    }
+    await this.secrets.write(JSON.stringify(keys))
+    this.store.value.universal = [...list.filter(item => item.name !== draft.previous && item.name !== name), universal]
+    await this.store.save()
+  }
+
+  /** Remove a universal provider, its linked providers and its key. */
+  async deleteUniversal(name: string) {
+    this.store.value.universal = (this.store.value.universal ?? []).filter(item => item.name !== name)
+    for (const app of apps) {
+      if ((this.store.value.providers ?? []).some(item => item.app === app && item.name === name && item.source === 'universal'))
+        await this.deleteProvider(app, name)
+    }
+    const keys = await this.allKeys()
+    delete keys[`universal:${name}`]
+    await this.secrets.write(JSON.stringify(keys))
+    await this.store.save()
+  }
+
+  /** Time the provider's address and its preset's other addresses (with the same path), fastest first. */
+  async speedtest(appName: string, name: string, fetcher?: typeof fetch) {
+    const app = providerAppOf(appName)
+    const preset = app && this.preset(app, name)
+    if (!app || !preset)
+      throw new Error(`没有找到 ${name} 这个服务商`)
+    const current = describe(app, preset).baseUrl
+    const origin = findPreset(app, preset.name) ?? preset
+    const candidates = [...new Set([current, ...(preset.endpoints ?? origin.endpoints ?? [])].filter((url): url is string => Boolean(url)).map(url => withPath(url, current)))]
+    if (!candidates.length)
+      throw new Error('这个服务商没有可测的地址')
+    const results = await testEndpoints(candidates, { fetch: this.options.fetch ?? fetcher })
+    results.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity))
+    this.speed[`${app}:${name}`] = { at: new Date().toISOString(), results }
+  }
+
+  /** Look up what's left on the provider's account (balance or Coding Plan quota) with its saved key. */
+  async checkUsage(appName: string, name: string) {
+    const app = providerAppOf(appName)
+    const preset = app && this.preset(app, name)
+    const baseUrl = app && preset ? describe(app, preset).baseUrl : undefined
+    if (!app || !baseUrl || !usageKind(baseUrl))
+      throw new Error('还不支持查询这个服务商的余额')
+    const key = (await this.allKeys())[`${app}:${name}`] ?? ''
+    this.usage[`${app}:${name}`] = { at: new Date().toISOString(), ...await queryUsage(baseUrl, key, { fetch: this.options.fetch }) }
+  }
+
+  /** Read an import link and hold its provider for the user to confirm. */
+  previewLink(link: string) {
+    const parsed = parseProviderLink(link)
+    providerEndpoint(parsed.baseUrl)
+    this.pending = { ...parsed, warnings: [...parsed.warnings, ...(parsed.app === 'codex' && !parsed.model ? ['没有指定模型，Codex 会用它自己的默认模型'] : [])] }
+  }
+
+  cancelLink() { this.pending = undefined }
+
+  /** Add the confirmed link's provider (a free name if it's taken), with its key; optionally start using it. */
+  async confirmLink(use: boolean) {
+    const link = this.pending
+    if (!link)
+      throw new Error('没有待导入的链接')
+    const { app } = link
+    const taken = new Set((this.store.value.providers ?? []).filter(item => item.app === app).map(item => item.name))
+    let name = link.name
+    for (let index = 2; taken.has(name); index++) name = `${link.name} ${index}`
+    const base = { name, official: false, category: 'third_party', website: link.website, endpoints: link.endpoints.length ? [link.baseUrl, ...link.endpoints] : undefined }
+    const preset: Preset = app === 'claude'
+      ? { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ...link.env, ANTHROPIC_BASE_URL: link.baseUrl, ...(link.model ? { ANTHROPIC_MODEL: link.model } : {}), ...(link.tiers?.haiku ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: link.tiers.haiku } : {}), ...(link.tiers?.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: link.tiers.sonnet } : {}), ...(link.tiers?.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: link.tiers.opus } : {}) } }
+      : app === 'gemini'
+        ? { ...base, env: { GOOGLE_GEMINI_BASE_URL: link.baseUrl, ...(link.model ? { GEMINI_MODEL: link.model } : {}) } }
+        : { ...base, baseUrl: link.baseUrl, model: link.model, wireApi: 'responses' }
+    this.store.value.providers = [...(this.store.value.providers ?? []), { app, name, source: 'custom', preset } as CustomProvider]
+    if (use)
+      this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
+    await this.saveKey(`${app}:${name}`, link.key)
+    await this.store.save()
+    this.pending = undefined
+    return name
+  }
+
+  /**
+   * Write the user's providers and universal providers to a file Anna (or another machine's Anna) can import. Keys
+   * only when asked for, and then the file is readable by its owner alone.
+   */
+  async exportTo(path: string, includeKeys: boolean) {
+    const providers = (this.store.value.providers ?? []).filter(item => item.source !== 'universal')
+    const universal = this.store.value.universal ?? []
+    const all = await this.allKeys()
+    const names = [...providers.map(item => `${item.app}:${item.name}`), ...universal.map(item => `universal:${item.name}`)]
+    const keys = includeKeys ? Object.fromEntries(names.filter(name => all[name]).map(name => [name, all[name]!])) : undefined
+    await writeFile(path, `${JSON.stringify({ format: 'anna-providers', version: 1, exportedAt: new Date().toISOString(), providers, universal, ...(keys ? { keys } : {}) }, null, 2)}\n`, { mode: 0o600 })
+    return providers.length + universal.length
+  }
+
+  /** Bring providers in from an exported file: names already taken get a number; keys come along when the file has them. */
+  async importFrom(path: string) {
+    let file: { format?: string, version?: number, providers?: CustomProvider[], universal?: UniversalProvider[], keys?: Record<string, string> }
+    try { file = JSON.parse(await readFile(path, 'utf8')) }
+    catch { throw new Error('这个文件不是有效的 JSON') }
+    if (!file || typeof file !== 'object' || file.format !== 'anna-providers' || file.version !== 1)
+      throw new Error('这不是 Anna 导出的服务商文件')
+    const keys = file.keys ?? {}
+    let count = 0
+    for (const universal of file.universal ?? []) {
+      const taken = new Set((this.store.value.universal ?? []).map(item => item.name))
+      let name = universal.name
+      for (let index = 2; taken.has(name); index++) name = `${universal.name} ${index}`
+      await this.saveUniversal({ ...universal, name, key: keys[`universal:${universal.name}`] })
+      count++
+    }
+    const list = [...(this.store.value.providers ?? [])]
+    for (const item of file.providers ?? []) {
+      if (!item || !apps.includes(item.app) || typeof item.name !== 'string' || !item.name.trim() || !item.preset || typeof item.preset !== 'object' || item.source === 'universal')
+        continue
+      const fields = envFields[item.app]
+      const url = fields ? item.preset.env?.[fields.url] : item.preset.baseUrl
+      if (!url)
+        continue
+      providerEndpoint(url)
+      const wanted = item.name.trim().slice(0, 60)
+      let name = wanted
+      for (let index = 2; list.some(entry => entry.app === item.app && entry.name === name); index++) name = `${wanted} ${index}`
+      // Same rules as for links and launches: no loader env vars, the key only in Claude Code's own key variables.
+      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}) }
+      list.push({ app: item.app, name, source: item.source === 'imported' ? 'imported' : item.source === 'custom' ? 'custom' : 'preset', preset } as CustomProvider)
+      if (keys[`${item.app}:${item.name}`])
+        await this.saveKey(`${item.app}:${name}`, keys[`${item.app}:${item.name}`]!)
+      count++
+    }
+    this.store.value.providers = list
+    await this.store.save()
+    return count
+  }
+
+  /** Remove one of the user's providers and its key; an app that was using it goes back to its own login. */
+  async deleteProvider(appName: string, name: string) {
+    const app = providerAppOf(appName)
+    if (!app)
+      throw new Error('这个 agent 不能设置服务商')
+    this.store.value.providers = (this.store.value.providers ?? []).filter(item => !(item.app === app && item.name === name))
+    if (this.store.value.agents?.[app]?.provider === name)
+      this.store.value.agents = { ...this.store.value.agents, [app]: {} }
+    const keys = await this.allKeys()
+    if (keys[`${app}:${name}`]) {
+      delete keys[`${app}:${name}`]
+      await this.secrets.write(JSON.stringify(keys))
+    }
+    await this.store.save()
+  }
+
   async applyGlobal(app: ProviderApp, provider: string) {
     const choice = await this.choice(app, provider)
     if (!choice)
@@ -116,7 +454,7 @@ export class AgentsHub {
     const imported: ImportedProvider[] = importCcSwitch(this.ccSwitchDb)
     const providers: CustomProvider[] = [...(this.store.value.providers ?? []).filter(item => !imported.some(next => next.app === item.app && next.name === item.name))]
     for (const item of imported) {
-      providers.push({ app: item.app, name: item.name, preset: item.preset })
+      providers.push({ app: item.app, name: item.name, source: 'imported', preset: item.preset })
       if (item.key)
         await this.saveKey(`${item.app}:${item.name}`, item.key)
     }
@@ -143,15 +481,21 @@ export class AgentsHub {
       providers[agent] = { provider, hasKey: Boolean(provider && keys[`${agent}:${provider}`]) }
     }
     const presets: AgentsSnapshot['presets'] = {}
-    for (const app of ['claude', 'codex', 'gemini'] as ProviderApp[]) {
-      const custom = (this.store.value.providers ?? []).filter(item => item.app === app).map(item => ({ name: item.name, category: 'imported', official: false }))
-      presets[app] = [...custom, ...presetsFor(app).map(preset => ({ name: preset.name, category: preset.category, official: preset.official, apiKeyUrl: preset.apiKeyUrl }))]
+    const mine: AgentsSnapshot['mine'] = {}
+    for (const app of apps) {
+      presets[app] = presetsFor(app).map(preset => ({ name: preset.name, category: preset.category, official: preset.official, apiKeyUrl: preset.apiKeyUrl, website: preset.website, ...describe(app, preset) }))
+      mine[app] = this.mine(app, keys)
     }
     return {
       detected,
       providers,
       global: { claude: this.switcher.status('claude'), codex: this.switcher.status('codex'), gemini: this.switcher.status('gemini') },
       presets,
+      mine,
+      speed: this.speed,
+      usage: this.usage,
+      pendingImport: this.pending && { ...this.pending, key: maskKey(this.pending.key) },
+      universal: (this.store.value.universal ?? []).map(item => ({ ...item, hasKey: Boolean(keys[`universal:${item.name}`]) })),
       ccSwitch: existsSync(this.ccSwitchDb),
     }
   }

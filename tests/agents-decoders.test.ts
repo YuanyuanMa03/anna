@@ -67,6 +67,17 @@ describe('codex decoder (app-server JSON-RPC)', () => {
     expect(decoded.find(item => item.done)?.done).toMatchObject({ text: expect.stringContaining('done.txt'), isError: false })
   })
 
+  it('a failed turn reports why (shapes from codex 0.160: usage limit, provider 401)', async () => {
+    const { codexDecoder } = await import('../packages/agents/adapters/codex')
+    const limit = 'You’ve hit your usage limit. Try again at 4:25 PM.'
+    const decoder = codexDecoder()
+    decoder.decode(JSON.stringify({ method: 'error', params: { error: { message: limit, codexErrorInfo: 'usageLimitExceeded' }, willRetry: false } }))
+    expect(decoder.decode(JSON.stringify({ method: 'turn/completed', params: { turn: { id: 't', status: 'failed', error: { message: limit } } } })).done).toEqual({ text: limit, isError: true })
+    const other = codexDecoder()
+    other.decode(JSON.stringify({ method: 'error', params: { error: { message: 'unexpected status 401 Unauthorized' }, willRetry: false } }))
+    expect(other.decode(JSON.stringify({ method: 'turn/completed', params: { turn: { id: 't', status: 'failed' } } })).done).toEqual({ text: 'unexpected status 401 Unauthorized', isError: true })
+  })
+
   it('reports declined commands as failed tools and answers approvals in JSON-RPC', async () => {
     const { codexDecoder } = await import('../packages/agents/adapters/codex')
     const decoder = codexDecoder()

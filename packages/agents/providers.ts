@@ -1,4 +1,10 @@
+import type { CatalogRow } from './codex-catalog'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { codexCatalog, rejectsWebSearch } from './codex-catalog'
+import { loaderEnv } from './deeplink'
 import presets from './presets.json'
 
 const require = createRequire(import.meta.url)
@@ -19,11 +25,18 @@ export interface Preset {
   baseUrl?: string
   model?: string
   wireApi?: string
+  /** Other addresses of the same service, for the speed test. */
+  endpoints?: string[]
+  /** codex: `model_reasoning_effort`. */
+  reasoningEffort?: string
+  /** codex: the preset's model rows, for the model catalog. */
+  models?: CatalogRow[]
 }
 
 /** A provider instance: a preset plus the user's key (and optional model override). */
 export interface ProviderChoice { preset: Preset, key?: string, model?: string }
-export interface Launch { env: Record<string, string>, args: string[] }
+/** `files`: absolute path → content, written (0600) before the agent starts. */
+export interface Launch { env: Record<string, string>, args: string[], files?: Record<string, string> }
 
 const catalog = presets as unknown as Record<ProviderApp, Preset[]> & { source: { repo: string, commit: string, license: string } }
 
@@ -39,6 +52,17 @@ export function usesOwnLogin(app: ProviderApp, preset: Preset) {
 const toml = (value: string) => JSON.stringify(value)
 
 /**
+ * The env vars a provider may set, wherever it came from (a preset, a hand-written one, a link, an imported file):
+ * plain names and single-line values only, and never one that changes how processes load code.
+ */
+export function providerEnv(preset: Preset): Record<string, string> {
+  return Object.fromEntries(Object.entries(preset.env ?? {}).filter(([name, value]) => /^[A-Z_]\w*$/i.test(name) && !loaderEnv.test(name) && typeof value === 'string' && !/[\r\n\0]/.test(value)))
+}
+
+/** Claude Code reads the key from one of its own two variables, never from a name the provider data chose. */
+export const keyFieldOf = (preset: Preset) => preset.keyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN'
+
+/**
  * How to start an agent with this provider for one run: env vars and CLI arguments only, never a config file.
  * Keys only ever travel in env vars, so they do not show up in process listings.
  */
@@ -47,11 +71,11 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
   if (usesOwnLogin(app, preset))
     return { env: {}, args: [] }
   if (app === 'claude') {
-    const env = { ...preset.env }
+    const env = providerEnv(preset)
     if (model)
       env.ANTHROPIC_MODEL = model
     if (key)
-      env[preset.keyField ?? 'ANTHROPIC_AUTH_TOKEN'] = key
+      env[keyFieldOf(preset)] = key
     return { env, args: [] }
   }
   if (app === 'codex') {
@@ -62,10 +86,22 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
       `model_providers.anna.wire_api=${toml(preset.wireApi ?? 'responses')}`,
       'model_providers.anna.env_key="ANNA_PROVIDER_KEY"',
       ...(model ?? preset.model ? [`model=${toml((model ?? preset.model)!)}`] : []),
-    ].flatMap(value => ['-c', value])
-    return { env: key ? { ANNA_PROVIDER_KEY: key } : {}, args }
+      ...(preset.reasoningEffort ? [`model_reasoning_effort=${toml(preset.reasoningEffort)}`] : []),
+    ]
+    // The model catalog, written once per distinct content to a temp file Codex reads at startup.
+    const catalog = codexCatalog(preset, model)
+    const files: Record<string, string> = {}
+    if (catalog) {
+      const text = `${JSON.stringify(catalog, null, 2)}\n`
+      const path = join(tmpdir(), 'anna-codex-catalogs', `${createHash('sha256').update(text).digest('hex').slice(0, 16)}.json`)
+      files[path] = text
+      args.push(`model_catalog_json=${toml(path)}`)
+    }
+    if (rejectsWebSearch(preset.baseUrl!, model ?? preset.model))
+      args.push('web_search="disabled"')
+    return { env: key ? { ANNA_PROVIDER_KEY: key } : {}, args: args.flatMap(value => ['-c', value]), files }
   }
-  const env = { ...preset.env }
+  const env = providerEnv(preset)
   if (model)
     env.GEMINI_MODEL = model
   if (key)

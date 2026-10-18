@@ -2,6 +2,7 @@ import type { KernelEvent } from '../kernels/types'
 import type { DelegateAgent } from './adapters'
 import type { Launch } from './launch'
 import { spawn } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname } from 'node:path'
 import process from 'node:process'
 import { decoderFor } from './adapters'
@@ -29,6 +30,10 @@ export interface RunResult { status: 'completed' | 'failed' | 'aborted', text: s
 export function runAgent(options: RunOptions): Promise<RunResult> {
   const { agent, command, launch, cwd } = options
   const decoder = decoderFor(agent)
+  for (const [path, text] of Object.entries(launch.files ?? {})) {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    writeFileSync(path, text, { mode: 0o600 })
+  }
   const child = spawn(command, [...(options.prefix ?? []), ...launch.args], {
     cwd,
     windowsHide: true,

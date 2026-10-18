@@ -34,8 +34,9 @@ export interface Settings {
   agents?: Record<string, { provider?: string }>
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
+  universal?: UniversalProvider[]
 }
-export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, preset: { name: string, official: boolean, category: string, website?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string } }
+export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported' | 'universal', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, reasoningEffort?: string, models?: { model: string }[] } }
 export interface AgentStatus {
   id: string
   label: string
@@ -52,13 +53,58 @@ export interface AgentStatus {
   /** Its adapter has been verified against a real recorded session. */
   verified?: boolean
 }
+/** A provider in the user's own list for one app: added from a preset, written by hand, or imported from cc-switch. */
+export interface MyProvider {
+  name: string
+  source: 'preset' | 'custom' | 'imported' | 'universal'
+  category: string
+  baseUrl?: string
+  model?: string
+  website?: string
+  apiKeyUrl?: string
+  hasKey: boolean
+  /** Anna can look up this provider's account balance or Coding Plan quota. */
+  usage?: 'balance' | 'quota'
+}
+export interface UsageReport {
+  at: string
+  kind: 'balance' | 'quota'
+  balances?: { label: string, remaining: number, total?: number, used?: number, unit: string }[]
+  windows?: { window: 'five_hour' | 'weekly', usedPercent: number, resetsAt?: string }[]
+  plan?: string
+  keyRejected?: boolean
+  error?: string
+}
+export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string }
 export interface AgentsSnapshot {
   detected: AgentStatus[]
   providers: Record<string, { provider?: string, hasKey: boolean }>
   global: Record<string, { switched: boolean, provider?: string }>
-  presets: Record<string, { name: string, category: string, official: boolean, apiKeyUrl?: string }[]>
+  presets: Record<string, PresetSummary[]>
+  mine: Record<string, MyProvider[]>
+  universal: (UniversalProvider & { hasKey: boolean })[]
+  /** The last speed test per provider (`app:name`), fastest first; candidates already carry the provider's path. */
+  /** A provider from an import link, waiting for the user to confirm (the key only masked). */
+  pendingImport?: { app: 'claude' | 'codex' | 'gemini', name: string, baseUrl: string, endpoints: string[], key: string, model?: string, tiers?: { haiku?: string, sonnet?: string, opus?: string }, env?: Record<string, string>, website?: string, enabled: boolean, warnings: string[] }
+  /** The last balance or quota lookup per provider (`app:name`). */
+  usage: Record<string, UsageReport>
+  speed: Record<string, { at: string, results: { url: string, latency?: number, status?: number, error?: string }[] }>
   ccSwitch: boolean
 }
+/**
+ * One gateway (NewAPI and the like) for Claude Code, Codex and Gemini CLI at once, as in cc-switch: Anna keeps a
+ * linked provider per enabled app, and edits or deletes them together.
+ */
+export interface UniversalProvider {
+  name: string
+  baseUrl: string
+  apps: { claude: boolean, codex: boolean, gemini: boolean }
+  models: { claude?: { model?: string, haiku?: string, sonnet?: string, opus?: string }, codex?: { model?: string, reasoningEffort?: string }, gemini?: { model?: string } }
+  website?: string
+}
+export type UniversalDraft = UniversalProvider & { previous?: string, key?: string }
+/** Add or edit one of the user's providers. `from` names the preset it starts from; `previous` the entry being edited. */
+export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string }
 export type Origin = 'desktop' | 'weixin'
 export interface ApprovalQuestion {
   id: string
@@ -128,7 +174,7 @@ export interface RuntimeSnapshot {
   agents: AgentsSnapshot
 }
 /** Only these product events cross the preload boundary. Kernel objects stay in the core process. */
-export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'sponsor' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
+export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'sponsor' | 'providers' } | { type: 'snapshot', snapshot: RuntimeSnapshot }
   | { type: 'weixin', state: WeixinState }
   | ({ type: 'tool' } & ToolActivity)
   | { type: 'anna', state: AnnaState }
@@ -159,6 +205,18 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
+  | ({ type: 'provider-save' } & ProviderDraft)
+  | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-speedtest', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-usage', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-link', link: string }
+  | { type: 'provider-link-confirm', use: boolean }
+  | { type: 'provider-link-cancel' }
+  /** `path` is set by the main process from a save / open dialog; anything the window sends there is replaced. */
+  | { type: 'providers-export', includeKeys: boolean, path?: string }
+  | { type: 'providers-import', path?: string }
+  | ({ type: 'universal-save' } & UniversalDraft)
+  | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }
   | { type: 'agent-install', agent: string }
   | { type: 'kernel', id: 'pi' | 'claude-code' | 'codex' }

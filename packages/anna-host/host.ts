@@ -73,7 +73,7 @@ export class Host {
   private result?: TaskResult
   private delegator: Delegator
   private hub: AgentsHub
-  private agentsCache: AgentsSnapshot = { detected: [], providers: {}, global: {}, presets: {}, ccSwitch: false }
+  private agentsCache: AgentsSnapshot = { detected: [], providers: {}, global: {}, presets: {}, mine: {}, universal: [], speed: {}, usage: {}, ccSwitch: false }
   private secretsMode: 'system' | 'file' = 'system'
   readonly channels = new Map<Origin, Channel>()
   readonly store: SettingsStore
@@ -329,7 +329,79 @@ export class Host {
     if (this.store.value.memoryEnabled)
       tools.push(this.memory.tool(() => this.publish()))
     tools.push(this.delegateTool())
+    tools.push(this.providersTool())
     return tools
+  }
+
+  /**
+   * The companion works the providers panel too: reading, balances and speed tests freely; which provider an agent
+   * uses, a global switch and a restore only after the user says yes on a card (a global switch, which rewrites the
+   * agent's own config, one at a time). Keys never reach the model, and adding or deleting providers stays in the UI.
+   */
+  private providersTool(): AnnaTool {
+    const labels: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI' }
+    return {
+      name: 'anna_providers',
+      label: '服务商',
+      description: '查看和切换 Claude Code、Codex、Gemini CLI 用的模型服务商（像 cc-switch）。action=list 列出每个 agent 的服务商和正在用的；balance 查某个服务商的余额或额度（app、name）；speedtest 测它的地址延迟（app、name）；use 让派活和当大脑时改用某个服务商（app、name，不给 name 表示用它自己的登录）；global 把它写进那个 agent 自己的配置（app、name）；restore 恢复那个 agent 的原配置（app）。use、global、restore 需要用户在确认卡上同意。看不到也不能设置密钥；添加或删除服务商请用户在“外部 agent → 服务商”里操作。',
+      parameters: { type: 'object', properties: { action: { type: 'string', enum: ['list', 'balance', 'speedtest', 'use', 'global', 'restore'] }, app: { type: 'string', enum: ['claude', 'codex', 'gemini'] }, name: { type: 'string' } }, required: ['action'] },
+      execute: async (args) => {
+        const action = String(args.action)
+        const app = args.app === 'claude' || args.app === 'codex' || args.app === 'gemini' ? args.app : undefined
+        const name = typeof args.name === 'string' && args.name.trim() ? args.name.trim() : undefined
+        await this.refreshAgents(false)
+        const agents = this.agentsCache
+        if (action === 'list') {
+          return (['claude', 'codex', 'gemini'] as const).map((id) => {
+            const inUse = agents.providers[id]?.provider
+            const global = agents.global[id]
+            const mine = agents.mine[id] ?? []
+            const rows = mine.map(item => `  - ${item.name}${item.name === inUse ? '（正在用）' : ''}：${item.baseUrl ?? '未设地址'}${item.model ? `，模型 ${item.model}` : ''}，${item.hasKey ? '已存密钥' : '没有密钥'}${item.usage ? '，可查余额' : ''}`)
+            return [`${labels[id]}：用${inUse ?? '它自己的登录'}；全局配置${global?.switched ? `已切到 ${global.provider}` : '未修改'}`, ...(rows.length ? rows : ['  （没有添加服务商）'])].join('\n')
+          }).join('\n')
+        }
+        if (!app)
+          return '参数无效：需要 app（claude、codex 或 gemini）。'
+        const mine = agents.mine[app] ?? []
+        if (name && !mine.some(item => item.name === name))
+          return `${labels[app]} 没有叫 ${name} 的服务商。可用的：${mine.map(item => item.name).join('、') || '（无）'}。`
+        if ((action === 'balance' || action === 'speedtest' || action === 'global') && !name)
+          return '参数无效：需要 name。'
+        if (action === 'balance') {
+          await this.hub.checkUsage(app, name!)
+          const report = (await this.hub.snapshot()).usage[`${app}:${name}`]!
+          if (report.error)
+            return `没查到：${report.error}`
+          const balances = (report.balances ?? []).map(item => `余额 ${item.remaining.toFixed(2)} ${item.unit}`)
+          const windows = (report.windows ?? []).map(item => `${item.window === 'five_hour' ? '5 小时窗口' : '本周'}已用 ${Math.round(item.usedPercent)}%${item.resetsAt ? `，${item.resetsAt} 重置` : ''}`)
+          return [...balances, ...windows].join('；') || '服务商没有返回额度信息。'
+        }
+        if (action === 'speedtest') {
+          await this.hub.speedtest(app, name!)
+          return (await this.hub.snapshot()).speed[`${app}:${name}`]!.results.map(item => `${item.url}：${item.latency !== undefined ? `${item.latency} ms` : item.error}`).join('\n')
+        }
+        const question = action === 'use'
+          ? { reason: `${this.companionName} 想让 ${labels[app]} 改用${name ?? '它自己的登录'}（派活和当大脑时）`, danger: false }
+          : action === 'global'
+            ? { reason: `${this.companionName} 想把 ${labels[app]} 自己的配置切到 ${name}（会改写它的配置文件，首次会备份）`, danger: true }
+            : action === 'restore'
+              ? { reason: `${this.companionName} 想把 ${labels[app]} 的配置恢复成切换前的样子`, danger: false }
+              : undefined
+        if (!question)
+          return `不认识的 action：${action}`
+        const outcome = await this.escalate({ toolName: 'anna_providers', details: `${labels[app]}${name ? ` → ${name}` : ''}`, ...question })
+        if (outcome !== 'allowed')
+          return '用户没有同意。不要换个方式再试，问用户想怎么做。'
+        if (action === 'use')
+          await this.hub.setProvider(app, name)
+        else if (action === 'global')
+          await this.hub.applyGlobal(app, name!)
+        else await this.hub.restoreGlobal(app)
+        await this.refreshAgents(false)
+        this.publish()
+        return action === 'use' ? `好了：${labels[app]} 之后派活和当大脑时用${name ?? '它自己的登录'}。` : action === 'global' ? `好了：${labels[app]} 自己的配置已切到 ${name}。` : `好了：${labels[app]} 的配置已恢复。`
+      },
+    }
   }
 
   private statusTool(): AnnaTool {
@@ -392,6 +464,7 @@ export class Host {
       emit: event => this.presence.handle(event),
       mode: () => this.effectiveMode(),
       locate: agent => this.hub.locate(agent),
+      provider: agent => this.hub.choice(agent),
       denyPaths: this.protectedPaths(),
     })
     try {
@@ -581,7 +654,8 @@ export class Host {
 
   /** Record a failure: returns it in plain words, and remembers when the provider refused the key itself. */
   private recordFailure(diagnostic: string) {
-    const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!)
+    const where = this.store.value.kernel === 'pi' ? '“模型与设置”' : '“外观与能力 → 外部 agent”的服务商设置（没选服务商时是它自己的登录）'
+    const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!, where)
     if (keyRejected && this.store.value.kernel === 'pi') {
       this.keyRejected = true
       if (this.store.value.modelVerified) {
@@ -681,6 +755,53 @@ export class Host {
         return this.snapshot()
       case 'provider-global':
         await this.hub.applyGlobal(command.app, command.provider)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-save':
+        await this.hub.saveProvider(command)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-delete':
+        await this.hub.deleteProvider(command.app, command.name)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-speedtest':
+        await this.hub.speedtest(command.app, command.name)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-usage':
+        await this.hub.checkUsage(command.app, command.name)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-link':
+        this.hub.previewLink(command.link)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-link-confirm':
+        await this.hub.confirmLink(command.use)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-link-cancel':
+        this.hub.cancelLink()
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'providers-export':
+        if (!command.path)
+          throw new Error('没有选择保存位置')
+        await this.hub.exportTo(command.path, command.includeKeys)
+        return this.snapshot()
+      case 'providers-import':
+        if (!command.path)
+          throw new Error('没有选择文件')
+        await this.hub.importFrom(command.path)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'universal-save':
+        await this.hub.saveUniversal(command)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'universal-delete':
+        await this.hub.deleteUniversal(command.name)
         await this.refreshAgents(false)
         return this.snapshot()
       case 'provider-restore':

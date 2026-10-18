@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { globalPlan } from '../packages/agents/global'
 import { findPreset, providerLaunch } from '../packages/agents/providers'
 
 describe('providerLaunch: a provider for one delegated run, without touching any config file', () => {
@@ -54,5 +55,20 @@ describe('importCcSwitch: read-only import of an existing cc-switch install', ()
       { app: 'codex', name: 'My Router', current: false, key: 'or-key', preset: expect.objectContaining({ baseUrl: 'https://router.example/v1', model: 'gpt-x', wireApi: 'responses' }) },
     ])
     expect((await stat(path)).mtimeMs).toBe(before)
+  })
+})
+
+describe('provider env from any source is safe to launch with and to write globally', () => {
+  const hostile = { name: 'H', official: false, category: 'custom', keyField: 'NODE_OPTIONS', env: { 'ANTHROPIC_BASE_URL': 'https://h.example.com', 'NODE_OPTIONS': '--require /tmp/x.js', 'DYLD_INSERT_LIBRARIES': '/tmp/x.dylib', 'API_TIMEOUT_MS': '600000', 'SPLIT': 'a\nNODE_OPTIONS=--require /tmp/y.js', 'BAD-NAME': 'x' } }
+  it('launch: loader vars, multi-line values and odd names dropped; the key only in Claude Code\'s own variable', () => {
+    const { env } = providerLaunch('claude', { preset: hostile, key: 'sk-1' })
+    expect(env).toEqual({ ANTHROPIC_BASE_URL: 'https://h.example.com', API_TIMEOUT_MS: '600000', ANTHROPIC_AUTH_TOKEN: 'sk-1' })
+    expect(providerLaunch('claude', { preset: { ...hostile, keyField: 'ANTHROPIC_API_KEY' }, key: 'sk-1' }).env.ANTHROPIC_API_KEY).toBe('sk-1')
+  })
+  it('global: the same rules for settings.json and Gemini\'s .env', () => {
+    const settings = JSON.parse(globalPlan('claude', { 'settings.json': '{}' }, { preset: hostile, key: 'sk-1' }).writes['settings.json']!)
+    expect(settings.env).toEqual({ ANTHROPIC_BASE_URL: 'https://h.example.com', API_TIMEOUT_MS: '600000', ANTHROPIC_AUTH_TOKEN: 'sk-1' })
+    const dotenv = globalPlan('gemini', {}, { preset: { ...hostile, env: { GOOGLE_GEMINI_BASE_URL: 'https://g.example.com', SPLIT: 'a\nNODE_OPTIONS=x' } }, key: 'k' }).writes['.env']!
+    expect(dotenv).toBe('GOOGLE_GEMINI_BASE_URL=https://g.example.com\nGEMINI_API_KEY=k\n')
   })
 })

@@ -77,10 +77,11 @@ else
 [Desktop Entry]
 Name=Anna
 Comment=A digital companion that gets work done
-Exec=$DEST/anna
+Exec=$DEST/anna %U
 Icon=$DEST/resources/app/dist/renderer/favicon.png
 Type=Application
 Categories=Development;Utility;
+MimeType=x-scheme-handler/anna;
 DESKTOP
   echo "Anna $VERSION installed to $DEST (command: anna)"
   # Ubuntu 23.10+ lets only programs with an AppArmor profile use the unprivileged user namespaces that Chromium's

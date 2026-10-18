@@ -37,6 +37,7 @@ export function codexDecoder(): Decoder {
   const items = new Map<string, Item>()
   let text = ''
   let delta = ''
+  let failure = ''
   return {
     decode(line: string): Decoded {
       let message: any
@@ -90,12 +91,17 @@ export function codexDecoder(): Decoder {
         case 'thread/compacted':
           out.events.push({ type: 'compacting', active: false })
           break
-        case 'turn/completed':
-          out.done = { text, isError: params.turn?.status === 'failed' }
+        case 'turn/completed': {
+          // A failed turn carries its reason (a 401, a usage limit) in turn.error or an earlier `error` notification.
+          const failed = params.turn?.status === 'failed'
+          out.done = { text: failed ? params.turn?.error?.message || failure || text : text, isError: failed }
           break
+        }
         case 'error':
           if (params.willRetry)
             out.events.push({ type: 'retrying', attempt: 1 })
+          else
+            failure = params.error?.message ?? failure
           break
       }
       return out

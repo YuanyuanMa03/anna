@@ -26,6 +26,8 @@ export interface Launch {
   stdin: object[]
   /** codex: the turn's text (sent over JSON-RPC rather than argv). */
   prompt?: string
+  /** Files to write (0600) before the agent starts, absolute path → content (a Codex model catalog). */
+  files?: Record<string, string>
   /** codex app-server thread settings. */
   thread?: { approvalPolicy: 'untrusted' | 'on-request' | 'never', sandbox: 'read-only' | 'workspace-write', developerInstructions?: string }
 }
@@ -78,6 +80,7 @@ export function buildLaunch(agent: DelegateAgent, input: LaunchInput): Launch {
       return {
         args: ['app-server', ...provider.args, ...codexTools(input.tools)],
         env: provider.env,
+        files: provider.files,
         stdin: [],
         prompt: input.prompt,
         thread: { ...(input.mode === 'plan' ? { approvalPolicy: 'untrusted', sandbox: 'read-only' } as const : input.mode === 'ask' ? { approvalPolicy: 'untrusted', sandbox: 'workspace-write' } as const : { approvalPolicy: 'on-request', sandbox: 'workspace-write' } as const), ...(input.instructions ? { developerInstructions: input.instructions } : {}) },

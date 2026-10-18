@@ -274,3 +274,47 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 @media (prefers-reduced-motion: reduce) { .tether { animation: none } }
 .character-card strong i { font-style: normal; font-size: 11px; margin-left: 5px; color: #c37fa3 }
 .character-card strong i.male { color: #6f8fc4 }
+
+/* External agents: tabs, and the providers section (cc-switch in Anna) */
+.sheet.agents { width: 640px }
+.sheet-tabs, .app-tabs { display: flex; gap: 6px; margin: 14px 0 8px }
+.sheet-tabs button, .app-tabs button { font-size: 12px; padding: 7px 14px }
+.sheet-tabs button[aria-selected=true], .app-tabs button[aria-selected=true] { background: #ece3f5; border-color: #cdbbe0; color: #5d4874 }
+.app-tabs { margin-top: 4px }
+.status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #7d6a8e }
+.provider-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 10px }
+.provider-list li { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px }
+.provider-list li.current { border-color: #cdbbe0; background: #fbf8fd }
+.provider-list p { margin: 0 }
+.provider-list .card-actions { margin: 4px 0 0 }
+.danger-link { color: #b0546b }
+.add-provider { width: 100%; border-style: dashed; color: #7b6690 }
+.preset-picker, .provider-editor { border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 8px 0 }
+.preset-picker h3, .provider-editor h3 { margin: 0 }
+.preset-picker input[type=search] { margin: 10px 0 }
+.preset-custom { width: 100%; margin-bottom: 6px }
+.preset-group h4 { font-size: 11px; color: #9a86ab; margin: 12px 0 6px; font-weight: 600 }
+.preset-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px }
+.preset-group h4 { grid-column: 1 / -1 }
+.preset-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; font-size: 12px; overflow: hidden }
+.preset-item span { font-size: 10px; color: #a08fb0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.sheet .provider-editor { margin: 8px 0 }
+.apps-choice { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; display: flex; gap: 14px; flex-wrap: wrap }
+.apps-choice legend { font-size: 12px; color: #8a769b; padding: 0 4px }
+.sheet .apps-choice label.check { flex-direction: row; align-items: center; gap: 6px; color: #5d4874 }
+.sheet .apps-choice input[type=checkbox] { width: auto }
+.tier-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
+.speed-results { list-style: none; padding: 8px 0 0; margin: 4px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px }
+.speed-results li { display: flex; align-items: center; gap: 8px; font-size: 12px; border: 0; padding: 0 }
+.speed-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6f5d80 }
+.usage-line { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center }
+.usage-line.warn { color: #9a6a24 }
+.provider-tools { align-items: center; margin: 4px 0 0 }
+.provider-tools label.check { flex-direction: row; align-items: center; gap: 4px; color: #7d6a8e }
+.provider-tools input[type=checkbox] { width: auto }
+p.warn { color: #9a6a24; margin: 4px 0 }
+.link-import { display: flex; flex-direction: row !important; gap: 8px; margin: 8px 0 !important }
+.link-import input { flex: 1 }
+.link-confirm dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 }
+.link-confirm dt { color: #8a769b }
+.link-confirm dd { margin: 0; overflow-wrap: anywhere }

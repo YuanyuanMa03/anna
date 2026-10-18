@@ -5,7 +5,8 @@ Anna uses other agents in two ways. Both are built on the adapters in `packages/
 - **Delegation**: pi is Anna's brain and the other agents are her colleagues. Mention one with `@claude <task>`, or let
   Anna decide through the `anna_delegate` tool. Implemented in `anna-host/delegator.ts`.
 - **Brain swap**: in **Model & Settings**, replace Anna's brain with Claude Code or Codex. Implemented in
-  `kernels/external/kernel.ts`.
+  `kernels/external/kernel.ts`. The provider chosen for that agent under **External agents** applies here too, read
+  again every turn, so Codex can run on DeepSeek's native Responses endpoint.
 
 ## Anna's own tools on an external brain
 
@@ -34,6 +35,11 @@ is the brain, `kernels/external/mcp.ts` serves the same tools as a Streamable HT
 | `agents/adapters/*` | Decodes each agent's headless output line by line into Anna's `KernelEvent`s and writes approval replies |
 | `agents/runner.ts` | Starts the process, decodes it, sends approval requests through Anna's permission gate, handles interrupts |
 | `agents/providers.ts`, `global.ts` | Provider presets (from cc-switch), per-delegation injection, global apply and restore |
+| `agents/speedtest.ts` | Times a provider's addresses (cc-switch's speed test): a warm-up GET, then a timed one, in parallel |
+| `agents/usage.ts` | Balances (DeepSeek, StepFun, SiliconFlow, OpenRouter, Novita) and Coding Plan quotas (Kimi, Zhipu, MiniMax), ported from cc-switch |
+| `agents/deeplink.ts` | cc-switch's provider import links (`ccswitch://` or `anna://v1/import?resource=provider…`), checked and only ever previewed |
+| `anna-host/agents-hub.ts` | The user's providers (from presets, by hand, imported, universal), keys in one encrypted secret, speed tests, balances, links, export / import |
+| `agents/codex-catalog.ts` | Codex model catalog (`model_catalog_json`) for third-party providers, ported from cc-switch: context window, reasoning levels, image input and tool profile per model; DeepSeek uses its official catalog; `web_search` is turned off on gateways that reject it |
 
 ## Protocols
 

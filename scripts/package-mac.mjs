@@ -39,7 +39,7 @@ import plistlib,sys
 from pathlib import Path
 app=Path(sys.argv[1]); version=sys.argv[2]
 p=app/'Contents/Info.plist'; d=plistlib.loads(p.read_bytes())
-d.update(CFBundleDisplayName='Anna',CFBundleName='Anna',CFBundleIdentifier='com.yuanyuanma.anna',CFBundleExecutable='Anna',CFBundleIconFile='anna.icns',CFBundleShortVersionString=version,CFBundleVersion=version,LSApplicationCategoryType='public.app-category.lifestyle',NSHumanReadableCopyright='Copyright © 2026 YuanyuanMa03')
+d.update(CFBundleDisplayName='Anna',CFBundleName='Anna',CFBundleIdentifier='com.yuanyuanma.anna',CFBundleExecutable='Anna',CFBundleIconFile='anna.icns',CFBundleShortVersionString=version,CFBundleVersion=version,LSApplicationCategoryType='public.app-category.lifestyle',NSHumanReadableCopyright='Copyright © 2026 YuanyuanMa03',CFBundleURLTypes=[{'CFBundleURLName':'Anna import link','CFBundleURLSchemes':['anna']}])
 for k in list(d):
  if k.endswith('UsageDescription') or k=='ElectronAsarIntegrity':d.pop(k)
 p.write_bytes(plistlib.dumps(d))

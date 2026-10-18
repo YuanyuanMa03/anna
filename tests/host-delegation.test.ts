@@ -246,7 +246,7 @@ it.each([['claude-code', 'claude'], ['codex', 'codex']] as const)('with %s as th
     ? (({ url, headers }) => ({ url, authorization: headers.Authorization }))(JSON.parse(run.args[run.args.indexOf('--mcp-config') + 1]).mcpServers.anna)
     : { url: JSON.parse(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.url=')).split('=')[1]), authorization: /"(.*)"/.exec(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.http_headers=')))![1] }
   const listed = await (await fetch(server.url, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': server.authorization }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })).json()
-  expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['anna_status', 'anna_memory', 'anna_delegate'])
+  expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['anna_status', 'anna_memory', 'anna_delegate', 'anna_providers'])
   // The server lives as long as the kernel: once Anna closes, nothing answers on its port.
   await host.close()
   await expect(fetch(server.url, { method: 'POST' })).rejects.toThrow()
@@ -272,6 +272,31 @@ it('with Claude Code as the brain, the companion can still hand work to Codex th
   expect(await readFile(join(workspace, 'done.txt'), 'utf8')).toBe('OK')
   expect(host.snapshot().messages!.at(-1)!.text).toContain('[Codex 的结果，状态：completed]')
   expect(host.snapshot().result).toMatchObject({ changes: [{ path: 'done.txt', status: 'added' }] })
+  await host.close()
+})
+
+it('the Codex brain uses the provider chosen for Codex (DeepSeek here), with the key only in its environment', async () => {
+  const data = await mkdtemp(join(tmpdir(), 'anna-brain-provider-'))
+  const workspace = join(data, 'project')
+  await mkdir(workspace)
+  const log = join(data, 'fake.log')
+  process.env.ANNA_FAKE_LOG = log
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'haru', statusEnabled: false, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
+    sandbox: { available: false, reason: 'test' },
+    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
+  })
+  await host.initialize()
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'DeepSeek', key: 'sk-deepseek-test' })
+  await host.execute({ type: 'send', text: '记住：我喜欢绿茶' })
+  expect(host.snapshot().memories.map(item => item.text)).toEqual(['我喜欢绿茶'])
+  const run = (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.args).toEqual(expect.arrayContaining(['model_provider="anna"', 'model_providers.anna.base_url="https://api.deepseek.com"', 'model_providers.anna.wire_api="responses"', 'model="deepseek-flash"']))
+  expect(run.env.ANNA_PROVIDER_KEY).toBe('set')
+  expect(JSON.stringify(run.args)).not.toContain('sk-deepseek-test')
+  // The model catalog was written before Codex started, where its arguments point.
+  const catalog = JSON.parse(run.args.find((arg: string) => arg.startsWith('model_catalog_json=')).slice('model_catalog_json='.length)) as string
+  expect(JSON.parse(await readFile(catalog, 'utf8')).models[0].slug).toBe('deepseek-flash')
   await host.close()
 })
 
