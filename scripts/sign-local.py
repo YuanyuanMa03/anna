@@ -1,7 +1,8 @@
 """Sign the application from the inside out.
 
 Uses the self-signed "Anna Local Signing" identity when it exists (scripts/create-signing-identity.sh), so every
-release keeps the same code identity and macOS keeps Keychain and folder permissions across updates.
+release keeps the same designated requirement and macOS keeps folder permissions across updates. Keychain items still
+ask once per new build: with no Apple team ID, their partition list pins each build's cdhash.
 Falls back to an ad-hoc signature, which changes on every build.
 Override with ANNA_SIGN_IDENTITY (a name or SHA-1 hash; "-" forces ad-hoc).
 """

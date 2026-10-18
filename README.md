@@ -124,8 +124,10 @@ updates are installed from inside the app (the `.deb` lives in a system folder, 
 page and you install the new package over the old one).
 
 Anna isn't notarized: there is no paid Apple developer account. Instead, every build is signed with the same
-self-signed identity, so macOS keeps your Keychain and folder permissions across updates. The installers are short;
-[read them first](website/public/install.sh) if you like.
+self-signed identity, so macOS keeps folder permissions across updates. The Keychain is stricter: without an Apple
+team ID it ties the saved-keys entry to each build's exact code hash, so the first time a new version reads your keys,
+macOS asks for your login password once. Click **Always Allow**; that version won't ask again. The installers are
+short; [read them first](website/public/install.sh) if you like.
 
 On Linux, Anna installs into `~/.local/share/anna-app` with an `anna` command and a desktop entry. Ubuntu 23.10 and
 later block the unprivileged user namespaces that Chromium's sandbox needs. On those systems the `anna` launcher

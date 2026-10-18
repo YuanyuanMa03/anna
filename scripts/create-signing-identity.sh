@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Create the "Anna Local Signing" code-signing identity (self-signed, free, no Apple account).
-# Every Anna build signed with it has the same code identity, so macOS keeps Keychain and folder permissions
-# across updates instead of asking for your password again. Run once on the machine that builds releases:
+# Every Anna build signed with it has the same designated requirement, so macOS keeps folder (TCC) permissions
+# across updates. Keychain items are different: without an Apple team ID their partition list holds each build's
+# cdhash, so a new build still asks for the login password once. Run once on the machine that builds releases:
 #   bash scripts/create-signing-identity.sh
 # macOS asks for your login password once, to trust the certificate for code signing.
 # It also writes ~/.anna-signing/anna-signing.p12 (+ password) for CI: store them as GitHub secrets
