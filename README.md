@@ -76,9 +76,13 @@ credit.
   Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime). They can write only to the workspace,
   and every new domain needs your approval.
 - ↩️ **Every change is reviewable and undoable.** Each task ends with a delivery card: see the diff, or roll back with one click.
-- 🔀 **Provider switching.** cc-switch presets (Claude, Codex and Gemini endpoints) can apply to a single delegation,
-  to Claude Code or Codex as Anna's brain, or globally with backup and one-click restore. Codex can run on DeepSeek,
-  which speaks its Responses API natively.
+- 🔀 **cc-switch, built in.** A providers tab per agent (Claude Code, Codex, Gemini CLI): 300+ presets from cc-switch,
+  searchable, or your own; universal providers (one gateway for all three); a speed test across a provider's
+  addresses; balances and Coding Plan quotas; import links (cc-switch's format) and export / import. Use a provider
+  for delegations and for Claude Code or Codex as Anna's brain, or switch the agent's own config globally with backup
+  and one-click restore, from the panel, the tray, or by asking the companion. Codex gets a model catalog for
+  third-party models, and runs on DeepSeek, which speaks its Responses API natively. Local routing, MCP and skills sync
+  and usage stats come next.
 - 💬 **WeChat remote.** Message Anna from your phone through WeChat ClawBot. She queues the task and messages back when
   it's done. Approvals stay on the desktop.
 

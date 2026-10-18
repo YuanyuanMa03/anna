@@ -8,8 +8,8 @@
 > - The Gemini CLI, OpenCode and Pi adapters follow the official protocols and source code but haven't been recorded on
 >   a real machine. The UI marks them "not verified on a real machine". Claude Code and Codex are verified on a real
 >   machine for delegation, approvals and the brain swap.
-> - When Claude Code or Codex is Anna's brain, Anna's own tools (memory, status, delegation) aren't available. Her
->   persona, permission mode and memory notes are injected into their system prompt.
+> - When Claude Code or Codex is Anna's brain, Anna's own tools (memory, status, delegation, providers) reach it over a
+>   local MCP server; her persona, permission mode and memory notes go into its system prompt.
 
 ## 1. External agents
 
