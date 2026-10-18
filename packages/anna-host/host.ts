@@ -109,6 +109,7 @@ export class Host {
       emit: event => this.emit(event),
       locate: agent => this.hub.locate(agent),
       provider: (agent, name) => this.hub.choice(agent, name),
+      backups: (agent, primary) => this.hub.backups(agent, primary),
       denyPaths: () => this.protectedPaths(),
     })
     this.approvals = new ApprovalBroker((question) => {
@@ -343,8 +344,8 @@ export class Host {
     return {
       name: 'anna_providers',
       label: '服务商',
-      description: '查看和切换 Claude Code、Codex、Gemini CLI 用的模型服务商（像 cc-switch）。action=list 列出每个 agent 的服务商和正在用的；balance 查某个服务商的余额或额度（app、name）；speedtest 测它的地址延迟（app、name）；use 让派活和当大脑时改用某个服务商（app、name，不给 name 表示用它自己的登录）；global 把它写进那个 agent 自己的配置（app、name）；restore 恢复那个 agent 的原配置（app）。use、global、restore 需要用户在确认卡上同意。看不到也不能设置密钥；添加或删除服务商请用户在“外部 agent → 服务商”里操作。',
-      parameters: { type: 'object', properties: { action: { type: 'string', enum: ['list', 'balance', 'speedtest', 'use', 'global', 'restore'] }, app: { type: 'string', enum: ['claude', 'codex', 'gemini'] }, name: { type: 'string' } }, required: ['action'] },
+      description: '查看和切换 Claude Code、Codex、Gemini CLI 用的模型服务商（像 cc-switch）。action=list 列出每个 agent 的服务商和正在用的；balance 查某个服务商的余额或额度（app、name）；speedtest 测它的地址延迟（app、name）；use 让派活和当大脑时改用某个服务商（app、name，不给 name 表示用它自己的登录）；backups 设定 Claude Code 或 Codex 的备用服务商（app、names 按顺序，空数组表示不要备用），正在用的出错时依次换用；global 把它写进那个 agent 自己的配置（app、name）；restore 恢复那个 agent 的原配置（app）。use、backups、global、restore 需要用户在确认卡上同意。看不到也不能设置密钥；添加或删除服务商请用户在“外部 agent → 服务商”里操作。',
+      parameters: { type: 'object', properties: { action: { type: 'string', enum: ['list', 'balance', 'speedtest', 'use', 'backups', 'global', 'restore'] }, app: { type: 'string', enum: ['claude', 'codex', 'gemini'] }, name: { type: 'string' }, names: { type: 'array', items: { type: 'string' } } }, required: ['action'] },
       execute: async (args) => {
         const action = String(args.action)
         const app = args.app === 'claude' || args.app === 'codex' || args.app === 'gemini' ? args.app : undefined
@@ -354,10 +355,12 @@ export class Host {
         if (action === 'list') {
           return (['claude', 'codex', 'gemini'] as const).map((id) => {
             const inUse = agents.providers[id]?.provider
+            const backups = agents.providers[id]?.backups ?? []
             const global = agents.global[id]
             const mine = agents.mine[id] ?? []
-            const rows = mine.map(item => `  - ${item.name}${item.name === inUse ? '（正在用）' : ''}：${item.baseUrl ?? '未设地址'}${item.model ? `，模型 ${item.model}` : ''}，${item.hasKey ? '已存密钥' : '没有密钥'}${item.usage ? '，可查余额' : ''}`)
-            return [`${labels[id]}：用${inUse ?? '它自己的登录'}；全局配置${global?.switched ? `已切到 ${global.provider}` : '未修改'}`, ...(rows.length ? rows : ['  （没有添加服务商）'])].join('\n')
+            const health = { open: '，连续出错，暂停使用一会儿', half_open: '，暂停后正在试探恢复' }
+            const rows = mine.map(item => `  - ${item.name}${item.name === inUse ? '（正在用）' : backups.includes(item.name) ? `（备用 ${backups.indexOf(item.name) + 1}）` : ''}：${item.baseUrl ?? '未设地址'}${item.model ? `，模型 ${item.model}` : ''}，${item.hasKey ? '已存密钥' : '没有密钥'}${item.routed ? '，经本地路由' : ''}${item.usage ? '，可查余额' : ''}${item.health ? health[item.health] : ''}`)
+            return [`${labels[id]}：用${inUse ?? '它自己的登录'}${backups.length ? `；出错时依次换用 ${backups.join(' → ')}` : ''}；全局配置${global?.switched ? `已切到 ${global.provider}` : '未修改'}`, ...(rows.length ? rows : ['  （没有添加服务商）'])].join('\n')
           }).join('\n')
         }
         if (!app)
@@ -380,25 +383,41 @@ export class Host {
           await this.hub.speedtest(app, name!)
           return (await this.hub.snapshot()).speed[`${app}:${name}`]!.results.map(item => `${item.url}：${item.latency !== undefined ? `${item.latency} ms` : item.error}`).join('\n')
         }
+        const names = Array.isArray(args.names) ? args.names.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).map(item => item.trim()) : undefined
+        if (action === 'backups') {
+          if (app === 'gemini')
+            return '只有 Claude Code 和 Codex 能设置备用服务商。'
+          if (!names)
+            return '参数无效：需要 names（按顺序的服务商名称，空数组表示不要备用）。'
+          const unknown = names.filter(item => !mine.some(entry => entry.name === item))
+          if (unknown.length)
+            return `${labels[app]} 没有这些服务商：${unknown.join('、')}。可用的：${mine.map(item => item.name).join('、') || '（无）'}。`
+        }
         const question = action === 'use'
           ? { reason: `${this.companionName} 想让 ${labels[app]} 改用${name ?? '它自己的登录'}（派活和当大脑时）`, danger: false }
-          : action === 'global'
-            ? { reason: `${this.companionName} 想把 ${labels[app]} 自己的配置切到 ${name}（会改写它的配置文件，首次会备份）`, danger: true }
-            : action === 'restore'
-              ? { reason: `${this.companionName} 想把 ${labels[app]} 的配置恢复成切换前的样子`, danger: false }
-              : undefined
+          : action === 'backups'
+            ? { reason: names!.length ? `${this.companionName} 想让 ${labels[app]} 出错时依次换用 ${names!.join(' → ')}` : `${this.companionName} 想去掉 ${labels[app]} 的备用服务商`, danger: false }
+            : action === 'global'
+              ? { reason: `${this.companionName} 想把 ${labels[app]} 自己的配置切到 ${name}（会改写它的配置文件，首次会备份）`, danger: true }
+              : action === 'restore'
+                ? { reason: `${this.companionName} 想把 ${labels[app]} 的配置恢复成切换前的样子`, danger: false }
+                : undefined
         if (!question)
           return `不认识的 action：${action}`
-        const outcome = await this.escalate({ toolName: 'anna_providers', details: `${labels[app]}${name ? ` → ${name}` : ''}`, ...question })
+        const outcome = await this.escalate({ toolName: 'anna_providers', details: `${labels[app]}${action === 'backups' ? `：${names!.join(' → ') || '不要备用'}` : name ? ` → ${name}` : ''}`, ...question })
         if (outcome !== 'allowed')
           return '用户没有同意。不要换个方式再试，问用户想怎么做。'
         if (action === 'use')
           await this.hub.setProvider(app, name)
+        else if (action === 'backups')
+          await this.hub.setBackups(app, names!)
         else if (action === 'global')
           await this.hub.applyGlobal(app, name!)
         else await this.hub.restoreGlobal(app)
         await this.refreshAgents(false)
         this.publish()
+        if (action === 'backups')
+          return names!.length ? `好了：${labels[app]} 出错时会依次换用 ${names!.join(' → ')}。` : `好了：${labels[app]} 不再用备用服务商。`
         return action === 'use' ? `好了：${labels[app]} 之后派活和当大脑时用${name ?? '它自己的登录'}。` : action === 'global' ? `好了：${labels[app]} 自己的配置已切到 ${name}。` : `好了：${labels[app]} 的配置已恢复。`
       },
     }
@@ -465,6 +484,7 @@ export class Host {
       mode: () => this.effectiveMode(),
       locate: agent => this.hub.locate(agent),
       provider: agent => this.hub.choice(agent),
+      backups: agent => this.hub.backups(agent),
       denyPaths: this.protectedPaths(),
     })
     try {
@@ -751,6 +771,10 @@ export class Host {
         return this.snapshot()
       case 'agent-provider':
         await this.hub.setProvider(command.agent, command.provider, command.key)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-backups':
+        await this.hub.setBackups(command.app, command.names)
         await this.refreshAgents(false)
         return this.snapshot()
       case 'provider-global':

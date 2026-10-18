@@ -142,6 +142,9 @@ export class Presence {
       case 'retrying':
         this.set('retrying', `模型连接不稳，第 ${event.attempt} 次重试…`)
         break
+      case 'failover':
+        this.set('retrying', event.line)
+        break
     }
   }
 

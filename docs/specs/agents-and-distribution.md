@@ -61,6 +61,8 @@
   or Codex) is
   reached through the routing service (see [local-routing.md](local-routing.md)): the agent gets a route token per
   run, never the real key. Such a provider can't be applied globally until global routing (P2d).
+- **Backups.** Claude Code and Codex can have backup providers in order; a run then goes through the routing service,
+  which moves a failing request to the next one (see local-routing.md, P2c).
 - When cc-switch is installed, import its providers read-only, and warn the user not to switch from both apps at once.
 - Neither Anna's brain nor any delegated agent can read or write `~/.claude`, `~/.codex` and similar folders. Only the
   Host writes them.

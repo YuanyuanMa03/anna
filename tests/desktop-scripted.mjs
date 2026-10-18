@@ -195,6 +195,29 @@ try {
   await page.locator('.provider-list .approval-request').getByRole('button', { name: '删除', exact: true }).click()
   await until(page, s => !s.agents.mine.claude?.length, 'routed Claude Code provider deleted')
   evidence.checks.push('A Chat Completions preset for Claude Code is labelled as routed; the editor offers its native format and Chat')
+  // Backups: Codex on DeepSeek falls back to Kimi; the queue shows on the card and in the status line.
+  await page.locator('.app-tabs button[data-app="codex"]').click()
+  for (const name of ['DeepSeek', 'Kimi']) {
+    await page.getByRole('button', { name: '＋ 添加服务商', exact: true }).click()
+    await page.getByRole('searchbox', { name: '搜索预设', exact: true }).fill(name.toLowerCase())
+    await page.locator(`.preset-item[data-preset="${name}"]`).click()
+    await page.getByRole('button', { name: '保存', exact: true }).click()
+    await until(page, s => s.agents.mine.codex?.some(p => p.name === name), `${name} added`)
+  }
+  await page.locator('.provider-list li[data-provider="DeepSeek"]').getByRole('button', { name: /^让.+用它$/ }).click()
+  await page.locator('.provider-list li[data-provider="Kimi"]').getByRole('button', { name: '设为备用', exact: true }).click()
+  await until(page, s => s.agents.providers.codex?.provider === 'DeepSeek' && s.agents.providers.codex?.backups?.[0] === 'Kimi', 'Kimi is the backup')
+  await page.locator('.provider-list li[data-provider="Kimi"] [data-backup="1"]').waitFor()
+  assert.match(await page.locator('.status-line[data-app="codex"]').textContent(), /出错时换用：Kimi/)
+  await page.screenshot({ path: 'artifacts/scripted-provider-backups.png' })
+  await page.locator('.provider-list li[data-provider="Kimi"]').getByRole('button', { name: '移出备用', exact: true }).click()
+  await until(page, s => !s.agents.providers.codex?.backups, 'backup removed')
+  for (const name of ['Kimi', 'DeepSeek']) {
+    await page.locator(`.provider-list li[data-provider="${name}"]`).getByRole('button', { name: '删除', exact: true }).click()
+    await page.locator('.provider-list .approval-request').getByRole('button', { name: '删除', exact: true }).click()
+    await until(page, s => !s.agents.mine.codex?.some(p => p.name === name), `${name} deleted`)
+  }
+  evidence.checks.push('A backup provider for Codex: set from its card, shown on the card and the status line, removed')
   // A universal provider: one gateway for Claude Code and Codex at once, linked under each app.
   await page.locator('.app-tabs button[data-app="universal"]').click()
   await page.getByRole('button', { name: '＋ 添加统一服务商', exact: true }).click()

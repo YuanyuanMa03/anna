@@ -1,7 +1,7 @@
 # Spec: local routing (cc-switch in Anna, phase 2)
 
-> Status: agreed 2026-10-18; P2a (Codex → Chat Completions) and P2b (Claude Code → Chat Completions) built, for
-> Anna's own runs. This document is the source of truth; change it before changing the
+> Status: agreed 2026-10-18; P2a (Codex → Chat Completions), P2b (Claude Code → Chat Completions) and P2c
+> (failover) built, for Anna's own runs. This document is the source of truth; change it before changing the
 > behavior. Built after cc-switch's local routing (https://github.com/farion1231/cc-switch, MIT), whose conversion code
 > and test cases are ported.
 
@@ -95,6 +95,40 @@ provider, converts the format, and can move a request to another provider when o
   adjustable; health badges on provider cards.
 - When a failover happens during a task, the stage says so, and `anna_providers` reports the queue and health.
 
+### P2c as built
+
+- **The queue.** Claude Code and Codex each keep backups next to the provider in use (settings `agents.<agent>.backups`),
+  set from the provider cards ("设为备用", ↑ ↓, "移出备用") or by the companion with `anna_providers` action `backups`
+  after the user approves the card. Renames and deletes keep it in step; the provider in use is never its own backup;
+  an agent's own login can't be one (Anna can't route it). Gemini CLI has no routing, so no backups.
+- **When a run is routed.** A Chat provider always; any provider once it has backups. Without backups a native
+  provider is reached directly and a Chat one through one try with no timeouts and no breaker — exactly as in P2a/P2b.
+- **Native passthrough** (`packages/routing/server.ts`): a provider in the agent's own format gets the request as it
+  is — Codex's at `…/responses`, Claude Code's at `…/v1/messages` with its `anthropic-version` / `anthropic-beta`
+  headers and query, the key in `x-api-key` or `Authorization` per the provider's key field — and the stream comes
+  back byte for byte (read only for the records). Codex's hosted `web_search` is dropped for gateways known to reject
+  it. Each provider gets its own model: Codex asks for the first provider's; Claude Code's tiers map through the first
+  provider's names to the same tier here.
+- **What moves on** (before the agent has any byte): unreachable, an HTTP status other than 400/405/406/413/414/415/
+  422/501, no first byte in time, an empty stream. At most `maxRetries + 1` providers per request. After the first
+  byte, a stream silent for `idleTimeout` is ended as failed (Codex gets `response.failed`, Claude Code an `error`
+  event) and the provider's request stops.
+- **Breaker** (`packages/routing/breaker.ts`): cc-switch's state machine and per-app defaults, in memory (closed again
+  after a restart).
+
+  | | retries | first byte | idle | breaker opens after | open for | closes after | error rate (min requests) |
+  |---|---|---|---|---|---|---|---|
+  | Claude Code | 6 | 90 s | 180 s | 8 failures | 90 s | 3 successes | 70 % (15) |
+  | Codex | 3 | 60 s | 120 s | 4 failures | 60 s | 2 successes | 60 % (10) |
+
+  A malformed request (the statuses above) counts neither way. Cards show "暂停中" (open) and "试探恢复中"
+  (half-open); `anna_providers` list says the same. The numbers are fixed for now; settings for them come with the
+  routing page in P2d.
+- **On stage.** A delegation's card line says "DeepSeek 返回了 503，换成 Kimi" and names the provider now working; with
+  the brain, the companion's line says it in the retry pose.
+- **Known limit.** Codex's model catalog follows the provider in use, so a native Responses backup behind a Chat
+  provider still gets Codex's freeform `apply_patch` tool, which some native gateways reject.
+
 ## 6. Aggregation (P2e)
 
 Several providers' models in one model list, requests routed by model name (prefix `anna-`). Mainly for global
@@ -108,7 +142,9 @@ routing, where the user picks models in the agent itself; Anna's runs already pi
   (P2b) pointed at the routing service, finishing a turn with tool calls. P2a: `ANNA_REAL_AGENTS=codex pnpm vitest run
   tests/agents-real.test.ts -t "local routing"` (Codex 0.160: a freeform `apply_patch` call, and Codex as Anna's brain
   calling `anna_memory`). P2b: `ANNA_REAL_AGENTS=claude … -t "real Claude Code through"` (Claude Code 2.1.302: its
-  `Write` tool, and Claude Code as Anna's brain calling `anna_memory`).
+  `Write` tool, and Claude Code as Anna's brain calling `anna_memory`). P2c: `ANNA_REAL_AGENTS=codex,claude … -t
+  "failing over"`: the provider in use answers 503, the backup is a provider in the agent's own format (a second Anna
+  route in front of the scripted upstream), and both agents finish the edit without seeing the 503.
 - With a key the user provides: one real provider per conversion. P2a: DeepSeek's Chat API (`deepseek-flash`) with
   `ANNA_REAL_CHAT_KEY` (`-t "real Chat provider"`): a delegated file edit over six turns, all 200, prompt cache hits
   from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`. P2b, the same key and model with

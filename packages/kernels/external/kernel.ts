@@ -6,7 +6,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import { buildLaunch } from '../../agents/launch'
-import { openRoute } from '../../agents/route'
+import { failoverLine, openRoute } from '../../agents/route'
 import { runAgent } from '../../agents/runner'
 import { mcpServerName, serveTools } from './mcp'
 
@@ -84,7 +84,8 @@ export class ExternalKernel implements AgentKernel {
     const prompt = notes.length ? `${notes.join('\n')}\n\n${text}` : text
     this.transcript.entries.push({ kind: 'user', text, origin: meta.origin })
     const provider = await this.context.provider?.(this.agent)
-    const route = await openRoute(this.agent, provider)
+    const backups = provider ? await this.context.backups?.(this.agent) ?? [] : []
+    const route = await openRoute(this.agent, provider, { backups, onFailover: event => this.context.emit({ type: 'failover', line: failoverLine(event) }) })
     const launch = buildLaunch(this.agent, { cwd: this.context.workspace, prompt, mode: this.context.mode?.() ?? 'ask', sessionId: this.transcript.agentSessionId, provider, denyPaths: this.context.denyPaths ?? [], instructions: this.instructions(), tools: this.toolServer, route })
     this.abortController = new AbortController()
     this.context.emit({ type: 'thinking' })

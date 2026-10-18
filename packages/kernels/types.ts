@@ -13,6 +13,8 @@ export type KernelEvent
     | { type: 'tool-end', id: string, name: string, output: string, isError: boolean }
     | { type: 'compacting', active: boolean }
     | { type: 'retrying', attempt: number }
+    /** Anna's routing moved a request to a backup provider (`line` says which, for the stage). */
+    | { type: 'failover', line: string }
 
 export type GateVerdict = { allow: true } | { allow: false, reason: string, stop?: boolean }
 export type ToolGate = (tool: string, input: Record<string, unknown>, callId: string) => Promise<GateVerdict>
@@ -46,6 +48,8 @@ export interface KernelContext {
   mode?: () => import('../permissions/modes').PermissionMode
   /** The provider chosen for this agent under "external agents", the same one a delegation uses (external kernels). */
   provider?: (agent: 'claude' | 'codex') => Promise<import('../agents/providers').ProviderChoice | undefined>
+  /** Its backups, tried in order through Anna's routing when it fails (external kernels). */
+  backups?: (agent: 'claude' | 'codex') => Promise<import('../agents/providers').ProviderChoice[]>
   /** Where an installed agent CLI lives (external kernels). */
   locate?: (agent: 'claude' | 'codex') => Promise<{ command: string, prefix?: string[] } | undefined>
   /** Paths the kernel must never read or edit. */

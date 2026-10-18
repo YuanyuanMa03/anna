@@ -94,6 +94,32 @@ it('a Chat Completions provider for Claude Code: @claude runs go through Anna\'s
   await host.close()
 })
 
+it('backups: a queue per agent that follows renames and deletes, and sends runs through Anna\'s routing', async () => {
+  const { host, data } = await setup()
+  for (const from of ['DeepSeek', 'Kimi', 'PPIO'])
+    await host.execute({ type: 'provider-save', app: 'codex', name: from, from, key: `sk-${from}` })
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'DeepSeek' })
+  await host.execute({ type: 'provider-backups', app: 'codex', names: ['PPIO', 'Kimi', 'PPIO', 'DeepSeek'] })
+  // Duplicates and the provider in use drop out.
+  expect(host.snapshot().agents.providers.codex).toMatchObject({ provider: 'DeepSeek', backups: ['PPIO', 'Kimi'] })
+  await expect(host.execute({ type: 'provider-backups', app: 'codex', names: ['Nope'] })).rejects.toThrow('没有找到')
+  await expect(host.execute({ type: 'provider-backups', app: 'gemini' as 'codex', names: [] })).rejects.toThrow('Claude Code 和 Codex')
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'PPIO 2', previous: 'PPIO' })
+  expect(host.snapshot().agents.providers.codex!.backups).toEqual(['PPIO 2', 'Kimi'])
+  await host.execute({ type: 'provider-delete', app: 'codex', name: 'Kimi' })
+  expect(host.snapshot().agents.providers.codex!.backups).toEqual(['PPIO 2'])
+  // A native provider with a backup goes through the route; the agent never sees the real address.
+  const approving = setInterval(() => host.snapshot().approvals.forEach(question => void host.execute({ type: 'approval', id: question.id, allow: true })), 50)
+  await host.execute({ type: 'send', text: '@codex 你好' }).finally(() => clearInterval(approving))
+  const run = (await readFile(join(data, 'fake.log'), 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.args.join(' ')).toMatch(/model_providers\.anna\.base_url="http:\/\/127\.0\.0\.1:\d+\/codex\/v1"/)
+  expect(run.args.join(' ')).not.toContain('api.deepseek.com')
+  // Using a backup takes it out of the queue; nothing is left to fall back on, so runs go direct again.
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'PPIO 2' })
+  expect(host.snapshot().agents.providers.codex).not.toHaveProperty('backups')
+  await host.close()
+})
+
 it('custom providers by hand for each app: endpoint and model land where that app reads them', async () => {
   const { host } = await setup()
   await host.execute({ type: 'provider-save', app: 'claude', name: 'My relay', baseUrl: 'https://relay.example.com/anthropic/', model: 'claude-x' })
@@ -278,5 +304,34 @@ it('the companion works providers with anna_providers: reads freely, switches on
   expect(seen).toContain('好了：Codex 之后派活和当大脑时用DeepSeek')
   expect(seen).toContain('用户没有同意')
   expect(seen).not.toContain('sk-secret-ds')
+  await host.close()
+})
+
+it('the companion sets the backup queue with anna_providers after the user says yes, and the list shows it', async () => {
+  const { host, data } = await setup({ characterId: 'mark', script: [
+    { tools: [{ name: 'anna_providers', args: { action: 'backups', app: 'codex', names: ['Nope'] } }] },
+    { tools: [{ name: 'anna_providers', args: { action: 'backups', app: 'codex', names: ['Kimi'] } }] },
+    { tools: [{ name: 'anna_providers', args: { action: 'list' } }] },
+    { text: '好的。' },
+  ] })
+  for (const from of ['DeepSeek', 'Kimi'])
+    await host.execute({ type: 'provider-save', app: 'codex', name: from, from, key: `sk-${from}` })
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'DeepSeek' })
+  const sent = host.execute({ type: 'send', text: 'DeepSeek 出错时换 Kimi' })
+  await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000 })
+  const card = host.snapshot().approvals[0]!
+  expect(card).toMatchObject({ toolName: 'anna_providers', danger: false, details: 'Codex：Kimi' })
+  expect(card.reason).toContain('出错时依次换用 Kimi')
+  await host.execute({ type: 'approval', id: card.id, allow: true })
+  await sent
+  expect(host.snapshot().agents.providers.codex).toMatchObject({ provider: 'DeepSeek', backups: ['Kimi'] })
+  const { readdir } = await import('node:fs/promises')
+  const sessions = join(data, 'pi-sessions')
+  const files = (await readdir(sessions, { recursive: true })).filter(file => String(file).endsWith('.jsonl'))
+  const seen = (await Promise.all(files.map(file => readFile(join(sessions, String(file)), 'utf8')))).join('\n')
+  expect(seen).toContain('Codex 没有这些服务商：Nope')
+  expect(seen).toContain('好了：Codex 出错时会依次换用 Kimi')
+  expect(seen).toContain('Codex：用DeepSeek；出错时依次换用 Kimi')
+  expect(seen).toContain('Kimi（备用 1）')
   await host.close()
 })
