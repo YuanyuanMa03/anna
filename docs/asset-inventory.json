@@ -275,86 +275,6 @@
     "sha256": "2b20fbbf31439a5792c808085ecd4c9dc5addeb6195c6d113a25e77f7acc0f4f"
   },
   {
-    "path": "assets/characters/hiyori/hiyori_free_zh/ReadMe.txt",
-    "bytes": 1708,
-    "sha256": "33d2528e854f5dd3c6fa81b445d1cdb9454b8165a0e9748c6b3c04926f5964af"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.2048/texture_00.png",
-    "bytes": 2846473,
-    "sha256": "5d4183d2f1eb1c4a08e45f91ea968b29694fb916945e75f9bc1099aaeabc1a4f"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.cdi3.json",
-    "bytes": 4436,
-    "sha256": "4ce883197ec5669a69067988c1c19b22ec17cce0a70feec3b60146bb80849f12"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.moc3",
-    "bytes": 236480,
-    "sha256": "86d4417140ef036b5ce155d99f938c49e1ed66ee398e52f6d87fd122770345f1"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.model3.json",
-    "bytes": 1136,
-    "sha256": "936ada713af7ac6842cd38f614a77ed0ae288e8ba1f31d1ffae4d745cdda6e38"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08.physics3.json",
-    "bytes": 10080,
-    "sha256": "b94886e2a3b6868a11ee38b2c2ceabcce6864f14ea444b353a5a007f5d337bb6"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/hiyori_free_t08_old.cdi3.json",
-    "bytes": 4435,
-    "sha256": "158aea33d480cc1bb373ea3cd652c53c6fd2785dd60bdfde6d6ac8760daeecaf"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m01.motion3.json",
-    "bytes": 9223,
-    "sha256": "c2a280a0fe30f82f0c4fcc8140bd674ba7d6627f479e3326dac7f1464fdc3b39"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m02.motion3.json",
-    "bytes": 11859,
-    "sha256": "a8638ad57ff255b7a6f5baa81e937ea5c072fd0cf12b048df521dabb0353f0f1"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m03.motion3.json",
-    "bytes": 9896,
-    "sha256": "0b418a08fd58ba6922563f7068eaf68dca1c3f16eda9a9c98c5b2cd8d21f3ee1"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m04.motion3.json",
-    "bytes": 7692,
-    "sha256": "2f2a3c9a4a0b1bf7aba42f3dd0548c644db41f583c9f99f92e452953d9af67a0"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m05.motion3.json",
-    "bytes": 13999,
-    "sha256": "8806e09de13a01b66d421dfdf9cbddb59360f6a28d64aa5c4d07b11bae2a4ef0"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m06.motion3.json",
-    "bytes": 7063,
-    "sha256": "ddae4c8d820decb9abb41de85a3b7fb24ed57a57275222e4be8a940d4d4e72fb"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m07.motion3.json",
-    "bytes": 8370,
-    "sha256": "1006ab62ef4ad8470a1d0fbd3d97fede62dd1bc2c426889a711b448be922acb2"
-  },
-  {
-    "path": "assets/characters/hiyori/hiyori_free_zh/runtime/motion/hiyori_m08.motion3.json",
-    "bytes": 7395,
-    "sha256": "a8618287946ba791300b6d6e002a7f81ed7b0734d725826abe2506472ea6fc00"
-  },
-  {
-    "path": "assets/characters/hiyori/portrait.jpg",
-    "bytes": 55968,
-    "sha256": "2768528aa5e078aaed20e7a97e091b9dd70df9cfa714c810cbbc4bee53b2dbe3"
-  },
-  {
     "path": "assets/characters/mao/ReadMe.txt",
     "bytes": 2425,
     "sha256": "9fa935d1cee42c471a0d756a3c4dad6755b65ccb35e66fcf38ea248cbd94bcd9"
@@ -673,11 +593,6 @@
     "path": "assets/licenses/AIRI-MIT.txt",
     "bytes": 1075,
     "sha256": "f334260edf0508041280b534ca9d0abd5a02a9626c1d2e20a556ac4eb72b07f9"
-  },
-  {
-    "path": "assets/licenses/Hiyori-ReadMe.txt",
-    "bytes": 1643,
-    "sha256": "31d3a0a76ed0ac79dd1fdfe9beb9631d208fc54dfba9da30a65eaddac0b924e2"
   },
   {
     "path": "assets/licenses/Live2D-Core-LICENSE.md",

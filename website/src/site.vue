@@ -61,14 +61,13 @@ const task = computed(() => tasks[taskIndex.value]!)
 const characterIndex = ref(0)
 const character = computed(() => characters[characterIndex.value]!)
 
-// ── Cast: the six companions as cut-outs captured from the app, standing on one baseline ──
+// ── Cast: the five companions as cut-outs captured from the app, standing on one baseline ──
 // `top` is how much of the stage each model fills, `size` the cut-out's own pixels, `overlap` how far it tucks in
 // behind its left neighbour (Mao's wand reaches far to the left).
 const cast = [
   { id: 'natori', top: 0.913, size: [434, 900], z: 1, overlap: 0 },
-  { id: 'haru', top: 0.941, size: [293, 900], z: 2, overlap: 0.07 },
-  { id: 'hiyori', top: 0.916, size: [365, 900], z: 6, overlap: 0.06 },
   { id: 'mao', top: 0.896, size: [898, 900], z: 3, overlap: 0.36 },
+  { id: 'haru', top: 0.941, size: [293, 900], z: 6, overlap: 0.07 },
   { id: 'chitose', top: 0.927, size: [651, 900], z: 2, overlap: 0.12 },
   { id: 'mark', top: 0.72, size: [581, 879], z: 4, overlap: 0.14 },
 ] as const
@@ -244,7 +243,7 @@ const year = new Date().getFullYear()
 
     <section class="cast wrap" :aria-label="t.cast.label">
       <div ref="castRow" class="cast-row">
-        <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'hiyori' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet(item.id)">
+        <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'haru' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet(item.id)">
           <img :src="`/media/companions/${item.id}.webp`" alt="" :width="item.size[0]" :height="item.size[1]">
           <span class="tag"><b>{{ t.cast.people[item.id].name }}</b><small>{{ t.cast.people[item.id].tagline }}</small></span>
         </button>
@@ -261,7 +260,7 @@ const year = new Date().getFullYear()
       <figure class="hero-shot">
         <div class="window">
           <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.hero.shot }}</span></div>
-          <img src="/media/work.webp" :alt="t.hero.shot" width="1600" height="1040" loading="lazy">
+          <img src="/media/work.webp" :alt="t.hero.shot" width="1600" height="858" loading="lazy">
         </div>
         <figcaption class="chip chip-a"><i class="mode-dot edit" />{{ t.hero.chips[0] }}</figcaption>
         <div class="chip chip-b">{{ t.hero.chips[1] }}</div>

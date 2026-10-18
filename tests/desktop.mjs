@@ -18,8 +18,9 @@ await writeFile(join(workspace, 'tasks.txt'), 'Synthetic acceptance input: Anna 
 const source = process.env.ANNA_CREDENTIAL_SOURCE ?? join(homedir(), '.local/share/anna-dsh')
 await copyFile(join(source, 'credential.bin'), join(data, 'credential.bin'))
 const previous = JSON.parse(await readFile(join(source, 'settings.json'), 'utf8'))
+// The key is the one this machine already uses; the real requests below would fail if it were bad.
 // Collaboration mode in a trusted folder: edits run freely, other commands (touch) ask.
-const settings = { version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, model: previous.model, workspace, workspaces: { [workspace]: { trusted: true, mode: 'edit', rules: { allow: [], ask: [], deny: [] } } } }
+const settings = { version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: previous.model, modelVerified: true, workspace, workspaces: { [workspace]: { trusted: true, mode: 'edit', rules: { allow: [], ask: [], deny: [] } } } }
 await writeFile(join(data, 'settings.json'), JSON.stringify(settings), { mode: 0o600 })
 const evidence = { data, checks: [], phases: [], consoleErrors: [] }
 let desktop
