@@ -292,7 +292,7 @@ it('the Codex brain uses the provider chosen for Codex (DeepSeek here), with the
   expect(run.env.ANNA_PROVIDER_KEY).toBe('set')
   expect(JSON.stringify(run.args)).not.toContain('sk-deepseek-test')
   // The model catalog was written before Codex started, where its arguments point.
-  const catalog = /^model_catalog_json="(.+)"$/.exec(run.args.find((arg: string) => arg.startsWith('model_catalog_json=')))![1]!
+  const catalog = JSON.parse(run.args.find((arg: string) => arg.startsWith('model_catalog_json=')).slice('model_catalog_json='.length)) as string
   expect(JSON.parse(await readFile(catalog, 'utf8')).models[0].slug).toBe('deepseek-flash')
   await host.close()
 })

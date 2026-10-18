@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { codexCatalog, rejectsWebSearch } from '../packages/agents/codex-catalog'
 import { globalPlan } from '../packages/agents/global'
@@ -40,7 +41,8 @@ describe('codex model catalog (ported from cc-switch)', () => {
 
   it('per-run launch: the catalog goes to a temp file Codex is pointed at, written before start', () => {
     const launch = providerLaunch('codex', { preset: preset('DeepSeek'), key: 'k' })
-    const path = /^model_catalog_json="(.+)"$/.exec(launch.args.find(arg => arg.startsWith('model_catalog_json='))!)![1]!
+    // The value is a TOML string: on Windows the path's backslashes come escaped.
+    const path = JSON.parse(launch.args.find(arg => arg.startsWith('model_catalog_json='))!.slice('model_catalog_json='.length)) as string
     expect(JSON.parse(launch.files![path]!).models[0].slug).toBe('deepseek-flash')
     expect(launch.args).not.toContain('web_search="disabled"')
     expect(providerLaunch('codex', { preset: preset('MiniMax'), key: 'k' }).args).toContain('web_search="disabled"')
@@ -49,7 +51,7 @@ describe('codex model catalog (ported from cc-switch)', () => {
 
   it('global switch: writes anna-model-catalog.json next to config.toml and points at it; switching back drops the pointer', () => {
     const { writes } = globalPlan('codex', { 'config.toml': 'web_search = "live"\n' }, { preset: preset('MiniMax'), key: 'k' }, '/home/u/.codex')
-    expect(writes['config.toml']).toContain('model_catalog_json = "/home/u/.codex/anna-model-catalog.json"')
+    expect(writes['config.toml']).toContain(`model_catalog_json = ${JSON.stringify(join('/home/u/.codex', 'anna-model-catalog.json'))}`)
     expect(writes['config.toml']).toContain('web_search = "disabled"')
     expect(writes['config.toml']).not.toContain('web_search = "live"')
     expect(JSON.parse(writes['anna-model-catalog.json']!).models[0].slug).toBe('MiniMax-M3')
