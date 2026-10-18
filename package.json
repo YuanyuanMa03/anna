@@ -7,7 +7,7 @@
   "scripts": {
     "dev:desktop": "node scripts/dev.mjs",
     "assets": "node scripts/fetch-assets.mjs",
-    "build": "vite build && node scripts/build-host.mjs",
+    "build": "node scripts/fetch-assets.mjs && vite build && node scripts/build-host.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.host.json --noEmit",
     "test": "vitest run",
     "lint": "eslint .",

@@ -4,12 +4,15 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
 import { _electron } from 'playwright'
+import { assertBuiltAssets } from './built-assets.mjs'
 
 async function main() {
   await mkdir('.data', { recursive: true })
   await mkdir('artifacts', { recursive: true })
   const data = await mkdtemp(resolve('.data/unconfigured-'))
   const packaged = process.env.ANNA_PACKAGED_APP
+  if (!packaged)
+    assertBuiltAssets()
   const desktop = await _electron.launch({ executablePath: packaged ? process.platform === 'win32' ? `${packaged}/Anna.exe` : `${packaged}/Contents/MacOS/Anna` : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_CDP: '' } })
   try {
     const page = await desktop.firstWindow()

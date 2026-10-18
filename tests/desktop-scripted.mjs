@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
 import { _electron } from 'playwright'
+import { assertBuiltAssets } from './built-assets.mjs'
 
 /**
  * Deterministic desktop acceptance with a scripted model (no API key, runs in CI on macOS, Windows and Linux):
@@ -35,6 +36,8 @@ await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel
 const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
 const packaged = process.env.ANNA_PACKAGED_APP
+if (!packaged)
+  assertBuiltAssets(root)
 const executablePath = !packaged ? electron : process.platform === 'darwin' ? join(packaged, 'Contents/MacOS/Anna') : process.platform === 'win32' ? join(packaged, 'Anna.exe') : join(packaged, 'anna')
 // GitHub's Ubuntu runners block the unprivileged user namespaces Chromium's sandbox needs, and have no GPU:
 // render WebGL (the Live2D canvas) in software. The packaged app's launcher decides about the sandbox on its own.
