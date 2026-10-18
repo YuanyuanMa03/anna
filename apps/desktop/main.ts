@@ -100,8 +100,9 @@ async function runTray(run: NonNullable<TrayItem['run']>) {
 }
 
 /** Hand an import link to the core (which only previews it) and show the providers tab; queued until both exist. */
+let loaded = false
 async function openLink(url: string) {
-  if (!peer || !window) {
+  if (!peer || !window || !loaded) {
     links.push(url)
     return
   }
@@ -250,6 +251,7 @@ async function start() {
   if (!app.isPackaged && process.env.ANNA_DEV_URL)
     await win.loadURL(process.env.ANNA_DEV_URL)
   else await win.loadFile(join(root, 'dist/renderer/index.html'))
+  loaded = true
   for (const link of links.splice(0)) void openLink(link)
 }
 void start().catch((error) => {

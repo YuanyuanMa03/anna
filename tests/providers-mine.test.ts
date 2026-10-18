@@ -194,13 +194,17 @@ it('export and import: keys only when asked for, names kept free, universal prov
 
   // Another machine: an imported file with a hostile env var, into a list that already has a DeepSeek.
   exported.providers[0].preset.env.NODE_OPTIONS = '--require /tmp/x.js'
+  exported.providers[0].preset.keyField = 'NODE_OPTIONS'
+  exported.providers.push(null, { app: 'claude', name: 42 }, { app: 'claude', name: 'x'.repeat(200), preset: { env: { ANTHROPIC_BASE_URL: 'https://long.example.com' } } })
   await writeFile(withKeys, JSON.stringify(exported))
   const other = await setup()
   await other.host.execute({ type: 'provider-save', app: 'claude', name: 'DeepSeek', from: 'DeepSeek' })
   await other.host.execute({ type: 'providers-import', path: withKeys })
   const mine = other.host.snapshot().agents.mine.claude!
-  expect(mine.map(item => [item.name, item.source, item.hasKey])).toEqual([['DeepSeek', 'preset', false], ['NewAPI', 'universal', true], ['DeepSeek 2', 'preset', true]])
+  expect(mine.map(item => [item.name, item.source, item.hasKey])).toEqual([['DeepSeek', 'preset', false], ['NewAPI', 'universal', true], ['DeepSeek 2', 'preset', true], ['x'.repeat(60), 'preset', false]])
   expect(JSON.stringify(other.host.snapshot().settings)).not.toContain('NODE_OPTIONS')
+  await writeFile(plain, 'null')
+  await expect(other.host.execute({ type: 'providers-import', path: plain })).rejects.toThrow('不是 Anna 导出的')
   expect(other.keys()).toMatchObject({ 'claude:DeepSeek 2': 'sk-ds', 'universal:NewAPI': 'sk-gw', 'claude:NewAPI': 'sk-gw' })
   await expect(other.host.execute({ type: 'providers-import', path: plain.replace('plain', 'missing') })).rejects.toThrow('JSON')
   await other.host.close()

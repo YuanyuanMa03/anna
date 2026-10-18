@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { codexCatalog, rejectsWebSearch } from './codex-catalog'
+import { loaderEnv } from './deeplink'
 import presets from './presets.json'
 
 const require = createRequire(import.meta.url)
@@ -51,6 +52,17 @@ export function usesOwnLogin(app: ProviderApp, preset: Preset) {
 const toml = (value: string) => JSON.stringify(value)
 
 /**
+ * The env vars a provider may set, wherever it came from (a preset, a hand-written one, a link, an imported file):
+ * plain names and single-line values only, and never one that changes how processes load code.
+ */
+export function providerEnv(preset: Preset): Record<string, string> {
+  return Object.fromEntries(Object.entries(preset.env ?? {}).filter(([name, value]) => /^[A-Z_]\w*$/i.test(name) && !loaderEnv.test(name) && typeof value === 'string' && !/[\r\n\0]/.test(value)))
+}
+
+/** Claude Code reads the key from one of its own two variables, never from a name the provider data chose. */
+export const keyFieldOf = (preset: Preset) => preset.keyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN'
+
+/**
  * How to start an agent with this provider for one run: env vars and CLI arguments only, never a config file.
  * Keys only ever travel in env vars, so they do not show up in process listings.
  */
@@ -59,11 +71,11 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
   if (usesOwnLogin(app, preset))
     return { env: {}, args: [] }
   if (app === 'claude') {
-    const env = { ...preset.env }
+    const env = providerEnv(preset)
     if (model)
       env.ANTHROPIC_MODEL = model
     if (key)
-      env[preset.keyField ?? 'ANTHROPIC_AUTH_TOKEN'] = key
+      env[keyFieldOf(preset)] = key
     return { env, args: [] }
   }
   if (app === 'codex') {
@@ -89,7 +101,7 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
       args.push('web_search="disabled"')
     return { env: key ? { ANNA_PROVIDER_KEY: key } : {}, args: args.flatMap(value => ['-c', value]), files }
   }
-  const env = { ...preset.env }
+  const env = providerEnv(preset)
   if (model)
     env.GEMINI_MODEL = model
   if (key)

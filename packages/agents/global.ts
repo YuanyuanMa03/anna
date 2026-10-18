@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { codexCatalog, rejectsWebSearch } from './codex-catalog'
-import { usesOwnLogin } from './providers'
+import { keyFieldOf, providerEnv, usesOwnLogin } from './providers'
 
 /**
  * Global provider switching, following cc-switch's ownership rule: Anna owns only the connection fields of a client's
@@ -51,11 +51,11 @@ function claudePlan(files: Record<string, string | undefined>, choice: ProviderC
   const settings = parseJson('settings.json', original)
   const env: Record<string, string> = Object.fromEntries(Object.entries(settings.env ?? {}).filter(([key]) => !claudeConnectionKey(key))) as Record<string, string>
   if (!usesOwnLogin('claude', choice.preset)) {
-    Object.assign(env, choice.preset.env)
+    Object.assign(env, providerEnv(choice.preset))
     if (choice.model)
       env.ANTHROPIC_MODEL = choice.model
     if (choice.key)
-      env[choice.preset.keyField ?? 'ANTHROPIC_AUTH_TOKEN'] = choice.key
+      env[keyFieldOf(choice.preset)] = choice.key
   }
   return { writes: { 'settings.json': json({ ...settings, env }, original) } }
 }
@@ -111,7 +111,7 @@ function geminiPlan(files: Record<string, string | undefined>, choice: ProviderC
     writes['settings.json'] = json(settings, files['settings.json'])
     return { writes }
   }
-  const env = { ...choice.preset.env, ...(choice.model ? { GEMINI_MODEL: choice.model } : {}), ...(choice.key ? { GEMINI_API_KEY: choice.key } : {}) }
+  const env = { ...providerEnv(choice.preset), ...(choice.model ? { GEMINI_MODEL: choice.model } : {}), ...(choice.key ? { GEMINI_API_KEY: choice.key } : {}) }
   writes['.env'] = `${[kept, ...Object.entries(env).map(([key, value]) => `${key}=${value}`)].filter(Boolean).join('\n')}\n`
   writes['settings.json'] = json({ ...settings, security: { ...settings.security, auth: { ...settings.security?.auth, selectedType: 'gemini-api-key' } } }, files['settings.json'])
   return { writes }

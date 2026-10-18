@@ -12,11 +12,11 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
-import { loaderEnv, maskKey, parseProviderLink } from '../agents/deeplink'
+import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
 import { GlobalSwitcher } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
-import { findPreset, importCcSwitch, presetsFor } from '../agents/providers'
+import { findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
 import { queryUsage, usageKind } from '../agents/usage'
 
@@ -387,7 +387,7 @@ export class AgentsHub {
     let file: { format?: string, version?: number, providers?: CustomProvider[], universal?: UniversalProvider[], keys?: Record<string, string> }
     try { file = JSON.parse(await readFile(path, 'utf8')) }
     catch { throw new Error('这个文件不是有效的 JSON') }
-    if (file.format !== 'anna-providers' || file.version !== 1)
+    if (!file || typeof file !== 'object' || file.format !== 'anna-providers' || file.version !== 1)
       throw new Error('这不是 Anna 导出的服务商文件')
     const keys = file.keys ?? {}
     let count = 0
@@ -400,18 +400,19 @@ export class AgentsHub {
     }
     const list = [...(this.store.value.providers ?? [])]
     for (const item of file.providers ?? []) {
-      if (!apps.includes(item.app) || !item.name || !item.preset || item.source === 'universal')
+      if (!item || !apps.includes(item.app) || typeof item.name !== 'string' || !item.name.trim() || !item.preset || typeof item.preset !== 'object' || item.source === 'universal')
         continue
       const fields = envFields[item.app]
       const url = fields ? item.preset.env?.[fields.url] : item.preset.baseUrl
       if (!url)
         continue
       providerEndpoint(url)
-      let name = item.name
-      for (let index = 2; list.some(entry => entry.app === item.app && entry.name === name); index++) name = `${item.name} ${index}`
-      // Same rule as for links: nothing that changes how processes load code.
-      const env = item.preset.env && Object.fromEntries(Object.entries(item.preset.env).filter(([key]) => !loaderEnv.test(key)))
-      list.push({ ...item, name, preset: { ...item.preset, name, ...(env ? { env } : {}) } })
+      const wanted = item.name.trim().slice(0, 60)
+      let name = wanted
+      for (let index = 2; list.some(entry => entry.app === item.app && entry.name === name); index++) name = `${wanted} ${index}`
+      // Same rules as for links and launches: no loader env vars, the key only in Claude Code's own key variables.
+      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}) }
+      list.push({ app: item.app, name, source: item.source === 'imported' ? 'imported' : item.source === 'custom' ? 'custom' : 'preset', preset } as CustomProvider)
       if (keys[`${item.app}:${item.name}`])
         await this.saveKey(`${item.app}:${name}`, keys[`${item.app}:${item.name}`]!)
       count++
