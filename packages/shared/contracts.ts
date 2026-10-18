@@ -65,7 +65,7 @@ export interface MyProvider {
   hasKey: boolean
   /** Anna can look up this provider's account balance or Coding Plan quota. */
   usage?: 'balance' | 'quota'
-  /** The agent reaches it through Anna's local routing (Codex and a Chat Completions provider). */
+  /** The agent reaches it through Anna's local routing (Claude Code or Codex, and a Chat Completions provider). */
   routed?: boolean
 }
 export interface UsageReport {
@@ -106,8 +106,8 @@ export interface UniversalProvider {
 }
 export type UniversalDraft = UniversalProvider & { previous?: string, key?: string }
 /** Add or edit one of the user's providers. `from` names the preset it starts from; `previous` the entry being edited. */
-/** `apiFormat` (codex): the provider's protocol; Chat Completions goes through Anna's local routing. */
-export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string, apiFormat?: 'openai_responses' | 'openai_chat' }
+/** `apiFormat` (claude, codex): the provider's protocol; Chat Completions goes through Anna's local routing. */
+export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string, apiFormat?: 'anthropic' | 'openai_responses' | 'openai_chat' }
 export type Origin = 'desktop' | 'weixin'
 export interface ApprovalQuestion {
   id: string

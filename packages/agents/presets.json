@@ -1538,6 +1538,45 @@
       ]
     },
     {
+      "name": "Nebius Token Factory",
+      "website": "https://nebius.com/token-factory",
+      "apiKeyUrl": "https://tokenfactory.nebius.com/project/api-keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "apiFormat": "openai_chat",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.tokenfactory.nebius.com",
+        "ANTHROPIC_MODEL": "zai-org/GLM-5.3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "zai-org/GLM-5.3-Flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "zai-org/GLM-5.3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "zai-org/GLM-5.3[1M]"
+      },
+      "endpoints": [
+        "https://api.tokenfactory.nebius.com"
+      ]
+    },
+    {
+      "name": "Groq",
+      "website": "https://groq.com/",
+      "apiKeyUrl": "https://console.groq.com/keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "apiFormat": "openai_chat",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.groq.com/openai/v1",
+        "ANTHROPIC_MODEL": "openai/gpt-oss-120b",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "openai/gpt-oss-20b",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "openai/gpt-oss-120b",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "openai/gpt-oss-120b",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072"
+      },
+      "endpoints": [
+        "https://api.groq.com/openai/v1"
+      ]
+    },
+    {
       "name": "SambaNova",
       "website": "https://sambanova.ai/",
       "apiKeyUrl": "https://cloud.sambanova.ai/apis",
@@ -1640,6 +1679,22 @@
       }
     },
     {
+      "name": "Nvidia",
+      "website": "https://build.nvidia.com/",
+      "apiKeyUrl": "https://build.nvidia.com/settings/api-keys",
+      "official": false,
+      "category": "aggregator",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "apiFormat": "openai_chat",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://integrate.api.nvidia.com",
+        "ANTHROPIC_MODEL": "moonshotai/kimi-k3[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "moonshotai/kimi-k3[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "moonshotai/kimi-k3[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "moonshotai/kimi-k3[1M]"
+      }
+    },
+    {
       "name": "PIPELLM",
       "website": "https://code.pipellm.ai/",
       "apiKeyUrl": "https://code.pipellm.ai/login",
@@ -1714,6 +1769,25 @@
       },
       "endpoints": [
         "https://api.aicodewith.ai"
+      ]
+    },
+    {
+      "name": "Command Code",
+      "website": "https://commandcode.ai/",
+      "apiKeyUrl": "https://commandcode.ai/settings/keys",
+      "official": false,
+      "category": "third_party",
+      "keyField": "ANTHROPIC_AUTH_TOKEN",
+      "apiFormat": "openai_chat",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.commandcode.ai/provider",
+        "ANTHROPIC_MODEL": "deepseek/deepseek-v4.1-flash[1M]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek/deepseek-v4.1-flash[1M]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek/deepseek-v4.1-flash[1M]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek/deepseek-v4.1-flash[1M]"
+      },
+      "endpoints": [
+        "https://api.commandcode.ai/provider"
       ]
     },
     {

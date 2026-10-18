@@ -132,6 +132,9 @@ function chatMediaPart(part: Json): Json | undefined {
     return { type: 'input_audio', input_audio: part.input_audio }
 }
 
+/** An image block (Anthropic `image`, `image_url`, `input_image`) as a Chat `image_url` part; anything else is undefined. */
+export const chatImagePart = (part: Json): Json | undefined => kindOf(part) === 'image' ? chatMediaPart(part) : undefined
+
 function wholeStringImage(value: string): Json | undefined {
   const trimmed = value.trim()
   return trimmed.length >= wholeDataUrlMinBytes && isImageBase64DataUrl(trimmed) ? { type: 'image_url', image_url: { url: trimmed } } : undefined

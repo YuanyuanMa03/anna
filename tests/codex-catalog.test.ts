@@ -94,7 +94,7 @@ describe('chat Completions providers, through Anna\'s local routing', () => {
   })
 
   it('the route carries the real key, reasoning settings and per-model levels', () => {
-    expect(chatRouteOf({ preset: preset('OpenCode Go'), key: 'sk-real' })).toMatchObject({ baseUrl: 'https://opencode.ai/zen/go/v1', key: 'sk-real', reasoning: { effortValueMode: 'zen' }, effortLevels: { 'glm-5.3': ['low', 'high', 'max'], 'kimi-k3': ['max'] } })
+    expect(chatRouteOf('codex', { preset: preset('OpenCode Go'), key: 'sk-real' })).toMatchObject({ baseUrl: 'https://opencode.ai/zen/go/v1', key: 'sk-real', reasoning: { effortValueMode: 'zen' }, effortLevels: { 'glm-5.3': ['low', 'high', 'max'], 'kimi-k3': ['max'] } })
   })
 
   it('global switch: refused for now (global routing comes later)', () => {

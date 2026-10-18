@@ -216,15 +216,16 @@ export class AgentsHub {
     else {
       base.baseUrl = baseUrl ?? base.baseUrl
       base.model = model ?? base.model
-      if (draft.apiFormat === 'openai_chat')
-        base.apiFormat = 'openai_chat'
-      else if (draft.apiFormat === 'openai_responses')
-        delete base.apiFormat
       if (!base.baseUrl)
         throw new Error('请填写请求地址')
       if (!base.model)
         throw new Error('Codex 需要一个模型名')
     }
+    // Claude Code and Codex can reach a Chat Completions provider through Anna's routing.
+    if (app !== 'gemini' && draft.apiFormat === 'openai_chat')
+      base.apiFormat = 'openai_chat'
+    else if (draft.apiFormat)
+      delete base.apiFormat
     base.name = name
     const source: CustomProvider['source'] = previous?.source ?? (from || (draft.previous && findPreset(app, draft.previous)) ? 'preset' : 'custom')
     const entry = { app, name, source, preset: base } as CustomProvider
@@ -359,7 +360,7 @@ export class AgentsHub {
     for (let index = 2; taken.has(name); index++) name = `${link.name} ${index}`
     const base = { name, official: false, category: 'third_party', website: link.website, endpoints: link.endpoints.length ? [link.baseUrl, ...link.endpoints] : undefined }
     const preset: Preset = app === 'claude'
-      ? { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ...link.env, ANTHROPIC_BASE_URL: link.baseUrl, ...(link.model ? { ANTHROPIC_MODEL: link.model } : {}), ...(link.tiers?.haiku ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: link.tiers.haiku } : {}), ...(link.tiers?.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: link.tiers.sonnet } : {}), ...(link.tiers?.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: link.tiers.opus } : {}) } }
+      ? { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', ...(link.apiFormat ? { apiFormat: link.apiFormat } : {}), env: { ...link.env, ANTHROPIC_BASE_URL: link.baseUrl, ...(link.model ? { ANTHROPIC_MODEL: link.model } : {}), ...(link.tiers?.haiku ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: link.tiers.haiku } : {}), ...(link.tiers?.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: link.tiers.sonnet } : {}), ...(link.tiers?.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: link.tiers.opus } : {}) } }
       : app === 'gemini'
         ? { ...base, env: { GOOGLE_GEMINI_BASE_URL: link.baseUrl, ...(link.model ? { GEMINI_MODEL: link.model } : {}) } }
         : { ...base, baseUrl: link.baseUrl, model: link.model, wireApi: 'responses', ...(link.apiFormat ? { apiFormat: link.apiFormat } : {}) }
@@ -415,7 +416,7 @@ export class AgentsHub {
       let name = wanted
       for (let index = 2; list.some(entry => entry.app === item.app && entry.name === name); index++) name = `${wanted} ${index}`
       // Same rules as for links and launches: no loader env vars, the key only in Claude Code's own key variables.
-      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}), ...(item.app === 'codex' ? { apiFormat: item.preset.apiFormat === 'openai_chat' ? 'openai_chat' : undefined, chatReasoning: chatReasoningOf(item.preset.chatReasoning) } : {}) }
+      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}), ...(item.app !== 'gemini' ? { apiFormat: item.preset.apiFormat === 'openai_chat' ? 'openai_chat' : undefined } : {}), ...(item.app === 'codex' ? { chatReasoning: chatReasoningOf(item.preset.chatReasoning) } : {}) }
       list.push({ app: item.app, name, source: item.source === 'imported' ? 'imported' : item.source === 'custom' ? 'custom' : 'preset', preset } as CustomProvider)
       if (keys[`${item.app}:${item.name}`])
         await this.saveKey(`${item.app}:${name}`, keys[`${item.app}:${item.name}`]!)

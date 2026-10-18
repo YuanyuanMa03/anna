@@ -79,8 +79,6 @@ function codexPlan(files: Record<string, string | undefined>, choice: ProviderCh
     const end = rest.findIndex((line, index) => index > start && /^\s*\[/.test(line))
     rest = [...rest.slice(0, start), ...(end === -1 ? [] : rest.slice(end))]
   }
-  if (routedThroughAnna('codex', choice.preset))
-    throw new Error(routedOnlyInAnna(choice.preset.name))
   const writes: Record<string, string> = {}
   if (usesOwnLogin('codex', choice.preset)) {
     writes['config.toml'] = [...top, ...rest].join('\n')
@@ -123,6 +121,8 @@ function geminiPlan(files: Record<string, string | undefined>, choice: ProviderC
 
 /** `dir`: the app's config directory (Codex's catalog path is written into config.toml). */
 export function globalPlan(app: ProviderApp, files: Record<string, string | undefined>, choice: ProviderChoice, dir = ''): GlobalPlan {
+  if (routedThroughAnna(app, choice.preset))
+    throw new Error(routedOnlyInAnna(choice.preset.name))
   if (app === 'claude')
     return claudePlan(files, choice)
   if (app === 'codex')
