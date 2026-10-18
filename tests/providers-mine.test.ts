@@ -10,14 +10,14 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 
 const fake = resolve('tests/fixtures/fake-agent.mjs')
 
-async function setup(options: { fetch?: typeof fetch } = {}) {
+async function setup(options: { fetch?: typeof fetch, script?: import('../packages/kernels/pi/backend').ScriptStep[], characterId?: string } = {}) {
   const data = await mkdtemp(join(tmpdir(), 'anna-providers-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
   process.env.ANNA_FAKE_LOG = join(data, 'fake.log')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: options.characterId ?? 'hiyori', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const secrets: Record<string, string> = {}
-  const backend = await scriptedBackend([], data)
+  const backend = await scriptedBackend(options.script ?? [], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     kernel: context => createPiKernel(context, backend),
@@ -204,4 +204,36 @@ it('export and import: keys only when asked for, names kept free, universal prov
   expect(other.keys()).toMatchObject({ 'claude:DeepSeek 2': 'sk-ds', 'universal:NewAPI': 'sk-gw', 'claude:NewAPI': 'sk-gw' })
   await expect(other.host.execute({ type: 'providers-import', path: plain.replace('plain', 'missing') })).rejects.toThrow('JSON')
   await other.host.close()
+})
+
+it('the companion works providers with anna_providers: reads freely, switches only after the user says yes', async () => {
+  const { host, data } = await setup({ characterId: 'mark', script: [
+    { tools: [{ name: 'anna_providers', args: { action: 'list' } }] },
+    { tools: [{ name: 'anna_providers', args: { action: 'use', app: 'codex', name: 'DeepSeek' } }] },
+    { tools: [{ name: 'anna_providers', args: { action: 'global', app: 'codex', name: 'DeepSeek' } }] },
+    { text: '好的。' },
+  ] })
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'DeepSeek', from: 'DeepSeek', key: 'sk-secret-ds' })
+  const sent = host.execute({ type: 'send', text: '把 Codex 换成 DeepSeek' })
+  await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000 })
+  const card = host.snapshot().approvals[0]!
+  expect(card).toMatchObject({ toolName: 'anna_providers', danger: false, details: 'Codex → DeepSeek' })
+  expect(card.reason).toContain('马克君')
+  await host.execute({ type: 'approval', id: card.id, allow: true })
+  // The global switch rewrites Codex's own config: a risky card, declined here.
+  await vi.waitUntil(() => host.snapshot().approvals[0]?.danger === true, { timeout: 8000 })
+  await host.execute({ type: 'approval', id: host.snapshot().approvals[0]!.id, allow: false })
+  await sent
+  expect(host.snapshot().agents.providers.codex?.provider).toBe('DeepSeek')
+  expect(host.snapshot().agents.global.codex?.switched).toBeFalsy()
+  // What the model saw (the session log holds the tool results): the list without the key, and the outcomes.
+  const { readdir } = await import('node:fs/promises')
+  const sessions = join(data, 'pi-sessions')
+  const files = (await readdir(sessions, { recursive: true })).filter(file => String(file).endsWith('.jsonl'))
+  const seen = (await Promise.all(files.map(file => readFile(join(sessions, String(file)), 'utf8')))).join('\n')
+  expect(seen).toContain('DeepSeek：https://api.deepseek.com，模型 deepseek-flash，已存密钥，可查余额')
+  expect(seen).toContain('好了：Codex 之后派活和当大脑时用DeepSeek')
+  expect(seen).toContain('用户没有同意')
+  expect(seen).not.toContain('sk-secret-ds')
+  await host.close()
 })

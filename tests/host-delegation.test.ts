@@ -243,7 +243,7 @@ it.each([['claude-code', 'claude'], ['codex', 'codex']] as const)('with %s as th
     ? (({ url, headers }) => ({ url, authorization: headers.Authorization }))(JSON.parse(run.args[run.args.indexOf('--mcp-config') + 1]).mcpServers.anna)
     : { url: JSON.parse(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.url=')).split('=')[1]), authorization: /"(.*)"/.exec(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.http_headers=')))![1] }
   const listed = await (await fetch(server.url, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': server.authorization }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })).json()
-  expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['anna_status', 'anna_memory', 'anna_delegate'])
+  expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['anna_status', 'anna_memory', 'anna_delegate', 'anna_providers'])
   // The server lives as long as the kernel: once Anna closes, nothing answers on its port.
   await host.close()
   await expect(fetch(server.url, { method: 'POST' })).rejects.toThrow()

@@ -26,6 +26,8 @@ export function describeTool(tool: string, input: Record<string, unknown>): { ph
     return { phase: 'inspecting', line: '正在检查自己的状态' }
   if (tool === 'anna_memory')
     return { phase: 'inspecting', line: '正在翻看记忆' }
+  if (tool === 'anna_providers')
+    return { phase: 'inspecting', line: '正在看服务商' }
   return { phase: 'running', line: `正在使用 ${tool}` }
 }
 
