@@ -65,6 +65,21 @@ function save() {
 }
 const use = (name?: string) => emit('command', { type: 'agent-provider', agent: current.value, provider: name })
 const speed = (name: string) => agents.value.speed?.[`${current.value}:${name}`]
+const usage = (name: string) => agents.value.usage?.[`${current.value}:${name}`]
+/** The provider whose balance or quota is being looked up; cleared when the answer arrives. */
+const checking = ref<string>()
+watch(() => agents.value.usage, () => { checking.value = undefined })
+function checkUsage(name: string) {
+  checking.value = name
+  emit('command', { type: 'provider-usage', app: current.value, name })
+}
+const money = (amount: number, unit: string) => `${unit === 'CNY' ? '¥' : unit === 'USD' ? '$' : `${unit} `}${amount.toFixed(2)}`
+/** "今天 18:00" / "10月21日 09:00" */
+function resets(iso: string) {
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return date.toDateString() === new Date().toDateString() ? `今天 ${time} ` : `${date.getMonth() + 1}月${date.getDate()}日 ${time} `
+}
 /** The provider being timed; cleared when its results arrive. */
 const testing = ref<string>()
 watch(() => agents.value.speed, () => { testing.value = undefined })
@@ -108,6 +123,7 @@ function speedtest(name: string) {
           <div v-else class="card-actions left">
             <button v-if="inUse !== provider.name" :disabled="locked" @click="use(provider.name)">让{{ whoInline }}用它</button>
             <button :disabled="locked || !provider.hasKey" :title="provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
+            <button v-if="provider.usage" :disabled="locked || !provider.hasKey || checking === provider.name" :title="provider.hasKey ? '' : '先存一个密钥'" @click="checkUsage(provider.name)">{{ checking === provider.name ? '查询中…' : provider.usage === 'quota' ? '查额度' : '查余额' }}</button>
             <button :disabled="locked || testing === provider.name" @click="speedtest(provider.name)">{{ testing === provider.name ? '测速中…' : '测速' }}</button>
             <template v-if="provider.source !== 'universal'">
               <button :disabled="locked" @click="edit(provider)">编辑</button>
@@ -115,6 +131,15 @@ function speedtest(name: string) {
             </template>
             <button v-else class="link" @click="app = 'universal'">在“统一”里修改</button>
           </div>
+          <p v-if="usage(provider.name)" class="usage-line small" :class="{ warn: usage(provider.name)!.error }" :data-usage="provider.name">
+            <template v-if="usage(provider.name)!.error">{{ usage(provider.name)!.error }}</template>
+            <template v-else>
+              <span v-if="usage(provider.name)!.plan" class="badge">{{ usage(provider.name)!.plan }}</span>
+              <span v-for="balance in usage(provider.name)!.balances" :key="balance.label" class="badge" :class="balance.remaining > 0 ? 'ok' : 'warn'">余额 {{ money(balance.remaining, balance.unit) }}</span>
+              <span v-for="item in usage(provider.name)!.windows" :key="item.window" class="badge" :class="item.usedPercent >= 90 ? 'warn' : 'ok'">{{ item.window === 'five_hour' ? '5 小时' : '本周' }}剩 {{ Math.max(0, Math.round(100 - item.usedPercent)) }}%{{ item.resetsAt ? `，${resets(item.resetsAt)}重置` : '' }}</span>
+              <span v-if="!usage(provider.name)!.balances?.length && !usage(provider.name)!.windows?.length" class="muted">没有查到额度信息</span>
+            </template>
+          </p>
           <ul v-if="speed(provider.name)" class="speed-results" :aria-label="`${provider.name} 的测速结果`">
             <li v-for="result in speed(provider.name)!.results" :key="result.url" :data-url="result.url">
               <span class="speed-url">{{ result.url.replace(/^https?:\/\//, '') }}</span>

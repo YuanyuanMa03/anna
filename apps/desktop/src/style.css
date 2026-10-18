@@ -307,3 +307,5 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .speed-results { list-style: none; padding: 8px 0 0; margin: 4px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px }
 .speed-results li { display: flex; align-items: center; gap: 8px; font-size: 12px; border: 0; padding: 0 }
 .speed-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6f5d80 }
+.usage-line { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center }
+.usage-line.warn { color: #9a6a24 }

@@ -63,6 +63,17 @@ export interface MyProvider {
   website?: string
   apiKeyUrl?: string
   hasKey: boolean
+  /** Anna can look up this provider's account balance or Coding Plan quota. */
+  usage?: 'balance' | 'quota'
+}
+export interface UsageReport {
+  at: string
+  kind: 'balance' | 'quota'
+  balances?: { label: string, remaining: number, total?: number, used?: number, unit: string }[]
+  windows?: { window: 'five_hour' | 'weekly', usedPercent: number, resetsAt?: string }[]
+  plan?: string
+  keyRejected?: boolean
+  error?: string
 }
 export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string }
 export interface AgentsSnapshot {
@@ -73,6 +84,8 @@ export interface AgentsSnapshot {
   mine: Record<string, MyProvider[]>
   universal: (UniversalProvider & { hasKey: boolean })[]
   /** The last speed test per provider (`app:name`), fastest first; candidates already carry the provider's path. */
+  /** The last balance or quota lookup per provider (`app:name`). */
+  usage: Record<string, UsageReport>
   speed: Record<string, { at: string, results: { url: string, latency?: number, status?: number, error?: string }[] }>
   ccSwitch: boolean
 }
@@ -193,6 +206,7 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | ({ type: 'provider-save' } & ProviderDraft)
   | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
   | { type: 'provider-speedtest', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-usage', app: 'claude' | 'codex' | 'gemini', name: string }
   | ({ type: 'universal-save' } & UniversalDraft)
   | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }

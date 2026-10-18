@@ -73,7 +73,7 @@ export class Host {
   private result?: TaskResult
   private delegator: Delegator
   private hub: AgentsHub
-  private agentsCache: AgentsSnapshot = { detected: [], providers: {}, global: {}, presets: {}, mine: {}, universal: [], speed: {}, ccSwitch: false }
+  private agentsCache: AgentsSnapshot = { detected: [], providers: {}, global: {}, presets: {}, mine: {}, universal: [], speed: {}, usage: {}, ccSwitch: false }
   private secretsMode: 'system' | 'file' = 'system'
   readonly channels = new Map<Origin, Channel>()
   readonly store: SettingsStore
@@ -695,6 +695,10 @@ export class Host {
         return this.snapshot()
       case 'provider-speedtest':
         await this.hub.speedtest(command.app, command.name)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-usage':
+        await this.hub.checkUsage(command.app, command.name)
         await this.refreshAgents(false)
         return this.snapshot()
       case 'universal-save':

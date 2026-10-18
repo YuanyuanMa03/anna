@@ -137,3 +137,20 @@ it('speed test: times the provider\'s address and its preset\'s other addresses,
   expect(new Set(seen)).toEqual(new Set(results.map(result => result.url)))
   await host.close()
 })
+
+it('balance: looked up with the provider\'s saved key, shown on its card; unsupported providers are not offered', async () => {
+  const asked: string[] = []
+  const { host } = await setup({ fetch: (async (url: string, init?: RequestInit) => {
+    asked.push(`${url} ${(init?.headers as Record<string, string>).Authorization}`)
+    return new Response(JSON.stringify({ is_available: true, balance_infos: [{ currency: 'CNY', total_balance: '42.00' }] }))
+  }) as typeof fetch })
+  await host.execute({ type: 'provider-save', app: 'claude', name: 'DeepSeek', from: 'DeepSeek', key: 'sk-ds' })
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'Kimi', from: 'Kimi', key: 'sk-k' })
+  expect(host.snapshot().agents.mine.claude![0]!.usage).toBe('balance')
+  expect(host.snapshot().agents.mine.codex![0]!.usage).toBeUndefined()
+  await host.execute({ type: 'provider-usage', app: 'claude', name: 'DeepSeek' })
+  expect(asked).toEqual(['https://api.deepseek.com/user/balance Bearer sk-ds'])
+  expect(host.snapshot().agents.usage['claude:DeepSeek']).toMatchObject({ kind: 'balance', balances: [{ remaining: 42, unit: 'CNY' }], at: expect.any(String) })
+  await expect(host.execute({ type: 'provider-usage', app: 'codex', name: 'Kimi' })).rejects.toThrow('还不支持')
+  await host.close()
+})

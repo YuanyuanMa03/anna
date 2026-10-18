@@ -15,6 +15,7 @@ import { GlobalSwitcher } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
 import { findPreset, importCcSwitch, presetsFor } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
+import { queryUsage, usageKind } from '../agents/usage'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -96,6 +97,7 @@ export class AgentsHub {
   private detecting?: Promise<AgentInfo[]>
   private keys?: Record<string, string>
   private speed: AgentsSnapshot['speed'] = {}
+  private usage: AgentsSnapshot['usage'] = {}
   readonly switcher: GlobalSwitcher
   constructor(private data: string, private store: SettingsStore, private secrets: SecretVault, private options: AgentsOptions = {}) {
     const home = homedir()
@@ -170,7 +172,7 @@ export class AgentsHub {
       ...listed.map(item => ({ name: item.name, source: item.source ?? (item.preset.category === 'imported' ? 'imported' : 'preset'), preset: item.preset as Preset })),
       ...(legacy ? [{ name: legacy.name, source: 'preset' as const, preset: legacy }] : []),
     ]
-    return entries.map(({ name, source, preset }) => ({ name, source, category: preset.category, ...describe(app, preset), website: preset.website, apiKeyUrl: preset.apiKeyUrl, hasKey: Boolean(keys[`${app}:${name}`]) }))
+    return entries.map(({ name, source, preset }) => ({ name, source, category: preset.category, ...describe(app, preset), website: preset.website, apiKeyUrl: preset.apiKeyUrl, hasKey: Boolean(keys[`${app}:${name}`]), usage: usageKind(describe(app, preset).baseUrl) }))
   }
 
   /**
@@ -317,6 +319,17 @@ export class AgentsHub {
     this.speed[`${app}:${name}`] = { at: new Date().toISOString(), results }
   }
 
+  /** Look up what's left on the provider's account (balance or Coding Plan quota) with its saved key. */
+  async checkUsage(appName: string, name: string) {
+    const app = providerAppOf(appName)
+    const preset = app && this.preset(app, name)
+    const baseUrl = app && preset ? describe(app, preset).baseUrl : undefined
+    if (!app || !baseUrl || !usageKind(baseUrl))
+      throw new Error('还不支持查询这个服务商的余额')
+    const key = (await this.allKeys())[`${app}:${name}`] ?? ''
+    this.usage[`${app}:${name}`] = { at: new Date().toISOString(), ...await queryUsage(baseUrl, key, { fetch: this.options.fetch }) }
+  }
+
   /** Remove one of the user's providers and its key; an app that was using it goes back to its own login. */
   async deleteProvider(appName: string, name: string) {
     const app = providerAppOf(appName)
@@ -388,6 +401,7 @@ export class AgentsHub {
       presets,
       mine,
       speed: this.speed,
+      usage: this.usage,
       universal: (this.store.value.universal ?? []).map(item => ({ ...item, hasKey: Boolean(keys[`universal:${item.name}`]) })),
       ccSwitch: existsSync(this.ccSwitchDb),
     }
