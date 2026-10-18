@@ -310,7 +310,7 @@ export class Host {
           return '当前没有进行中的任务。'
         const mode = this.effectiveMode(current.origin)
         if (mode === 'plan' || mode === 'ask') {
-          const outcome = await this.escalate({ toolName: 'anna_delegate', reason: `Anna 想让 ${labelOf(agent)} 来处理这件事`, details: task.slice(0, 600), danger: false })
+          const outcome = await this.escalate({ toolName: 'anna_delegate', reason: `${this.companionName} 想让 ${labelOf(agent)} 来处理这件事`, details: task.slice(0, 600), danger: false })
           if (outcome !== 'allowed')
             return `用户没有同意交给 ${labelOf(agent)}。请自己处理，或询问用户。`
         }
