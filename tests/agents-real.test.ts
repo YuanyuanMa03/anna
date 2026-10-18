@@ -75,3 +75,29 @@ describe.skipIf(!wanted.includes('claude'))('real Claude Code as Anna\'s brain',
     await host.close()
   }, 180000)
 })
+
+const brains = wanted.filter(agent => agent === 'claude' || agent === 'codex')
+describe.skipIf(!brains.length)('real Claude Code / Codex as the brain, with Anna\'s own tools', () => {
+  it.each(brains)('%s: writes to the shared diary through the anna MCP server, without an approval card', async (agent) => {
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const data = await mkdtemp(join(tmpdir(), `anna-real-tools-${agent}-`))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: agent === 'claude' ? 'claude-code' : 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' } })
+    await host.initialize()
+    try {
+      await host.execute({ type: 'send', text: '请记住：我最喜欢的茶是龙井。用共同记忆工具记下来，然后用一句话告诉我。' })
+      const snapshot = host.snapshot()
+      process.stdout.write(`${agent} brain memories: ${JSON.stringify(snapshot.memories.map(item => item.text))} reply: ${snapshot.messages!.at(-1)?.text.slice(0, 120)}\n`)
+      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.memories.some(item => item.text.includes('龙井'))).toBe(true)
+    }
+    finally {
+      await host.close()
+    }
+  }, 240000)
+})

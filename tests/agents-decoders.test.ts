@@ -33,6 +33,29 @@ describe('claude decoder (stream-json + stdio permission prompts)', () => {
   })
 })
 
+describe('the companion\'s own tools over MCP keep their names at Anna\'s gate', () => {
+  it('claude: mcp__anna__anna_* is normalized back to anna_*, other MCP tools are not', () => {
+    const decoder = claudeDecoder()
+    // Shape recorded from Claude Code 2.1 with Anna's tool server attached through --mcp-config.
+    const asked = decoder.decode(JSON.stringify({ type: 'control_request', request_id: 'r1', request: { subtype: 'can_use_tool', tool_name: 'mcp__anna__anna_memory', mcp_server: { name: 'anna', source: 'dynamic' }, input: { action: 'list' } } }))
+    expect(asked.approval).toMatchObject({ tool: 'anna_memory', input: { action: 'list' } })
+    const started = decoder.decode(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'mcp__anna__anna_delegate', input: { agent: 'codex', task: 'x' } }] } }))
+    expect(started.events).toEqual([{ type: 'tool-start', id: 't1', name: 'anna_delegate', input: { agent: 'codex', task: 'x' } }])
+    expect(decoder.decode(JSON.stringify({ type: 'control_request', request_id: 'r2', request: { subtype: 'can_use_tool', tool_name: 'mcp__other__anna_memory', input: {} } })).approval!.tool).toBe('claude:mcp__other__anna_memory')
+  })
+
+  it('codex: an mcpToolCall on the anna server becomes the anna_* tool with its result', async () => {
+    const { codexDecoder } = await import('../packages/agents/adapters/codex')
+    const decoder = codexDecoder()
+    const item = { type: 'mcpToolCall', id: 'm1', server: 'anna', tool: 'anna_memory', arguments: { action: 'remember', text: '喜欢绿茶' }, status: 'inProgress' }
+    expect(decoder.decode(JSON.stringify({ method: 'item/started', params: { item } })).events).toEqual([{ type: 'tool-start', id: 'm1', name: 'anna_memory', input: { action: 'remember', text: '喜欢绿茶' } }])
+    const done = decoder.decode(JSON.stringify({ method: 'item/completed', params: { item: { ...item, status: 'completed', result: { content: [{ type: 'text', text: '已记住：喜欢绿茶' }] } } } }))
+    expect(done.events).toEqual([{ type: 'tool-end', id: 'm1', name: 'anna_memory', output: '已记住：喜欢绿茶', isError: false }])
+    const other = decoder.decode(JSON.stringify({ method: 'item/started', params: { item: { ...item, id: 'm2', server: 'github' } } }))
+    expect(other.events[0]).toMatchObject({ name: 'codex:mcpToolCall' })
+  })
+})
+
 describe('codex decoder (app-server JSON-RPC)', () => {
   it('turns items into tool events, unwraps the login shell, surfaces approvals and the thread id', async () => {
     const { codexDecoder } = await import('../packages/agents/adapters/codex')

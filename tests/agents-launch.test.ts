@@ -24,6 +24,17 @@ describe('buildLaunch: Anna mode, provider and session → each agent\'s own fla
     expect(buildLaunch('codex', { ...base, mode: 'edit' }).thread).toEqual({ approvalPolicy: 'on-request', sandbox: 'workspace-write' })
   })
 
+  it('the tool server: --mcp-config for Claude Code, -c overrides for Codex, nothing without one', () => {
+    const tools = { url: 'http://127.0.0.1:4321/mcp', token: 't0k' }
+    const claude = buildLaunch('claude', { ...base, mode: 'ask', tools }).args
+    expect(JSON.parse(claude[claude.indexOf('--mcp-config') + 1]!)).toEqual({ mcpServers: { anna: { type: 'http', url: tools.url, headers: { Authorization: 'Bearer t0k' } } } })
+    const codex = buildLaunch('codex', { ...base, mode: 'ask', tools }).args
+    expect(codex).toEqual(expect.arrayContaining(['mcp_servers.anna.url="http://127.0.0.1:4321/mcp"', 'mcp_servers.anna.http_headers={ Authorization = "Bearer t0k" }', 'mcp_servers.anna.tool_timeout_sec=86400', 'mcp_servers.anna.default_tools_approval_mode="approve"']))
+    expect(codex.filter(arg => arg === '-c')).toHaveLength(4)
+    expect(buildLaunch('claude', { ...base, mode: 'ask' }).args).not.toContain('--mcp-config')
+    expect(buildLaunch('codex', { ...base, mode: 'ask' }).args).toEqual(['app-server'])
+  })
+
   it('upfront agents get their own approval level from the mode', () => {
     expect(buildLaunch('gemini', { ...base, mode: 'edit' }).args).toEqual(expect.arrayContaining(['-p', '修复登录 bug', '--output-format', 'stream-json', '--approval-mode', 'auto_edit']))
     expect(buildLaunch('gemini', { ...base, mode: 'ask', sessionId: 'g1' }).args).toEqual(expect.arrayContaining(['--approval-mode', 'default', '--resume', 'g1']))

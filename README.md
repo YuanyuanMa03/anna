@@ -65,7 +65,8 @@ credit.
 ## What she can do
 
 - 🧠 **A real agent brain.** Built on the [pi coding agent](https://github.com/earendil-works/pi) SDK: file tools,
-  shell, context compaction, retries, resumable sessions. You can also swap the brain for **Claude Code** or **Codex**.
+  shell, context compaction, retries, resumable sessions. You can also swap the brain for **Claude Code** or **Codex**;
+  the shared diary, status and delegation tools come along over a local MCP server.
 - 🤝 **She delegates.** Anna finds the coding agents already installed on your machine, the way
   [cc-switch](https://github.com/farion1231/cc-switch) does. Type `@claude fix the flaky test` and Claude Code does
   the job, while its permission prompts land on *Anna's* approval cards.
@@ -267,7 +268,7 @@ Anna has changed brains three times, and she's still Anna.
 - [ ] Git worktree isolation for delegated tasks
 - [ ] Verify the Gemini CLI, OpenCode and Pi adapters on real machines
 - [ ] MCP and skills sync across agents; usage statistics
-- [ ] Anna's own tools (memory, delegation) when Claude Code or Codex is the brain
+- [x] Anna's own tools (memory, delegation) when Claude Code or Codex is the brain
 - [ ] A command sandbox on Windows
 - [ ] Phoneme-level lip sync and a custom Live2D model
 

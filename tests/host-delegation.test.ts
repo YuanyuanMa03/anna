@@ -214,3 +214,60 @@ it('switching Anna\'s brain to Claude Code: plain messages go to it, with Anna\'
   expect(again.snapshot().messages).toHaveLength(4)
   await again.close()
 })
+
+it.each([['claude-code', 'claude'], ['codex', 'codex']] as const)('with %s as the brain, the shared diary and Anna\'s other tools still work, over a local MCP server', async (kernel, agent) => {
+  const data = await mkdtemp(join(tmpdir(), 'anna-brain-tools-'))
+  const workspace = join(data, 'project')
+  await mkdir(workspace)
+  const log = join(data, 'fake.log')
+  process.env.ANNA_FAKE_LOG = log
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel, characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  const events: AnnaEvent[] = []
+  const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
+    sandbox: { available: false, reason: 'test' },
+    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
+  })
+  await host.initialize()
+  // Anna's own tools pass her gate without a card, as they do on the pi brain.
+  await host.execute({ type: 'send', text: '记住：我喜欢绿茶' })
+  expect(host.snapshot().approvals).toEqual([])
+  expect(host.snapshot().memories.map(item => item.text)).toEqual(['我喜欢绿茶'])
+  expect(host.snapshot().messages!.at(-1)).toMatchObject({ role: 'assistant', text: '已记住：我喜欢绿茶' })
+  // The stage shows the companion looking through the diary, not "using mcp__anna__…".
+  expect(events.some(event => event.type === 'anna' && event.state.line === '正在翻看记忆')).toBe(true)
+  const run = (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.agent).toBe(agent)
+  if (agent === 'claude')
+    expect(run.args[run.args.indexOf('--append-system-prompt') + 1]).toContain('mcp__anna__anna_memory')
+  const server = agent === 'claude'
+    ? (({ url, headers }) => ({ url, authorization: headers.Authorization }))(JSON.parse(run.args[run.args.indexOf('--mcp-config') + 1]).mcpServers.anna)
+    : { url: JSON.parse(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.url=')).split('=')[1]), authorization: /"(.*)"/.exec(run.args.find((arg: string) => arg.startsWith('mcp_servers.anna.http_headers=')))![1] }
+  const listed = await (await fetch(server.url, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': server.authorization }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })).json()
+  expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['anna_status', 'anna_memory', 'anna_delegate'])
+  // The server lives as long as the kernel: once Anna closes, nothing answers on its port.
+  await host.close()
+  await expect(fetch(server.url, { method: 'POST' })).rejects.toThrow()
+})
+
+it('with Claude Code as the brain, the companion can still hand work to Codex through anna_delegate, asking first in ask mode', async () => {
+  const data = await mkdtemp(join(tmpdir(), 'anna-brain-delegate-'))
+  const workspace = join(data, 'project')
+  await mkdir(workspace)
+  process.env.ANNA_FAKE_LOG = join(data, 'fake.log')
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
+    sandbox: { available: false, reason: 'test' },
+    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },
+  })
+  await host.initialize()
+  const sent = host.execute({ type: 'send', text: '交给 codex：创建 done.txt' })
+  const ask = await approve(host)
+  expect(ask).toMatchObject({ toolName: 'anna_delegate', reason: expect.stringContaining('Codex') })
+  const command = await approve(host)
+  expect(command.toolName).toBe('bash')
+  await sent
+  expect(await readFile(join(workspace, 'done.txt'), 'utf8')).toBe('OK')
+  expect(host.snapshot().messages!.at(-1)!.text).toContain('[Codex 的结果，状态：completed]')
+  expect(host.snapshot().result).toMatchObject({ changes: [{ path: 'done.txt', status: 'added' }] })
+  await host.close()
+})
