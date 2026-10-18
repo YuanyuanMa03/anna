@@ -22,7 +22,8 @@ const settingsSchema = v.object({
   workspace: v.optional(v.string()),
   workspaces: v.optional(v.record(v.string(), workspaceSchema), {}),
   agents: v.optional(v.record(v.string(), v.object({ provider: v.optional(v.string()) }))),
-  providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), source: v.optional(v.picklist(['preset', 'custom', 'imported'])), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
+  universal: v.optional(v.array(v.looseObject({ name: v.string(), baseUrl: v.string(), apps: v.object({ claude: v.boolean(), codex: v.boolean(), gemini: v.boolean() }), models: v.looseObject({}) }))),
+  providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), source: v.optional(v.picklist(['preset', 'custom', 'imported', 'universal'])), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
 })
 
 /** Validate the endpoint before a credential crosses the host network boundary. */

@@ -1,7 +1,7 @@
 import type { DelegateAgent } from '../agents/adapters'
 import type { AgentInfo } from '../agents/detect'
 import type { ImportedProvider, Preset, ProviderApp, ProviderChoice } from '../agents/providers'
-import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft } from '../shared/contracts'
+import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, UniversalDraft, UniversalProvider } from '../shared/contracts'
 import type { SettingsStore } from './settings'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -45,6 +45,28 @@ export function providerEndpoint(value: string) {
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local))
     throw new Error('请求地址必须是 HTTPS（只有本机或局域网地址可以用 HTTP）')
   return url.toString().replace(/\/$/, '')
+}
+
+/** Codex speaks /v1/responses: a bare gateway origin gets /v1, a URL with a path is used as written (cc-switch's rule). */
+export function codexBase(url: string) {
+  const trimmed = url.replace(/\/+$/, '')
+  return trimmed.endsWith('/v1') || new URL(trimmed).pathname !== '/' ? trimmed : `${trimmed}/v1`
+}
+
+/** The provider each enabled app gets from a universal one (cc-switch's to_claude/codex/gemini_provider). */
+export function universalPresets(universal: UniversalProvider): Partial<Record<ProviderApp, Preset>> {
+  const base = { name: universal.name, official: false, category: 'aggregator', website: universal.website }
+  const { claude, codex, gemini } = universal.models
+  const out: Partial<Record<ProviderApp, Preset>> = {}
+  if (universal.apps.claude) {
+    const model = claude?.model
+    out.claude = { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ANTHROPIC_BASE_URL: universal.baseUrl, ...(model ? { ANTHROPIC_MODEL: model } : {}), ...(claude?.haiku ?? model ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: (claude?.haiku ?? model)! } : {}), ...(claude?.sonnet ?? model ? { ANTHROPIC_DEFAULT_SONNET_MODEL: (claude?.sonnet ?? model)! } : {}), ...(claude?.opus ?? model ? { ANTHROPIC_DEFAULT_OPUS_MODEL: (claude?.opus ?? model)! } : {}) } }
+  }
+  if (universal.apps.codex)
+    out.codex = { ...base, baseUrl: codexBase(universal.baseUrl), model: codex?.model, wireApi: 'responses', reasoningEffort: codex?.reasoningEffort }
+  if (universal.apps.gemini)
+    out.gemini = { ...base, env: { GOOGLE_GEMINI_BASE_URL: universal.baseUrl, ...(gemini?.model ? { GEMINI_MODEL: gemini.model } : {}) } }
+  return out
 }
 
 /** Endpoint and model as the UI shows them, wherever the app keeps them. */
@@ -152,6 +174,8 @@ export class AgentsHub {
       throw new Error('服务商名称要有 1 到 60 个字')
     const list = this.store.value.providers ?? []
     const previous = draft.previous ? list.find(item => item.app === app && item.name === draft.previous) : undefined
+    if (previous?.source === 'universal')
+      throw new Error(`${previous.name} 来自统一服务商，请在“统一”里修改`)
     if (name !== draft.previous && (list.some(item => item.app === app && item.name === name)))
       throw new Error(`已经有一个叫 ${name} 的服务商`)
     const from = draft.from ? findPreset(app, draft.from) : undefined
@@ -192,6 +216,76 @@ export class AgentsHub {
       await this.saveKey(`${app}:${name}`, draft.key.trim())
     if (draft.previous && this.store.value.agents?.[app]?.provider === draft.previous)
       this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
+    await this.store.save()
+  }
+
+  /**
+   * Add or edit a universal provider: one key, stored once and copied to each enabled app's linked provider. An app
+   * switched off loses its linked provider (and goes back to its own login if it was using it).
+   */
+  async saveUniversal(draft: UniversalDraft) {
+    const name = draft.name.trim()
+    if (!name || name.length > 60)
+      throw new Error('服务商名称要有 1 到 60 个字')
+    const list = this.store.value.universal ?? []
+    if (name !== draft.previous && list.some(item => item.name === name))
+      throw new Error(`已经有一个叫 ${name} 的统一服务商`)
+    if (!draft.apps.claude && !draft.apps.codex && !draft.apps.gemini)
+      throw new Error('至少要用在一个 agent 上')
+    if (draft.apps.codex && !draft.models.codex?.model?.trim())
+      throw new Error('Codex 需要一个模型名')
+    const trim = (value?: string) => value?.trim() || undefined
+    const universal: UniversalProvider = {
+      name,
+      baseUrl: providerEndpoint(draft.baseUrl),
+      apps: { claude: Boolean(draft.apps.claude), codex: Boolean(draft.apps.codex), gemini: Boolean(draft.apps.gemini) },
+      models: {
+        claude: { model: trim(draft.models.claude?.model), haiku: trim(draft.models.claude?.haiku), sonnet: trim(draft.models.claude?.sonnet), opus: trim(draft.models.claude?.opus) },
+        codex: { model: trim(draft.models.codex?.model), reasoningEffort: trim(draft.models.codex?.reasoningEffort) },
+        gemini: { model: trim(draft.models.gemini?.model) },
+      },
+      website: trim(draft.website),
+    }
+    const presets = universalPresets(universal)
+    if ((this.store.value.providers ?? []).some(item => item.source !== 'universal' && item.name === name && presets[item.app]))
+      throw new Error(`${name} 和你已有的一个服务商重名，换个名字`)
+    const old = draft.previous ? list.find(item => item.name === draft.previous) : undefined
+    const keys = await this.allKeys()
+    const key = draft.key?.trim() || (old ? keys[`universal:${old.name}`] : undefined)
+    // Linked providers of the old entry go; this entry's come back for each enabled app, with the shared key.
+    const linked = (item: CustomProvider) => item.source === 'universal' && (item.name === draft.previous || item.name === name)
+    for (const app of apps) {
+      if (old && keys[`${app}:${old.name}`])
+        delete keys[`${app}:${old.name}`]
+      const chosen = this.store.value.agents?.[app]?.provider
+      if (old && chosen === old.name)
+        this.store.value.agents = { ...this.store.value.agents, [app]: universal.apps[app] ? { provider: name } : {} }
+    }
+    if (old)
+      delete keys[`universal:${old.name}`]
+    this.store.value.providers = [...(this.store.value.providers ?? []).filter(item => !linked(item)), ...apps.flatMap(app => presets[app] ? [{ app, name, source: 'universal' as const, preset: presets[app]! } as CustomProvider] : [])]
+    if (key) {
+      keys[`universal:${name}`] = key
+      for (const app of apps) {
+        if (presets[app])
+          keys[`${app}:${name}`] = key
+      }
+    }
+    await this.secrets.write(JSON.stringify(keys))
+    this.store.value.universal = [...list.filter(item => item.name !== draft.previous && item.name !== name), universal]
+    await this.store.save()
+  }
+
+  /** Remove a universal provider, its linked providers and its key. */
+  async deleteUniversal(name: string) {
+    this.store.value.universal = (this.store.value.universal ?? []).filter(item => item.name !== name)
+    for (const app of apps) {
+      if ((this.store.value.providers ?? []).some(item => item.app === app && item.name === name && item.source === 'universal'))
+        await this.deleteProvider(app, name)
+    }
+    const keys = await this.allKeys()
+    delete keys[`universal:${name}`]
+    await this.secrets.write(JSON.stringify(keys))
     await this.store.save()
   }
 
@@ -265,6 +359,7 @@ export class AgentsHub {
       global: { claude: this.switcher.status('claude'), codex: this.switcher.status('codex'), gemini: this.switcher.status('gemini') },
       presets,
       mine,
+      universal: (this.store.value.universal ?? []).map(item => ({ ...item, hasKey: Boolean(keys[`universal:${item.name}`]) })),
       ccSwitch: existsSync(this.ccSwitchDb),
     }
   }

@@ -24,6 +24,8 @@ export interface Preset {
   baseUrl?: string
   model?: string
   wireApi?: string
+  /** codex: `model_reasoning_effort`. */
+  reasoningEffort?: string
   /** codex: the preset's model rows, for the model catalog. */
   models?: CatalogRow[]
 }
@@ -70,6 +72,7 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice): Launch
       `model_providers.anna.wire_api=${toml(preset.wireApi ?? 'responses')}`,
       'model_providers.anna.env_key="ANNA_PROVIDER_KEY"',
       ...(model ?? preset.model ? [`model=${toml((model ?? preset.model)!)}`] : []),
+      ...(preset.reasoningEffort ? [`model_reasoning_effort=${toml(preset.reasoningEffort)}`] : []),
     ]
     // The model catalog, written once per distinct content to a temp file Codex reads at startup.
     const catalog = codexCatalog(preset, model)

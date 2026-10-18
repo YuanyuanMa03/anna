@@ -79,3 +79,42 @@ it('a key only goes to HTTPS, or to plain HTTP on this machine or the local netw
   for (const bad of ['http://api.example.com', 'http://172.32.0.1', 'https://user:pass@api.example.com', 'https://api.example.com/?key=1', 'ftp://x', 'not a url'])
     expect(() => providerEndpoint(bad), bad).toThrow()
 })
+
+it('a universal provider: one gateway and key for all three apps, linked providers edited and deleted together', async () => {
+  const { host, data, keys } = await setup()
+  await host.execute({ type: 'universal-save', name: 'NewAPI', baseUrl: 'https://gw.example.com', key: 'sk-gw', apps: { claude: true, codex: true, gemini: false }, models: { claude: { model: 'claude-sonnet-5', haiku: 'claude-haiku-4-5' }, codex: { model: 'gpt-5.6', reasoningEffort: 'high' }, gemini: {} } })
+  const agents = host.snapshot().agents
+  expect(agents.universal).toEqual([expect.objectContaining({ name: 'NewAPI', baseUrl: 'https://gw.example.com', hasKey: true })])
+  expect(agents.mine.claude).toEqual([expect.objectContaining({ name: 'NewAPI', source: 'universal', baseUrl: 'https://gw.example.com', model: 'claude-sonnet-5', hasKey: true })])
+  // Codex speaks /v1/responses: a bare gateway origin gets /v1.
+  expect(agents.mine.codex).toEqual([expect.objectContaining({ name: 'NewAPI', baseUrl: 'https://gw.example.com/v1', model: 'gpt-5.6' })])
+  expect(agents.mine.gemini).toEqual([])
+  expect(keys()).toEqual({ 'universal:NewAPI': 'sk-gw', 'claude:NewAPI': 'sk-gw', 'codex:NewAPI': 'sk-gw' })
+  // A linked provider is edited through its universal one.
+  await expect(host.execute({ type: 'provider-save', app: 'codex', name: 'NewAPI', previous: 'NewAPI', model: 'x' })).rejects.toThrow('统一')
+
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'NewAPI' })
+  const sent = host.execute({ type: 'send', text: '@codex 你好' })
+  await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000 })
+  await host.execute({ type: 'approval', id: host.snapshot().approvals[0]!.id, allow: true })
+  await sent
+  const run = (await readFile(join(data, 'fake.log'), 'utf8')).trim().split('\n').map(line => JSON.parse(line)).at(-1)
+  expect(run.args).toEqual(expect.arrayContaining(['model_providers.anna.base_url="https://gw.example.com/v1"', 'model="gpt-5.6"', 'model_reasoning_effort="high"']))
+  expect(run.env.ANNA_PROVIDER_KEY).toBe('set')
+
+  // Rename, drop Claude, add Gemini: Codex keeps using it under the new name, the key follows.
+  await host.execute({ type: 'universal-save', previous: 'NewAPI', name: 'Gateway', baseUrl: 'https://gw.example.com/api/v1', apps: { claude: false, codex: true, gemini: true }, models: { codex: { model: 'gpt-5.6' }, gemini: { model: 'gemini-3.6-flash' } } })
+  const after = host.snapshot().agents
+  expect(after.mine.claude).toEqual([])
+  expect(after.mine.codex).toEqual([expect.objectContaining({ name: 'Gateway', baseUrl: 'https://gw.example.com/api/v1' })])
+  expect(after.mine.gemini).toEqual([expect.objectContaining({ name: 'Gateway', model: 'gemini-3.6-flash', hasKey: true })])
+  expect(after.providers.codex?.provider).toBe('Gateway')
+  expect(keys()).toEqual({ 'universal:Gateway': 'sk-gw', 'codex:Gateway': 'sk-gw', 'gemini:Gateway': 'sk-gw' })
+
+  await host.execute({ type: 'universal-delete', name: 'Gateway' })
+  expect(host.snapshot().agents.universal).toEqual([])
+  expect(host.snapshot().agents.mine.codex).toEqual([])
+  expect(host.snapshot().agents.providers.codex?.provider).toBeUndefined()
+  expect(keys()).toEqual({})
+  await host.close()
+})

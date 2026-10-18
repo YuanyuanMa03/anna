@@ -34,8 +34,9 @@ export interface Settings {
   agents?: Record<string, { provider?: string }>
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
+  universal?: UniversalProvider[]
 }
-export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, models?: { model: string }[] } }
+export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported' | 'universal', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, reasoningEffort?: string, models?: { model: string }[] } }
 export interface AgentStatus {
   id: string
   label: string
@@ -55,7 +56,7 @@ export interface AgentStatus {
 /** A provider in the user's own list for one app: added from a preset, written by hand, or imported from cc-switch. */
 export interface MyProvider {
   name: string
-  source: 'preset' | 'custom' | 'imported'
+  source: 'preset' | 'custom' | 'imported' | 'universal'
   category: string
   baseUrl?: string
   model?: string
@@ -70,8 +71,21 @@ export interface AgentsSnapshot {
   global: Record<string, { switched: boolean, provider?: string }>
   presets: Record<string, PresetSummary[]>
   mine: Record<string, MyProvider[]>
+  universal: (UniversalProvider & { hasKey: boolean })[]
   ccSwitch: boolean
 }
+/**
+ * One gateway (NewAPI and the like) for Claude Code, Codex and Gemini CLI at once, as in cc-switch: Anna keeps a
+ * linked provider per enabled app, and edits or deletes them together.
+ */
+export interface UniversalProvider {
+  name: string
+  baseUrl: string
+  apps: { claude: boolean, codex: boolean, gemini: boolean }
+  models: { claude?: { model?: string, haiku?: string, sonnet?: string, opus?: string }, codex?: { model?: string, reasoningEffort?: string }, gemini?: { model?: string } }
+  website?: string
+}
+export type UniversalDraft = UniversalProvider & { previous?: string, key?: string }
 /** Add or edit one of the user's providers. `from` names the preset it starts from; `previous` the entry being edited. */
 export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string }
 export type Origin = 'desktop' | 'weixin'
@@ -176,6 +190,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
   | ({ type: 'provider-save' } & ProviderDraft)
   | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
+  | ({ type: 'universal-save' } & UniversalDraft)
+  | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }
   | { type: 'agent-install', agent: string }
   | { type: 'kernel', id: 'pi' | 'claude-code' | 'codex' }

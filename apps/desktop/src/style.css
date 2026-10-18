@@ -299,3 +299,8 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .preset-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; font-size: 12px; overflow: hidden }
 .preset-item span { font-size: 10px; color: #a08fb0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .sheet .provider-editor { margin: 8px 0 }
+.apps-choice { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; display: flex; gap: 14px; flex-wrap: wrap }
+.apps-choice legend { font-size: 12px; color: #8a769b; padding: 0 4px }
+.sheet .apps-choice label.check { flex-direction: row; align-items: center; gap: 6px; color: #5d4874 }
+.sheet .apps-choice input[type=checkbox] { width: auto }
+.tier-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
