@@ -15,7 +15,11 @@ export function normalizeClaudeTool(name: string, input: Record<string, unknown>
     case 'Grep': return { name: 'grep', input: { ...input, path: input.path } }
     case 'Glob': return { name: 'find', input: { ...input, path: input.path } }
     case 'LS': return { name: 'ls', input: { ...input, path } }
-    default: return { name: `claude:${name}`, input }
+    default: {
+      // Anna's own tools, served to Claude Code over MCP, keep their own names (and their own rules) at Anna's gate.
+      const own = /^mcp__anna__(anna_\w+)$/.exec(name)
+      return { name: own ? own[1]! : `claude:${name}`, input }
+    }
   }
 }
 

@@ -47,7 +47,7 @@ Anna 也是一个家的名字。她是第一位住进来的伙伴，另外还有
 
 ## 她能做什么
 
-- 🧠 **真正的 agent 大脑**：基于 [pi coding agent](https://github.com/earendil-works/pi) SDK，有文件工具、终端、上下文压缩、自动重试和可续接的会话。大脑也可以换成 **Claude Code** 或 **Codex**。
+- 🧠 **真正的 agent 大脑**：基于 [pi coding agent](https://github.com/earendil-works/pi) SDK，有文件工具、终端、上下文压缩、自动重试和可续接的会话。大脑也可以换成 **Claude Code** 或 **Codex**，共同记忆、状态和派活这些自带工具通过本机的 MCP 服务一起带过去。
 - 🤝 **会派活**：像 [cc-switch](https://github.com/farion1231/cc-switch) 一样识别你电脑上已装的 coding agent。输入 `@claude 修一下那个不稳定的测试`，Claude Code 就会开工，它的授权请求出现在 *Anna 的* 确认卡上。
 - 🛡️ **Claude Code 式权限模式**：规划、谨慎、协作、放手，每种模式有自己的 Live2D 站姿。规则沿用 Claude Code 的格式和匹配方式（`Bash(pnpm test *)`、`Edit(src/**)`），Anna 自己的密钥和数据永远碰不到。
 - 📦 **真正的系统沙箱**：终端命令通过 Anthropic 的 [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) 运行在 Seatbelt（macOS）或 bubblewrap（Linux）里。只能写工作区，每个新域名都要你同意才能联网。
@@ -166,7 +166,7 @@ Anna 换了三次大脑，她一直是 Anna。
 - [ ] 派活时使用独立的 Git worktree
 - [ ] 在真机上验证 Gemini CLI、OpenCode、Pi 适配器
 - [ ] 跨 agent 同步 MCP 和 skills；用量统计
-- [ ] Claude Code / Codex 当大脑时，也能使用 Anna 自己的工具（记忆、派活）
+- [x] Claude Code / Codex 当大脑时，也能使用 Anna 自己的工具（记忆、派活）
 - [ ] Windows 上的命令沙箱
 - [ ] 音素级口型同步和专属 Live2D 模型
 

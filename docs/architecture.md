@@ -57,6 +57,9 @@ Delegation and brain-swapping share the same adapters:
 - `adapters` decode the output stream.
 - `runner` manages the process and forwards approvals.
 
+When Claude Code or Codex is Anna's brain, the kernel also serves Anna's own tools (memory, status, delegation) to it
+as a local MCP server (`kernels/external/mcp.ts`, see [kernels.md](kernels.md#annas-own-tools-on-an-external-brain)).
+
 Approval requests from an external agent go through Anna's own `gate`, so modes, rules, approval cards and checkpoints
 apply to them too. Before each delegation, the workspace is snapshotted for diff and undo.
 

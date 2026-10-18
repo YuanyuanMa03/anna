@@ -1,6 +1,7 @@
 import type { PermissionMode } from '../permissions/modes'
 import type { DelegateAgent } from './adapters'
 import type { ProviderApp, ProviderChoice } from './providers'
+import { mcpServerName } from '../kernels/external/mcp'
 import { providerLaunch } from './providers'
 
 export interface LaunchInput {
@@ -14,6 +15,8 @@ export interface LaunchInput {
   denyPaths: string[]
   /** Extra system instructions (Anna's persona when the agent is Anna's brain). */
   instructions?: string
+  /** Anna's own tools as a local MCP server (when the agent is Anna's brain). */
+  tools?: { url: string, token: string }
 }
 
 export interface Launch {
@@ -36,6 +39,26 @@ function pathRules(path: string) {
 }
 
 /**
+ * Claude Code: `--mcp-config` with Anna's tool server; its tools appear as `mcp__anna__anna_*`. A delegation or an
+ * approval card can keep a tool busy far longer than Claude Code's default, so the server gets a one-day timeout.
+ */
+function claudeTools(tools: LaunchInput['tools']) {
+  return tools ? ['--mcp-config', JSON.stringify({ mcpServers: { [mcpServerName]: { type: 'http', url: tools.url, headers: { Authorization: `Bearer ${tools.token}` }, timeout: 86_400_000 } } })] : []
+}
+
+/**
+ * Codex: config overrides for Anna's tool server. Anna's tools decide for themselves when to ask (delegation asks in
+ * Plan and Ask, as on the pi brain), so Codex approves them without an elicitation nobody would answer; a delegation
+ * can run far longer than Codex's default 60-second tool timeout.
+ */
+function codexTools(tools: LaunchInput['tools']) {
+  if (!tools)
+    return []
+  const key = `mcp_servers.${mcpServerName}`
+  return [`${key}.url=${JSON.stringify(tools.url)}`, `${key}.http_headers={ Authorization = ${JSON.stringify(`Bearer ${tools.token}`)} }`, `${key}.tool_timeout_sec=86400`, `${key}.default_tools_approval_mode="approve"`].flatMap(value => ['-c', value])
+}
+
+/**
  * Command-line arguments for one delegated run. Anna's mode maps onto each agent's own approval level;
  * in `auto`, risky calls still reach Anna's gate, which allows the rest without asking.
  */
@@ -46,14 +69,14 @@ export function buildLaunch(agent: DelegateAgent, input: LaunchInput): Launch {
     case 'claude': {
       const deny = input.denyPaths.flatMap(pathRules)
       return {
-        args: ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio', '--permission-mode', claudeModes[input.mode], '--settings', JSON.stringify({ permissions: { deny } }), ...(input.instructions ? ['--append-system-prompt', input.instructions] : []), ...(input.sessionId ? ['--resume', input.sessionId] : [])],
+        args: ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio', '--permission-mode', claudeModes[input.mode], '--settings', JSON.stringify({ permissions: { deny } }), ...(input.instructions ? ['--append-system-prompt', input.instructions] : []), ...claudeTools(input.tools), ...(input.sessionId ? ['--resume', input.sessionId] : [])],
         env: provider.env,
         stdin: [{ type: 'user', message: { role: 'user', content: input.prompt } }],
       }
     }
     case 'codex':
       return {
-        args: ['app-server', ...provider.args],
+        args: ['app-server', ...provider.args, ...codexTools(input.tools)],
         env: provider.env,
         stdin: [],
         prompt: input.prompt,

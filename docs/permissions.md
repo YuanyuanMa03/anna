@@ -101,6 +101,11 @@ Claude Code runs with Anna's mode mapped to its own (`plan`, `default`, `acceptE
 rules for Anna's data directory, and its permission prompts land on Anna's cards. Codex gets the sandbox and approval
 pair from the table above.
 
+Anna's own tools reach Claude Code and Codex, when one of them is the brain, through a local MCP server on
+`127.0.0.1` that answers only the bearer token Anna gave that agent at launch. The tools keep the rules they have on pi:
+memory and status never ask, and delegation asks in Plan and Ask. Shell commands in Anna's sandbox can't reach it:
+the sandbox refuses connections to local ports without even asking.
+
 ## Known limits
 
 - pi's read and write tools run inside the core process, not in the OS sandbox, so only the policy engine guards them.

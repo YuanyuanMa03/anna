@@ -1,4 +1,5 @@
 import type { Decoded, Decoder } from './types'
+import { mcpServerName } from '../../kernels/external/mcp'
 import { nothing } from './types'
 
 /** Codex runs commands as `/bin/zsh -lc '<cmd>'` (or bash/sh); recover `<cmd>` so Anna's command policy sees it. */
@@ -10,7 +11,7 @@ export function unwrapShell(command: string) {
   return match[1] === '\'' ? body.replace(/'\\''/g, '\'') : body.replace(/\\(["\\$`])/g, '$1')
 }
 
-interface Item { type: string, id: string, command?: string, cwd?: string, status?: string, text?: string, aggregatedOutput?: string | null, changes?: { path: string, kind?: unknown }[] }
+interface Item { type: string, id: string, command?: string, cwd?: string, status?: string, text?: string, aggregatedOutput?: string | null, changes?: { path: string, kind?: unknown }[], server?: string, tool?: string, arguments?: unknown, result?: { content?: { text?: string }[] } | null, error?: { message?: string } | null }
 
 function toolOf(item: Item): { name: string, input: Record<string, unknown> } | undefined {
   if (item.type === 'commandExecution')
@@ -20,6 +21,9 @@ function toolOf(item: Item): { name: string, input: Record<string, unknown> } | 
     const added = JSON.stringify(first?.kind ?? '').includes('add')
     return { name: added ? 'write' : 'edit', input: { path: first?.path, paths: item.changes?.map(change => change.path) } }
   }
+  // Anna's own tools, served to Codex over MCP, keep their own names.
+  if (item.type === 'mcpToolCall' && item.server === mcpServerName && item.tool?.startsWith('anna_'))
+    return { name: item.tool, input: (item.arguments ?? {}) as Record<string, unknown> }
   if (item.type === 'mcpToolCall' || item.type === 'webSearch')
     return { name: `codex:${item.type}`, input: { ...item } }
 }
@@ -69,7 +73,8 @@ export function codexDecoder(): Decoder {
           }
           else if (toolOf(item)) {
             const failed = item.status !== 'completed'
-            out.events.push({ type: 'tool-end', id: item.id, name: toolOf(item)!.name, output: item.aggregatedOutput ?? (failed ? `${item.status}` : ''), isError: failed })
+            const output = item.aggregatedOutput ?? item.error?.message ?? item.result?.content?.map(part => part.text ?? '').join('\n') ?? (failed ? `${item.status}` : '')
+            out.events.push({ type: 'tool-end', id: item.id, name: toolOf(item)!.name, output, isError: failed })
           }
           break
         }

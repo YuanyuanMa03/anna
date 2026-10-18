@@ -27,7 +27,7 @@ function selectProvider() {
       <div class="brain-options" role="radiogroup" :aria-label="`${companion(snapshot.settings.characterId).name} 的大脑`">
         <button v-for="brain in brains" :key="brain.id" type="button" role="radio" :aria-checked="snapshot.settings.kernel === brain.id" :disabled="busy || !brain.available" @click="snapshot.settings.kernel !== brain.id && emit('command', { type: 'kernel', id: brain.id })"><strong>{{ brain.label }}</strong><small>{{ brain.note }}</small></button>
       </div>
-      <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用它们自己的登录和服务商（在“外部 agent”里设置），会开始一个新会话；Anna 的自带工具（记忆、状态、派活）只在 pi 大脑下可用。</p>
+      <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用它们自己的登录和服务商（在“外部 agent”里设置），会开始一个新会话；共同记忆、状态和派活这些自带工具通过本机的 MCP 服务交给它们，照样经过权限把关。</p>
       <template v-if="snapshot.settings.kernel === 'pi'">
         <h3>pi 的模型</h3>
         <p class="muted">pi coding agent 运行在独立的核心进程里。密钥通过系统凭据加密保存，只在请求模型时使用。</p>

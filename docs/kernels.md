@@ -7,6 +7,23 @@ Anna uses other agents in two ways. Both are built on the adapters in `packages/
 - **Brain swap**: in **Model & Settings**, replace Anna's brain with Claude Code or Codex. Implemented in
   `kernels/external/kernel.ts`.
 
+## Anna's own tools on an external brain
+
+On pi, Anna's own tools (`anna_memory`, `anna_status`, `anna_delegate`) are pi custom tools. When Claude Code or Codex
+is the brain, `kernels/external/mcp.ts` serves the same tools as a Streamable HTTP MCP server named `anna`:
+
+- It listens on `127.0.0.1` on a random port, for as long as the kernel lives, and answers only requests that carry
+  its random bearer token (one per kernel) and no browser `Origin`.
+- Claude Code gets it through `--mcp-config`; the tools appear as `mcp__anna__anna_memory` and so on. Their permission
+  prompts are normalized back to `anna_*` before Anna's gate, which allows them, as it does on pi.
+- Codex gets it through `-c mcp_servers.anna.*` overrides, with `default_tools_approval_mode="approve"` and a one-day
+  `tool_timeout_sec`.
+- Either way, the tools decide when to ask, exactly as on pi: `anna_delegate` shows an approval card in Plan and Ask.
+- Tool calls answer as an SSE stream that keeps sending MCP progress notifications (or keep-alive comments when the
+  client asked for no progress), and Claude Code's server entry carries a one-day `timeout`: Claude Code otherwise
+  aborts a tool that is silent for 300 s, and a delegation, or a wait on an approval card, easily takes longer.
+- The brain's instructions name the tools under the agent's own spelling, so "call `anna_memory`" still lands.
+
 ## Adapter parts
 
 | File | Responsibility |
