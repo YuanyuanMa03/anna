@@ -45,7 +45,10 @@ export async function serveTools(tools: AnnaTool[], options: { keepAlive?: numbe
       let message: { id?: number | string, method?: string, params?: Record<string, any> }
       try { message = JSON.parse(body) }
       catch { return reply(response, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) }
-      if (Array.isArray(message) || message.id === undefined)
+      // Anything but one JSON object (null, a number, a batch) is not a request this server answers.
+      if (!message || typeof message !== 'object' || Array.isArray(message))
+        return reply(response, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } })
+      if (message.id === undefined)
         return end(response, 202)
       void handle(tools, message, response, keepAlive)
     })

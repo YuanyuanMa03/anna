@@ -44,6 +44,10 @@ it('speaks MCP over Streamable HTTP: initialize, list, call (as SSE), errors as 
   expect((await sse(await post({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'anna_status', arguments: {} } }))).result).toEqual({ content: [{ type: 'text', text: '还没有连接' }], isError: true })
   expect((await (await post({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'bash', arguments: {} } })).json()).error.code).toBe(-32602)
   expect((await (await post({ jsonrpc: '2.0', id: 6, method: 'resources/list' })).json()).error.code).toBe(-32601)
+  // Bodies that aren't one request object are refused, never thrown on.
+  for (const body of [null, 42, [{ jsonrpc: '2.0', id: 7, method: 'ping' }]])
+    expect((await (await post(body)).json()).error.code).toBe(-32600)
+  expect((await (await post({ jsonrpc: '2.0', id: 8, method: 'ping' })).json()).result).toEqual({})
 })
 
 it('answers only the holder of its token, and never a browser', async () => {
