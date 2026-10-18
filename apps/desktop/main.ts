@@ -7,11 +7,12 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, Tray, utilityProcess } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
 import { dataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { createVault } from '../../packages/shared/vault'
+import { externalUrl } from './external-link'
 import { trayTemplate } from './tray-menu'
 import { Updater } from './updater'
 
@@ -197,7 +198,13 @@ async function start() {
   await app.whenReady()
   window = new BrowserWindow({ width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
   const win = window
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  // No new windows and no navigation inside the app; web links (e.g. a provider's "get a key" page) go to the browser.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    const external = externalUrl(url)
+    if (external)
+      void shell.openExternal(external)
+    return { action: 'deny' }
+  })
   win.webContents.on('will-navigate', (event) => { event.preventDefault() })
   const { context, dispose } = createContext(ipcMain, win, { onlySameWindow: false })
   emitToRenderer = event => context.emit(runtimeEvent, event)

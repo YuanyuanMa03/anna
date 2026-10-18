@@ -1,6 +1,6 @@
 # Character assets
 
-The manifest lists six companions (three women, three men). Each pairs a Live2D sample model with a character card:
+The manifest lists five companions (two women, three men); Haru is Anna, the first companion. Each pairs a Live2D sample model with a character card:
 a name, a personality appended to the shared persona, a greeting, a voice and the model's own motions for stage cues.
 `paramId` maps the standard parameter names the stage drives onto models that name them differently (Cubism 2-era
 `PARAM_*` names, Mao's `ParamA` mouth). `fitStage` contains the complete model canvas inside the visible stage.
