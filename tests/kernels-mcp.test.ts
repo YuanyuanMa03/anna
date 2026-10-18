@@ -58,3 +58,19 @@ it('answers only the holder of its token, and never a browser', async () => {
   expect(other.token).not.toBe(server.token)
   await other.close()
 })
+
+it('keeps a slow tool call alive: progress notifications when the client asked for them, SSE comments otherwise', async () => {
+  const slow: AnnaTool = { name: 'anna_delegate', label: '派活', description: 'slow', parameters: { type: 'object' }, execute: () => new Promise(resolve => setTimeout(() => resolve('完成'), 120)) }
+  const server = await serveTools([slow], { keepAlive: 20 })
+  close = server.close
+  const call = (meta?: object) => fetch(server.url, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': `Bearer ${server.token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'anna_delegate', arguments: {}, ...(meta ? { _meta: meta } : {}) } }) }).then(response => response.text())
+  const events = (await call({ progressToken: 'p1' })).split('\n').filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)))
+  const progress = events.filter(event => event.method === 'notifications/progress')
+  expect(progress.length).toBeGreaterThan(1)
+  expect(progress.map(event => event.params.progressToken)).toEqual(progress.map(() => 'p1'))
+  expect(progress.map(event => event.params.progress)).toEqual(progress.map((_, index) => index + 1))
+  expect(events.at(-1)).toEqual({ jsonrpc: '2.0', id: 7, result: { content: [{ type: 'text', text: '完成' }] } })
+  const plain = await call()
+  expect(plain).toContain(': keep-alive')
+  expect(plain).not.toContain('notifications/progress')
+})

@@ -7,7 +7,6 @@ import { createServer } from 'node:http'
 /** The MCP server name the external brains see; their tool names become `mcp__anna__anna_memory` and the like. */
 export const mcpServerName = 'anna'
 const protocolVersion = '2025-06-18'
-const keepAlive = 15_000
 
 export interface ToolServer {
   url: string
@@ -17,10 +16,12 @@ export interface ToolServer {
 
 /**
  * Anna's own tools (memory, status, delegation) as a Streamable HTTP MCP server for an external brain. It listens on
- * 127.0.0.1 with a random bearer token per kernel, keeps no sessions, and answers tool calls as an SSE stream with
- * keep-alive comments, so a delegation that runs for many minutes doesn't trip the client's HTTP timeouts.
+ * 127.0.0.1 with a random bearer token per kernel, keeps no sessions, and answers tool calls as an SSE stream that
+ * keeps reporting progress, so a delegation that runs for many minutes doesn't trip the client's idle timeouts
+ * (Claude Code gives up on a tool that is silent for 300 s).
  */
-export async function serveTools(tools: AnnaTool[]): Promise<ToolServer> {
+export async function serveTools(tools: AnnaTool[], options: { keepAlive?: number } = {}): Promise<ToolServer> {
+  const keepAlive = options.keepAlive ?? 15_000
   const token = randomBytes(32).toString('hex')
   const expected = Buffer.from(`Bearer ${token}`)
   const authorized = (request: IncomingMessage) => {
@@ -46,7 +47,7 @@ export async function serveTools(tools: AnnaTool[]): Promise<ToolServer> {
       catch { return reply(response, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) }
       if (Array.isArray(message) || message.id === undefined)
         return end(response, 202)
-      void handle(tools, message, response)
+      void handle(tools, message, response, keepAlive)
     })
   })
   // Tool calls (a delegation, an approval card) can outlast Node's default request timeouts.
@@ -67,7 +68,7 @@ export async function serveTools(tools: AnnaTool[]): Promise<ToolServer> {
   }
 }
 
-async function handle(tools: AnnaTool[], message: { id?: number | string, method?: string, params?: Record<string, any> }, response: ServerResponse) {
+async function handle(tools: AnnaTool[], message: { id?: number | string, method?: string, params?: Record<string, any> }, response: ServerResponse, keepAlive: number) {
   const id = message.id!
   const result = (value: unknown) => reply(response, { jsonrpc: '2.0', id, result: value })
   switch (message.method) {
@@ -83,7 +84,10 @@ async function handle(tools: AnnaTool[], message: { id?: number | string, method
         return reply(response, { jsonrpc: '2.0', id, error: { code: -32602, message: `Unknown tool: ${String(message.params?.name)}` } })
       response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
       response.flushHeaders()
-      const timer = setInterval(() => response.write(': keep-alive\n\n'), keepAlive)
+      // MCP progress notifications count as activity for the client; a bare SSE comment only keeps the socket open.
+      const progressToken = message.params?._meta?.progressToken
+      let progress = 0
+      const timer = setInterval(() => response.write(progressToken === undefined ? ': keep-alive\n\n' : `event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken, progress: ++progress, message: 'working' } })}\n\n`), keepAlive)
       try {
         const text = await tool.execute((message.params?.arguments ?? {}) as Record<string, unknown>)
         response.write(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } })}\n\n`)

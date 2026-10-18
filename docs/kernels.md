@@ -19,8 +19,9 @@ is the brain, `kernels/external/mcp.ts` serves the same tools as a Streamable HT
 - Codex gets it through `-c mcp_servers.anna.*` overrides, with `default_tools_approval_mode="approve"` and a one-day
   `tool_timeout_sec`.
 - Either way, the tools decide when to ask, exactly as on pi: `anna_delegate` shows an approval card in Plan and Ask.
-- Tool calls answer as an SSE stream with keep-alive comments, so a delegation that runs for many minutes, or waits
-  on an approval card, doesn't trip the client's HTTP timeouts.
+- Tool calls answer as an SSE stream that keeps sending MCP progress notifications (or keep-alive comments when the
+  client asked for no progress), and Claude Code's server entry carries a one-day `timeout`: Claude Code otherwise
+  aborts a tool that is silent for 300 s, and a delegation, or a wait on an approval card, easily takes longer.
 - The brain's instructions name the tools under the agent's own spelling, so "call `anna_memory`" still lands.
 
 ## Adapter parts

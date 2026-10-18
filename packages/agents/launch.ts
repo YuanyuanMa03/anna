@@ -38,9 +38,12 @@ function pathRules(path: string) {
   return [base, `${base}/**`].flatMap(glob => [`Read(${glob})`, `Edit(${glob})`])
 }
 
-/** Claude Code: `--mcp-config` with Anna's tool server; its tools appear as `mcp__anna__anna_*`. */
+/**
+ * Claude Code: `--mcp-config` with Anna's tool server; its tools appear as `mcp__anna__anna_*`. A delegation or an
+ * approval card can keep a tool busy far longer than Claude Code's default, so the server gets a one-day timeout.
+ */
 function claudeTools(tools: LaunchInput['tools']) {
-  return tools ? ['--mcp-config', JSON.stringify({ mcpServers: { [mcpServerName]: { type: 'http', url: tools.url, headers: { Authorization: `Bearer ${tools.token}` } } } })] : []
+  return tools ? ['--mcp-config', JSON.stringify({ mcpServers: { [mcpServerName]: { type: 'http', url: tools.url, headers: { Authorization: `Bearer ${tools.token}` }, timeout: 86_400_000 } } })] : []
 }
 
 /**

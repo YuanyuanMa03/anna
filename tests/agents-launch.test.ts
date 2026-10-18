@@ -27,7 +27,7 @@ describe('buildLaunch: Anna mode, provider and session → each agent\'s own fla
   it('the tool server: --mcp-config for Claude Code, -c overrides for Codex, nothing without one', () => {
     const tools = { url: 'http://127.0.0.1:4321/mcp', token: 't0k' }
     const claude = buildLaunch('claude', { ...base, mode: 'ask', tools }).args
-    expect(JSON.parse(claude[claude.indexOf('--mcp-config') + 1]!)).toEqual({ mcpServers: { anna: { type: 'http', url: tools.url, headers: { Authorization: 'Bearer t0k' } } } })
+    expect(JSON.parse(claude[claude.indexOf('--mcp-config') + 1]!)).toEqual({ mcpServers: { anna: { type: 'http', url: tools.url, headers: { Authorization: 'Bearer t0k' }, timeout: 86_400_000 } } })
     const codex = buildLaunch('codex', { ...base, mode: 'ask', tools }).args
     expect(codex).toEqual(expect.arrayContaining(['mcp_servers.anna.url="http://127.0.0.1:4321/mcp"', 'mcp_servers.anna.http_headers={ Authorization = "Bearer t0k" }', 'mcp_servers.anna.tool_timeout_sec=86400', 'mcp_servers.anna.default_tools_approval_mode="approve"']))
     expect(codex.filter(arg => arg === '-c')).toHaveLength(4)
