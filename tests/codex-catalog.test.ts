@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { codexCatalog, rejectsWebSearch } from '../packages/agents/codex-catalog'
 import { globalPlan } from '../packages/agents/global'
 import { buildLaunch } from '../packages/agents/launch'
-import { findPreset, providerLaunch } from '../packages/agents/providers'
+import { chatRouteOf, findPreset, providerLaunch } from '../packages/agents/providers'
 
 const preset = (name: string) => findPreset('codex', name)!
 
@@ -68,4 +68,36 @@ it('the bundled templates exist and parse (synced from cc-switch)', () => {
     expect(existsSync(path)).toBe(true)
     expect(() => JSON.parse(readFileSync(path, 'utf8'))).not.toThrow()
   }
+})
+
+describe('chat Completions providers, through Anna\'s local routing', () => {
+  const route = { baseUrl: 'http://127.0.0.1:4567/codex/v1', token: 'anna-route-abc' }
+
+  it('catalog: Codex\'s classic entry (the routing turns freeform apply_patch into a function), never `original` image detail', () => {
+    const models = codexCatalog(preset('OpenCode Go'))!.models
+    expect(models[0]).toMatchObject({ slug: 'glm-5.3', display_name: 'GLM 5.3', context_window: 1000000, apply_patch_tool_type: 'freeform', supports_image_detail_original: false, supports_search_tool: false, input_modalities: ['text'], service_tiers: [], availability_nux: null, default_reasoning_level: 'high' })
+    expect((models[0]!.supported_reasoning_levels as { effort: string }[]).map(level => level.effort)).toEqual(['low', 'high', 'max'])
+    expect(codexCatalog(preset('PPIO'), 'some-model')!.models[0]).toMatchObject({ slug: 'some-model', context_window: 128000 })
+  })
+
+  it('launch: Codex gets the route and its token, never the real key; web_search stays Codex\'s own', () => {
+    const minimax = preset('SiliconFlow en')
+    expect(minimax.apiFormat).toBe('openai_chat')
+    expect(() => providerLaunch('codex', { preset: minimax, key: 'sk-real' })).toThrow('local routing')
+    const launch = providerLaunch('codex', { preset: minimax, key: 'sk-real' }, route)
+    expect(launch.args).toContain(`model_providers.anna.base_url="${route.baseUrl}"`)
+    expect(launch.args).toContain('model_providers.anna.wire_api="responses"')
+    expect(launch.env).toEqual({ ANNA_PROVIDER_KEY: route.token })
+    expect(JSON.stringify(launch)).not.toContain('sk-real')
+    expect(launch.args).not.toContain('web_search="disabled"')
+    expect(buildLaunch('codex', { cwd: '/w', prompt: 'x', mode: 'ask', denyPaths: [], provider: { preset: minimax, key: 'sk-real' }, route }).env).toEqual({ ANNA_PROVIDER_KEY: route.token })
+  })
+
+  it('the route carries the real key, reasoning settings and per-model levels', () => {
+    expect(chatRouteOf({ preset: preset('OpenCode Go'), key: 'sk-real' })).toMatchObject({ baseUrl: 'https://opencode.ai/zen/go/v1', key: 'sk-real', reasoning: { effortValueMode: 'zen' }, effortLevels: { 'glm-5.3': ['low', 'high', 'max'], 'kimi-k3': ['max'] } })
+  })
+
+  it('global switch: refused for now (global routing comes later)', () => {
+    expect(() => globalPlan('codex', { 'config.toml': '' }, { preset: preset('PPIO'), key: 'k' }, '/home/u/.codex')).toThrow('本地路由')
+  })
 })

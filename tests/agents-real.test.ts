@@ -108,3 +108,124 @@ describe.skipIf(!brains.length)('real Claude Code / Codex as the brain, with Ann
     }
   }, 240000)
 })
+
+/**
+ * Real Codex, with a scripted Chat Completions provider behind Anna's routing: Codex's Responses requests become
+ * Chat requests and the Chat stream becomes Responses events Codex accepts, tool calls included. Needs no login.
+ */
+describe.skipIf(!wanted.includes('codex'))('real Codex through Anna\'s local routing', () => {
+  it('a Chat provider edits a file with Codex\'s apply_patch and answers', async () => {
+    const { createServer } = await import('node:http')
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const env = nodeEnvironment()
+    const codex = (await detectAgents(env)).find(agent => agent.id === 'codex')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-route-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await mkdir(join(data, 'codex-home'))
+    const requests: { path: string, authorization?: string, body: any }[] = []
+    const chunk = (delta: object, finish?: string) => `data: ${JSON.stringify({ id: `chatcmpl_${requests.length}`, model: 'fake-chat-1', choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`
+    const patch = '*** Begin Patch\n*** Add File: anna.txt\n+OK\n*** End Patch\n'
+    const upstream = createServer((request, response) => {
+      let text = ''
+      request.on('data', (part) => { text += part })
+      request.on('end', () => {
+        const body = JSON.parse(text)
+        requests.push({ path: request.url!, authorization: request.headers.authorization, body })
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        const done = body.messages.some((message: any) => message.role === 'tool')
+        response.end(done
+          ? `${chunk({ reasoning_content: 'The file is there.' })}${chunk({ content: 'Done: anna.txt says OK.' })}${chunk({}, 'stop')}data: ${JSON.stringify({ id: 'u', choices: [], usage: { prompt_tokens: 50, completion_tokens: 8, total_tokens: 58 } })}\n\ndata: [DONE]\n\n`
+          : `${chunk({ reasoning_content: 'Create the file with a patch.' })}${chunk({ tool_calls: [{ index: 0, id: 'call_patch', type: 'function', function: { name: 'apply_patch', arguments: '' } }] })}${chunk({ tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ input: patch }) } }] })}${chunk({}, 'tool_calls')}data: [DONE]\n\n`)
+      })
+    })
+    await new Promise<void>(resolve => upstream.listen(0, '127.0.0.1', resolve))
+    const preset = { name: 'Fake Chat', official: false, category: 'custom', baseUrl: `http://127.0.0.1:${(upstream.address() as { port: number }).port}/v1`, model: 'fake-chat-1', apiFormat: 'openai_chat' as const, chatReasoning: { supportsThinking: true, thinkingParam: 'thinking' } }
+    const provider = { preset, key: 'sk-fake-real' }
+    const route = await openRoute('codex', provider)
+    try {
+      const launch = buildLaunch('codex', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK, then say so.', mode: 'edit', denyPaths: [], provider, route })
+      // A fresh CODEX_HOME: none of this machine's Codex config or login takes part.
+      launch.env.CODEX_HOME = join(data, 'codex-home')
+      const result = await runAgent({ agent: 'codex', command: codex.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      process.stdout.write(`codex via routing: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 120)} requests: ${requests.length}\n`)
+      expect(result.status).toBe('completed')
+      expect(result.text).toContain('Done')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(requests.every(item => item.path === '/v1/chat/completions' && item.authorization === 'Bearer sk-fake-real')).toBe(true)
+      const first = requests.find(item => !item.body.messages.some((message: any) => message.role === 'tool'))!.body
+      expect(first).toMatchObject({ model: 'fake-chat-1', stream: true, stream_options: { include_usage: true }, thinking: { type: 'enabled' } })
+      expect(first.tools.map((tool: any) => tool.function.name)).toContain('apply_patch')
+      const second = requests.find(item => item.body.messages.some((message: any) => message.role === 'tool'))!.body
+      expect(second.messages).toContainEqual(expect.objectContaining({ role: 'assistant', reasoning_content: 'Create the file with a patch.', tool_calls: [expect.objectContaining({ id: 'call_patch' })] }))
+      expect(second.messages).toContainEqual(expect.objectContaining({ role: 'tool', tool_call_id: 'call_patch' }))
+    }
+    finally {
+      route?.close()
+      upstream.closeAllConnections()
+      upstream.close()
+    }
+  }, 180000)
+
+  it('as Anna\'s brain on a Chat provider, Codex calls Anna\'s own memory tool (an MCP namespace tool) and answers', async () => {
+    const { createServer } = await import('node:http')
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-route-brain-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await mkdir(join(data, 'codex-home'))
+    const names: string[][] = []
+    const upstream = createServer((request, response) => {
+      let text = ''
+      request.on('data', (part) => { text += part })
+      request.on('end', () => {
+        const body = JSON.parse(text)
+        const tools: string[] = (body.tools ?? []).map((tool: any) => tool.function.name)
+        names.push(tools)
+        const memory = tools.find(name => name.includes('anna_memory'))
+        const answered = body.messages.some((message: any) => message.role === 'tool')
+        const chunk = (delta: object, finish?: string) => `data: ${JSON.stringify({ id: `chatcmpl_${names.length}`, choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        response.end(answered || !memory
+          ? `${chunk({ content: answered ? '记好了，你最喜欢龙井。' : 'no memory tool' })}${chunk({}, 'stop')}data: [DONE]\n\n`
+          : `${chunk({ tool_calls: [{ index: 0, id: 'call_memory', type: 'function', function: { name: memory, arguments: JSON.stringify({ action: 'remember', text: '最喜欢的茶是龙井' }) } }] })}${chunk({}, 'tool_calls')}data: [DONE]\n\n`)
+      })
+    })
+    await new Promise<void>(resolve => upstream.listen(0, '127.0.0.1', resolve))
+    const previousHome = process.env.CODEX_HOME
+    process.env.CODEX_HOME = join(data, 'codex-home')
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const secrets: Record<string, string> = {}
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
+    try {
+      await host.initialize()
+      await host.execute({ type: 'provider-save', app: 'codex', name: 'Fake Chat', baseUrl: `http://127.0.0.1:${(upstream.address() as { port: number }).port}/v1`, model: 'fake-chat-1', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Fake Chat' })
+      await host.execute({ type: 'send', text: '请记住：我最喜欢的茶是龙井。' })
+      const snapshot = host.snapshot()
+      process.stdout.write(`codex brain via routing: tools ${JSON.stringify(names[0]?.filter(name => name.includes('anna')))} memories ${JSON.stringify(snapshot.memories.map(item => item.text))} reply: ${snapshot.messages!.at(-1)?.text}\n`)
+      // Listed up front, not behind tool_search: the brain sees Anna's tools every turn.
+      expect(names[0]).toContain('mcp__anna__anna_memory')
+      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.memories.some(item => item.text.includes('龙井'))).toBe(true)
+      expect(snapshot.messages!.at(-1)?.text).toContain('记好了')
+    }
+    finally {
+      await host.close()
+      upstream.closeAllConnections()
+      upstream.close()
+      if (previousHome === undefined)
+        delete process.env.CODEX_HOME
+      else
+        process.env.CODEX_HOME = previousHome
+    }
+  }, 180000)
+})

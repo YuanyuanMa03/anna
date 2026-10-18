@@ -3,8 +3,8 @@ import { Buffer } from 'node:buffer'
 /**
  * Provider deep links in cc-switch's format (`ccswitch://v1/import?resource=provider&…`, see its deeplink guide),
  * also accepted as `anna://v1/import?…`. Sites that already offer "Import to CC Switch" (New API, Sub2API) work as is.
- * Only providers for Claude Code, Codex and Gemini CLI in their native format; everything else is refused with the
- * reason. Nothing here applies anything: the result is shown to the user, who confirms.
+ * Only providers for Claude Code, Codex and Gemini CLI in their native format, plus Chat Completions providers for
+ * Codex (through Anna's local routing); everything else is refused with the reason. Nothing here applies anything: the result is shown to the user, who confirms.
  */
 export interface LinkImport {
   app: 'claude' | 'codex' | 'gemini'
@@ -22,6 +22,8 @@ export interface LinkImport {
   enabled: boolean
   /** Things the confirmation card should point out. */
   warnings: string[]
+  /** codex: a Chat Completions provider, which Codex reaches through Anna's local routing. */
+  apiFormat?: 'openai_chat'
 }
 
 const native = { claude: 'anthropic', codex: 'openai_responses', gemini: 'gemini_native' } as const
@@ -57,7 +59,9 @@ export function parseProviderLink(link: string): LinkImport {
   if (app !== 'claude' && app !== 'codex' && app !== 'gemini')
     throw new Error(`还不能导入给 ${app ?? '未知应用'} 的服务商（支持 Claude Code、Codex、Gemini CLI）`)
   const format = query.get('apiFormat') ?? native[app]
-  if (format !== native[app])
+  // Codex reaches a Chat Completions provider through Anna's local routing; other conversions come later.
+  const routed = app === 'codex' && format === 'openai_chat'
+  if (format !== native[app] && !routed)
     throw new Error(`这个服务商用 ${format} 格式，${app} 要通过本地路由转换才能用（下一阶段）`)
 
   // An embedded config fills what the URL parameters leave out; the parameters win.
@@ -111,6 +115,7 @@ export function parseProviderLink(link: string): LinkImport {
     website: query.get('homepage') ?? undefined,
     enabled: query.get('enabled') === 'true',
     warnings,
+    ...(routed ? { apiFormat: 'openai_chat' as const } : {}),
   }
 }
 

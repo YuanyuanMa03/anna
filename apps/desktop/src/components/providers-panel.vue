@@ -23,7 +23,7 @@ const inUse = computed(() => agents.value.providers[current.value]?.provider)
 const global = computed(() => agents.value.global[current.value])
 
 /** The add/edit form: `previous` is set while editing, `from` when starting from a preset. */
-const editor = ref<{ previous?: string, from?: string, name: string, baseUrl: string, model: string, key: string, apiKeyUrl?: string, website?: string }>()
+const editor = ref<{ previous?: string, from?: string, name: string, baseUrl: string, model: string, key: string, apiKeyUrl?: string, website?: string, apiFormat: 'openai_responses' | 'openai_chat' }>()
 const search = ref('')
 const removing = ref<string>()
 /** Writing a provider by hand instead of picking a preset. */
@@ -49,18 +49,18 @@ function startAdd() {
   removing.value = undefined
   search.value = ''
   custom.value = false
-  editor.value = { name: '', baseUrl: '', model: '', key: '' }
+  editor.value = { name: '', baseUrl: '', model: '', key: '', apiFormat: 'openai_responses' }
 }
 function pick(preset: PresetSummary) {
-  editor.value = { from: preset.name, name: mine.value.some(item => item.name === preset.name) ? `${preset.name} 2` : preset.name, baseUrl: preset.baseUrl ?? '', model: preset.model ?? '', key: '', apiKeyUrl: preset.apiKeyUrl, website: preset.website }
+  editor.value = { from: preset.name, name: mine.value.some(item => item.name === preset.name) ? `${preset.name} 2` : preset.name, baseUrl: preset.baseUrl ?? '', model: preset.model ?? '', key: '', apiKeyUrl: preset.apiKeyUrl, website: preset.website, apiFormat: preset.routed ? 'openai_chat' : 'openai_responses' }
 }
 function edit(provider: MyProvider) {
   removing.value = undefined
-  editor.value = { previous: provider.name, name: provider.name, baseUrl: provider.baseUrl ?? '', model: provider.model ?? '', key: '', apiKeyUrl: provider.apiKeyUrl, website: provider.website }
+  editor.value = { previous: provider.name, name: provider.name, baseUrl: provider.baseUrl ?? '', model: provider.model ?? '', key: '', apiKeyUrl: provider.apiKeyUrl, website: provider.website, apiFormat: provider.routed ? 'openai_chat' : 'openai_responses' }
 }
 function save() {
   const draft = editor.value!
-  emit('command', { type: 'provider-save', app: current.value, name: draft.name, previous: draft.previous, from: draft.from, baseUrl: draft.baseUrl, model: draft.model, key: draft.key || undefined })
+  emit('command', { type: 'provider-save', app: current.value, name: draft.name, previous: draft.previous, from: draft.from, baseUrl: draft.baseUrl, model: draft.model, key: draft.key || undefined, ...(current.value === 'codex' ? { apiFormat: draft.apiFormat } : {}) })
   editor.value = undefined
 }
 const use = (name?: string) => emit('command', { type: 'agent-provider', agent: current.value, provider: name })
@@ -113,6 +113,7 @@ function speedtest(name: string) {
         <dt>请求地址</dt><dd>{{ pending.baseUrl }}<template v-if="pending.endpoints.length">（另有 {{ pending.endpoints.length }} 个备用地址）</template></dd>
         <dt>API Key</dt><dd>{{ pending.key }}</dd>
         <template v-if="pending.model"><dt>模型</dt><dd>{{ pending.model }}</dd></template>
+        <template v-if="pending.apiFormat"><dt>接口</dt><dd>Chat Completions，经 Anna 本地路由</dd></template>
         <template v-if="pending.tiers"><dt>Haiku / Sonnet / Opus</dt><dd>{{ [pending.tiers.haiku, pending.tiers.sonnet, pending.tiers.opus].map(item => item ?? '—').join(' / ') }}</dd></template>
         <template v-if="pending.website"><dt>网站</dt><dd>{{ pending.website }}</dd></template>
       </dl>
@@ -145,6 +146,7 @@ function speedtest(name: string) {
             <span v-if="inUse === provider.name" class="badge ok">{{ who }} 正在用</span>
             <span v-if="global?.switched && global.provider === provider.name" class="badge">全局</span>
             <span class="badge" :class="provider.hasKey ? 'ok' : 'warn'">{{ provider.hasKey ? '已存密钥' : '没有密钥' }}</span>
+            <span v-if="provider.routed" class="badge" title="Codex 经 Anna 的本地路由连接它，真实密钥只留在 Anna 里">经本地路由</span>
           </div>
           <p class="small muted">{{ host(provider.baseUrl) || '未设置地址' }}{{ provider.model ? ` · ${provider.model}` : '' }}</p>
           <div v-if="removing === provider.name" class="card approval-request" role="alert">
@@ -154,7 +156,7 @@ function speedtest(name: string) {
           </div>
           <div v-else class="card-actions left">
             <button v-if="inUse !== provider.name" :disabled="locked" @click="use(provider.name)">让{{ whoInline }}用它</button>
-            <button :disabled="locked || !provider.hasKey" :title="provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
+            <button :disabled="locked || !provider.hasKey || provider.routed" :title="provider.routed ? '经本地路由的服务商现在只能在 Anna 里用' : provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
             <button v-if="provider.usage" :disabled="locked || !provider.hasKey || checking === provider.name" :title="provider.hasKey ? '' : '先存一个密钥'" @click="checkUsage(provider.name)">{{ checking === provider.name ? '查询中…' : provider.usage === 'quota' ? '查额度' : '查余额' }}</button>
             <button :disabled="locked || testing === provider.name" @click="speedtest(provider.name)">{{ testing === provider.name ? '测速中…' : '测速' }}</button>
             <template v-if="provider.source !== 'universal'">
@@ -191,7 +193,7 @@ function speedtest(name: string) {
         <button class="preset-custom" @click="custom = true">自定义：自己填地址和模型</button>
         <div v-for="group in grouped" :key="group.category" class="preset-group">
           <h4>{{ group.label }}</h4>
-          <button v-for="preset in group.presets" :key="preset.name" class="preset-item" :data-preset="preset.name" @click="pick(preset)"><strong>{{ preset.name }}</strong><span>{{ host(preset.baseUrl) }}</span></button>
+          <button v-for="preset in group.presets" :key="preset.name" class="preset-item" :data-preset="preset.name" @click="pick(preset)"><strong>{{ preset.name }}</strong><span>{{ host(preset.baseUrl) }}{{ preset.routed ? ' · 经本地路由' : '' }}</span></button>
         </div>
         <p v-if="!results.length" class="small muted">没有找到，可以用“自定义”。</p>
       </section>
@@ -199,11 +201,12 @@ function speedtest(name: string) {
       <form v-else-if="editor" class="provider-editor" @submit.prevent="save(); custom = false">
         <div class="sheet-heading"><h3>{{ editor.previous ? `编辑 ${editor.previous}` : editor.from ? `添加 ${editor.from}` : '自定义服务商' }}</h3><button type="button" class="link" @click="editor = undefined; custom = false">取消</button></div>
         <label>名称<input v-model="editor.name" required maxlength="60" aria-label="服务商名称"></label>
-        <label>请求地址<input v-model="editor.baseUrl" :required="!editor.from && !editor.previous" aria-label="请求地址" :placeholder="current === 'claude' ? 'https://…（Anthropic Messages 接口）' : current === 'codex' ? 'https://…（OpenAI Responses 接口）' : 'https://…'"></label>
+        <label v-if="current === 'codex'">接口<select v-model="editor.apiFormat" aria-label="接口格式"><option value="openai_responses">OpenAI Responses（直连）</option><option value="openai_chat">Chat Completions（经本地路由）</option></select></label>
+        <label>请求地址<input v-model="editor.baseUrl" :required="!editor.from && !editor.previous" aria-label="请求地址" :placeholder="current === 'claude' ? 'https://…（Anthropic Messages 接口）' : current === 'codex' ? (editor.apiFormat === 'openai_chat' ? 'https://…/v1（Chat Completions 接口）' : 'https://…（OpenAI Responses 接口）') : 'https://…'"></label>
         <label>模型<input v-model="editor.model" :required="current === 'codex' && !editor.from && !editor.previous" aria-label="模型" placeholder="留空用预设的默认模型"></label>
         <label>API Key<input v-model="editor.key" type="password" autocomplete="off" aria-label="API Key" :placeholder="editor.previous && mine.find(item => item.name === editor!.previous)?.hasKey ? '已保存，留空保持' : '输入服务商密钥'"></label>
         <a v-if="editor.apiKeyUrl" class="link small" :href="editor.apiKeyUrl" target="_blank" rel="noreferrer">去获取密钥 ↗</a>
-        <p v-if="current === 'codex'" class="small muted">Codex 只支持 OpenAI Responses 接口；只提供 Chat Completions 的服务商要等本地路由（下一阶段）。</p>
+        <p v-if="current === 'codex' && editor.apiFormat === 'openai_chat'" class="small muted">Codex 只说 Responses 接口，Anna 在本机替它转换成 Chat Completions。真实密钥只留在 Anna 里，Codex 每次只拿到一个用完即废的令牌。这类服务商暂时只能在 Anna 里用，不能应用到全局。</p>
         <div class="card-actions"><button type="submit" class="primary" :disabled="locked">保存</button></div>
       </form>
     </template>

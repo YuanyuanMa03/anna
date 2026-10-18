@@ -14,9 +14,9 @@ import { approvalStyle, verified } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
-import { GlobalSwitcher } from '../agents/global'
+import { GlobalSwitcher, routedOnlyInAnna } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
-import { findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv } from '../agents/providers'
+import { chatReasoningOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
 import { queryUsage, usageKind } from '../agents/usage'
 
@@ -177,7 +177,7 @@ export class AgentsHub {
       ...listed.map(item => ({ name: item.name, source: item.source ?? (item.preset.category === 'imported' ? 'imported' : 'preset'), preset: item.preset as Preset })),
       ...(legacy ? [{ name: legacy.name, source: 'preset' as const, preset: legacy }] : []),
     ]
-    return entries.map(({ name, source, preset }) => ({ name, source, category: preset.category, ...describe(app, preset), website: preset.website, apiKeyUrl: preset.apiKeyUrl, hasKey: Boolean(keys[`${app}:${name}`]), usage: usageKind(describe(app, preset).baseUrl) }))
+    return entries.map(({ name, source, preset }) => ({ name, source, category: preset.category, ...describe(app, preset), website: preset.website, apiKeyUrl: preset.apiKeyUrl, hasKey: Boolean(keys[`${app}:${name}`]), usage: usageKind(describe(app, preset).baseUrl), ...(routedThroughAnna(app, preset) ? { routed: true } : {}) }))
   }
 
   /**
@@ -216,6 +216,10 @@ export class AgentsHub {
     else {
       base.baseUrl = baseUrl ?? base.baseUrl
       base.model = model ?? base.model
+      if (draft.apiFormat === 'openai_chat')
+        base.apiFormat = 'openai_chat'
+      else if (draft.apiFormat === 'openai_responses')
+        delete base.apiFormat
       if (!base.baseUrl)
         throw new Error('请填写请求地址')
       if (!base.model)
@@ -358,7 +362,7 @@ export class AgentsHub {
       ? { ...base, keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ...link.env, ANTHROPIC_BASE_URL: link.baseUrl, ...(link.model ? { ANTHROPIC_MODEL: link.model } : {}), ...(link.tiers?.haiku ? { ANTHROPIC_DEFAULT_HAIKU_MODEL: link.tiers.haiku } : {}), ...(link.tiers?.sonnet ? { ANTHROPIC_DEFAULT_SONNET_MODEL: link.tiers.sonnet } : {}), ...(link.tiers?.opus ? { ANTHROPIC_DEFAULT_OPUS_MODEL: link.tiers.opus } : {}) } }
       : app === 'gemini'
         ? { ...base, env: { GOOGLE_GEMINI_BASE_URL: link.baseUrl, ...(link.model ? { GEMINI_MODEL: link.model } : {}) } }
-        : { ...base, baseUrl: link.baseUrl, model: link.model, wireApi: 'responses' }
+        : { ...base, baseUrl: link.baseUrl, model: link.model, wireApi: 'responses', ...(link.apiFormat ? { apiFormat: link.apiFormat } : {}) }
     this.store.value.providers = [...(this.store.value.providers ?? []), { app, name, source: 'custom', preset } as CustomProvider]
     if (use)
       this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
@@ -411,7 +415,7 @@ export class AgentsHub {
       let name = wanted
       for (let index = 2; list.some(entry => entry.app === item.app && entry.name === name); index++) name = `${wanted} ${index}`
       // Same rules as for links and launches: no loader env vars, the key only in Claude Code's own key variables.
-      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}) }
+      const preset = { ...item.preset, name, ...(item.preset.env ? { env: providerEnv(item.preset as Preset) } : {}), ...(item.app === 'claude' ? { keyField: keyFieldOf(item.preset as Preset) } : {}), ...(item.app === 'codex' ? { apiFormat: item.preset.apiFormat === 'openai_chat' ? 'openai_chat' : undefined, chatReasoning: chatReasoningOf(item.preset.chatReasoning) } : {}) }
       list.push({ app: item.app, name, source: item.source === 'imported' ? 'imported' : item.source === 'custom' ? 'custom' : 'preset', preset } as CustomProvider)
       if (keys[`${item.app}:${item.name}`])
         await this.saveKey(`${item.app}:${name}`, keys[`${item.app}:${item.name}`]!)
@@ -442,6 +446,8 @@ export class AgentsHub {
     const choice = await this.choice(app, provider)
     if (!choice)
       throw new Error('请先选择服务商')
+    if (routedThroughAnna(app, choice.preset))
+      throw new Error(routedOnlyInAnna(choice.preset.name))
     await this.switcher.apply(app, choice)
   }
 
@@ -483,7 +489,7 @@ export class AgentsHub {
     const presets: AgentsSnapshot['presets'] = {}
     const mine: AgentsSnapshot['mine'] = {}
     for (const app of apps) {
-      presets[app] = presetsFor(app).map(preset => ({ name: preset.name, category: preset.category, official: preset.official, apiKeyUrl: preset.apiKeyUrl, website: preset.website, ...describe(app, preset) }))
+      presets[app] = presetsFor(app).map(preset => ({ name: preset.name, category: preset.category, official: preset.official, apiKeyUrl: preset.apiKeyUrl, website: preset.website, ...describe(app, preset), ...(routedThroughAnna(app, preset) ? { routed: true } : {}) }))
       mine[app] = this.mine(app, keys)
     }
     return {

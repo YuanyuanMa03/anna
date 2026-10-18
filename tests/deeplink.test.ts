@@ -37,11 +37,17 @@ it('refuses what Anna can\'t or shouldn\'t take, with the reason', () => {
   expect(bad({ resource: 'mcp' })).toThrow('下一阶段')
   expect(bad({ app: 'opencode', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k' })).toThrow('opencode')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', apiFormat: 'openai_chat' })).toThrow('本地路由')
+  expect(bad({ app: 'codex', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', apiFormat: 'anthropic' })).toThrow('本地路由')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com' })).toThrow('API Key')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', apiKey: 'k', configUrl: 'https://evil.example.com/c.json' })).toThrow('远程')
   const loader = Buffer.from(JSON.stringify({ env: { NODE_OPTIONS: '--require /tmp/x.js', ANTHROPIC_AUTH_TOKEN: 'k' } })).toString('base64')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'https://a.example.com', config: loader })).toThrow('NODE_OPTIONS')
   expect(bad({ app: 'claude', name: 'x', endpoint: 'javascript:alert(1)', apiKey: 'k' })).toThrow('请求地址无效')
+})
+
+it('takes a Chat Completions provider for Codex, which goes through Anna\'s local routing', () => {
+  expect(parseProviderLink(link({ app: 'codex', name: 'C', endpoint: 'https://c.example.com/v1', apiKey: 'k', model: 'glm-5.3', apiFormat: 'openai_chat' }))).toMatchObject({ app: 'codex', baseUrl: 'https://c.example.com/v1', apiFormat: 'openai_chat' })
+  expect(parseProviderLink(link({ app: 'codex', name: 'R', endpoint: 'https://r.example.com/v1', apiKey: 'k' }))).not.toHaveProperty('apiFormat')
 })
 
 it('points out local and private-network addresses; masks keys', () => {
