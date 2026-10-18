@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AgentStatus, Command, RuntimeSnapshot } from '../../../../packages/shared/contracts'
 import { computed, ref, watch } from 'vue'
+import { companion } from '../../../../packages/character/manifest'
 import ProvidersPanel from './providers-panel.vue'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string }>()
@@ -15,6 +16,7 @@ watch(() => props.snapshot.agents.pendingImport, (pending) => {
     tab.value = 'providers'
 })
 const agents = computed(() => props.snapshot.agents)
+const name = computed(() => companion(props.snapshot.settings.characterId).name)
 const delegates = computed(() => agents.value.detected.filter(agent => agent.tier === 'delegate'))
 const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier === 'switch'))
 function install(agent: AgentStatus) {
@@ -34,7 +36,7 @@ function install(agent: AgentStatus) {
       </div>
       <ProvidersPanel v-if="tab === 'providers'" :snapshot="snapshot" :locked="locked" @command="emit('command', $event)" />
       <template v-else>
-        <p class="muted small">Anna 会像 cc-switch 一样识别这台电脑上的 coding agent。在输入框写 <code>@claude 任务</code> 或 <code>@codex 任务</code> 把活交给它，或者让 Anna 自己判断要不要派。它们的修改同样受权限模式约束，交付后可以查看 diff 和撤销。</p>
+        <p class="muted small">Anna 会像 cc-switch 一样识别这台电脑上的 coding agent。在输入框写 <code>@claude 任务</code> 或 <code>@codex 任务</code> 把活交给它，或者让 {{ name }} 自己判断要不要派。它们的修改同样受权限模式约束，交付后可以查看 diff 和撤销。</p>
         <div class="card-actions left"><button :disabled="locked" @click="emit('command', { type: 'agents-refresh' })">重新检测</button><button v-if="agents.ccSwitch" :disabled="locked" @click="emit('command', { type: 'ccswitch-import' })">从 cc-switch 导入服务商</button></div>
 
         <h3>能派活的 agent</h3>
