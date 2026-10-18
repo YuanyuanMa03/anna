@@ -392,6 +392,7 @@ export class Host {
       emit: event => this.presence.handle(event),
       mode: () => this.effectiveMode(),
       locate: agent => this.hub.locate(agent),
+      provider: agent => this.hub.choice(agent),
       denyPaths: this.protectedPaths(),
     })
     try {
@@ -581,7 +582,8 @@ export class Host {
 
   /** Record a failure: returns it in plain words, and remembers when the provider refused the key itself. */
   private recordFailure(diagnostic: string) {
-    const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!)
+    const where = this.store.value.kernel === 'pi' ? '“模型与设置”' : '“外观与能力 → 外部 agent”的服务商设置（没选服务商时是它自己的登录）'
+    const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!, where)
     if (keyRejected && this.store.value.kernel === 'pi') {
       this.keyRejected = true
       if (this.store.value.modelVerified) {

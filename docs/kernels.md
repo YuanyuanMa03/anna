@@ -5,7 +5,8 @@ Anna uses other agents in two ways. Both are built on the adapters in `packages/
 - **Delegation**: pi is Anna's brain and the other agents are her colleagues. Mention one with `@claude <task>`, or let
   Anna decide through the `anna_delegate` tool. Implemented in `anna-host/delegator.ts`.
 - **Brain swap**: in **Model & Settings**, replace Anna's brain with Claude Code or Codex. Implemented in
-  `kernels/external/kernel.ts`.
+  `kernels/external/kernel.ts`. The provider chosen for that agent under **External agents** applies here too, read
+  again every turn, so Codex can run on DeepSeek's native Responses endpoint.
 
 ## Anna's own tools on an external brain
 

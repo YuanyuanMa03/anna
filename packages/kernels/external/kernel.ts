@@ -14,7 +14,8 @@ interface Transcript { agentSessionId?: string, entries: Entry[] }
 
 /**
  * An installed agent CLI (Claude Code or Codex) as Anna's brain. Each user message is one headless turn that resumes
- * the agent's own session; Anna's persona, mode and memory go into its system prompt; Anna's own tools (memory,
+ * the agent's own session, with the provider chosen for that agent (as for a delegation, read again every turn);
+ * Anna's persona, mode and memory go into its system prompt; Anna's own tools (memory,
  * status, delegation) are served to it over a local MCP server; every tool call still passes Anna's gate. Anna keeps
  * her own transcript (the agent's session files are not hers to read).
  */
@@ -72,7 +73,8 @@ export class ExternalKernel implements AgentKernel {
     const notes = this.notes.splice(0)
     const prompt = notes.length ? `${notes.join('\n')}\n\n${text}` : text
     this.transcript.entries.push({ kind: 'user', text, origin: meta.origin })
-    const launch = buildLaunch(this.agent, { cwd: this.context.workspace, prompt, mode: this.context.mode?.() ?? 'ask', sessionId: this.transcript.agentSessionId, denyPaths: this.context.denyPaths ?? [], instructions: this.instructions(), tools: this.toolServer })
+    const provider = await this.context.provider?.(this.agent)
+    const launch = buildLaunch(this.agent, { cwd: this.context.workspace, prompt, mode: this.context.mode?.() ?? 'ask', sessionId: this.transcript.agentSessionId, provider, denyPaths: this.context.denyPaths ?? [], instructions: this.instructions(), tools: this.toolServer })
     this.abortController = new AbortController()
     this.context.emit({ type: 'thinking' })
     const result = await runAgent({

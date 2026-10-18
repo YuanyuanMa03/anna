@@ -44,6 +44,8 @@ export interface KernelContext {
   emit: (event: KernelEvent) => void
   /** The permission mode in force (external kernels map it onto their own flags). */
   mode?: () => import('../permissions/modes').PermissionMode
+  /** The provider chosen for this agent under "external agents", the same one a delegation uses (external kernels). */
+  provider?: (agent: 'claude' | 'codex') => Promise<import('../agents/providers').ProviderChoice | undefined>
   /** Where an installed agent CLI lives (external kernels). */
   locate?: (agent: 'claude' | 'codex') => Promise<{ command: string, prefix?: string[] } | undefined>
   /** Paths the kernel must never read or edit. */

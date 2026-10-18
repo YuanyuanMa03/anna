@@ -57,7 +57,7 @@ function install(agent: AgentStatus) {
       </div>
 
       <h3>服务商</h3>
-      <p class="small muted">派活时 Anna 只给那个 agent 的进程注入所选服务商，不改你的配置文件。“应用到全局”才会像 cc-switch 一样写入它的配置（只改连接相关的字段，首次写入前会备份，可以一键恢复）。预设来自 cc-switch（MIT）。</p>
+      <p class="small muted">派活或把它当大脑时，Anna 只给那个 agent 的进程注入所选服务商，不改你的配置文件。“应用到全局”才会像 cc-switch 一样写入它的配置（只改连接相关的字段，首次写入前会备份，可以一键恢复）。预设来自 cc-switch（MIT）。</p>
       <div v-for="app in apps" :key="app" class="provider-row" :data-app="app">
         <strong>{{ agents.detected.find(agent => agent.id === app)?.label ?? app }}</strong>
         <label>服务商<select v-model="draft(app).provider" :aria-label="`${app} 服务商`"><option value="">使用它自己的登录</option><option v-for="preset in agents.presets[app] ?? []" :key="preset.name" :value="preset.name">{{ preset.name }}{{ preset.category === 'imported' ? '（导入）' : '' }}</option></select></label>

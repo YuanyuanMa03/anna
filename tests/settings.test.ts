@@ -49,6 +49,7 @@ describe('settings', () => {
 describe('model errors in plain words', () => {
   it('maps provider failures and keeps a short excerpt', () => {
     expect(describeModelError('401: {"message":"Authentication Fails, Your api key: ****-key is invalid"}')).toMatchObject({ keyRejected: true, message: expect.stringMatching(/^API Key 无效或已过期.*原始信息：401/) })
+    expect(describeModelError('unexpected status 401 Unauthorized', '“外部 agent”').message).toMatch(/^API Key 无效或已过期，服务商拒绝了它。请在“外部 agent”里换一个密钥。/)
     expect(describeModelError('402 Insufficient Balance')).toMatchObject({ keyRejected: false, message: expect.stringMatching(/余额/) })
     expect(describeModelError('429 Too Many Requests').message).toMatch(/太频繁/)
     expect(describeModelError('fetch failed: getaddrinfo ENOTFOUND api.example.com').message).toMatch(/连不上模型服务/)

@@ -77,7 +77,8 @@ credit.
   and every new domain needs your approval.
 - ↩️ **Every change is reviewable and undoable.** Each task ends with a delivery card: see the diff, or roll back with one click.
 - 🔀 **Provider switching.** cc-switch presets (Claude, Codex and Gemini endpoints) can apply to a single delegation,
-  or globally with backup and one-click restore.
+  to Claude Code or Codex as Anna's brain, or globally with backup and one-click restore. Codex can run on DeepSeek,
+  which speaks its Responses API natively.
 - 💬 **WeChat remote.** Message Anna from your phone through WeChat ClawBot. She queues the task and messages back when
   it's done. Approvals stay on the desktop.
 
