@@ -229,3 +229,78 @@ describe.skipIf(!wanted.includes('codex'))('real Codex through Anna\'s local rou
     }
   }, 180000)
 })
+
+/**
+ * Real Codex through Anna's routing to a real Chat Completions provider (DeepSeek by default). The key only ever comes
+ * from the environment; enter it without echo, e.g.
+ * read -rs ANNA_REAL_CHAT_KEY && ANNA_REAL_CHAT_KEY=$ANNA_REAL_CHAT_KEY pnpm vitest run tests/agents-real.test.ts -t "real Chat provider"
+ * Optional: ANNA_REAL_CHAT_URL, ANNA_REAL_CHAT_MODEL.
+ */
+const chatKey = process.env.ANNA_REAL_CHAT_KEY
+const chatUrl = process.env.ANNA_REAL_CHAT_URL ?? 'https://api.deepseek.com'
+const chatModel = process.env.ANNA_REAL_CHAT_MODEL ?? 'deepseek-flash'
+describe.skipIf(!chatKey)('real Codex through Anna\'s routing to a real Chat provider', () => {
+  it('delegated: creates a file and says so', async () => {
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { routing } = await import('../packages/routing/server')
+    const { openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const codex = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'codex')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-chat-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await mkdir(join(data, 'codex-home'))
+    const preset = { name: 'Real Chat', official: false, category: 'custom', baseUrl: chatUrl, model: chatModel, apiFormat: 'openai_chat' as const, chatReasoning: { supportsThinking: true, supportsEffort: true, thinkingParam: 'thinking', effortParam: 'reasoning_effort', effortValueMode: 'deepseek' } }
+    const provider = { preset, key: chatKey }
+    const route = await openRoute('codex', provider)
+    try {
+      const launch = buildLaunch('codex', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK. Then reply with one short sentence.', mode: 'edit', denyPaths: [], provider, route })
+      launch.env.CODEX_HOME = join(data, 'codex-home')
+      const result = await runAgent({ agent: 'codex', command: codex.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      const records = (await routing()).records().filter(item => item.provider === 'Real Chat')
+      process.stdout.write(`real chat (${chatModel}) delegated: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 160)}\nrequests: ${JSON.stringify(records.map(({ status, latency, usage, outcome }) => ({ status, latency, usage, outcome })))}\n`)
+      expect(result.status).toBe('completed')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(records.every(item => item.status === 200)).toBe(true)
+    }
+    finally {
+      route?.close()
+    }
+  }, 300000)
+
+  it('as Anna\'s brain: remembers through anna_memory and answers', async () => {
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-chat-brain-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await mkdir(join(data, 'codex-home'))
+    const previousHome = process.env.CODEX_HOME
+    process.env.CODEX_HOME = join(data, 'codex-home')
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const secrets: Record<string, string> = {}
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
+    try {
+      await host.initialize()
+      await host.execute({ type: 'provider-save', app: 'codex', name: 'Real Chat', baseUrl: chatUrl, model: chatModel, key: chatKey, apiFormat: 'openai_chat' })
+      await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Real Chat' })
+      await host.execute({ type: 'send', text: '请记住：我最喜欢的茶是龙井。用共同记忆工具记下来，然后用一句话告诉我。' })
+      const snapshot = host.snapshot()
+      process.stdout.write(`real chat (${chatModel}) brain: memories ${JSON.stringify(snapshot.memories.map(item => item.text))} reply: ${snapshot.messages!.at(-1)?.text.slice(0, 160)}\n`)
+      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.memories.some(item => item.text.includes('龙井'))).toBe(true)
+    }
+    finally {
+      await host.close()
+      if (previousHome === undefined)
+        delete process.env.CODEX_HOME
+      else
+        process.env.CODEX_HOME = previousHome
+    }
+  }, 300000)
+})

@@ -89,4 +89,6 @@ routing, where the user picks models in the agent itself; Anna's runs already pi
   (P2b) pointed at the routing service, finishing a turn with tool calls. P2a: `ANNA_REAL_AGENTS=codex pnpm vitest run
   tests/agents-real.test.ts -t "local routing"` (Codex 0.160: a freeform `apply_patch` call, and Codex as Anna's brain
   calling `anna_memory`).
-- With a key the user provides: one real provider per conversion.
+- With a key the user provides: one real provider per conversion. P2a: DeepSeek's Chat API (`deepseek-flash`) with
+  `ANNA_REAL_CHAT_KEY` (`-t "real Chat provider"`): a delegated file edit over six turns, all 200, prompt cache hits
+  from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`.
