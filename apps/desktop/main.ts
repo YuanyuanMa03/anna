@@ -199,13 +199,19 @@ async function start() {
   window = new BrowserWindow({ width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
   const win = window
   // No new windows and no navigation inside the app; web links (e.g. a provider's "get a key" page) go to the browser.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    const external = externalUrl(url)
+  const browse = (url: string) => {
+    const external = externalUrl(url, win.webContents.getURL())
     if (external)
       void shell.openExternal(external)
+  }
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    browse(url)
     return { action: 'deny' }
   })
-  win.webContents.on('will-navigate', (event) => { event.preventDefault() })
+  win.webContents.on('will-navigate', (event) => {
+    event.preventDefault()
+    browse(event.url)
+  })
   const { context, dispose } = createContext(ipcMain, win, { onlySameWindow: false })
   emitToRenderer = event => context.emit(runtimeEvent, event)
   win.on('closed', () => { dispose(); emitToRenderer = () => {} })
