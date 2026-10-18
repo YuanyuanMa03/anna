@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Command, MyProvider, PresetSummary, RuntimeSnapshot } from '../../../../packages/shared/contracts'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { companion } from '../../../../packages/character/manifest'
 import UniversalPanel from './universal-panel.vue'
 
@@ -64,6 +64,14 @@ function save() {
   editor.value = undefined
 }
 const use = (name?: string) => emit('command', { type: 'agent-provider', agent: current.value, provider: name })
+const speed = (name: string) => agents.value.speed?.[`${current.value}:${name}`]
+/** The provider being timed; cleared when its results arrive. */
+const testing = ref<string>()
+watch(() => agents.value.speed, () => { testing.value = undefined })
+function speedtest(name: string) {
+  testing.value = name
+  emit('command', { type: 'provider-speedtest', app: current.value, name })
+}
 </script>
 
 <template>
@@ -100,12 +108,22 @@ const use = (name?: string) => emit('command', { type: 'agent-provider', agent: 
           <div v-else class="card-actions left">
             <button v-if="inUse !== provider.name" :disabled="locked" @click="use(provider.name)">让{{ whoInline }}用它</button>
             <button :disabled="locked || !provider.hasKey" :title="provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
+            <button :disabled="locked || testing === provider.name" @click="speedtest(provider.name)">{{ testing === provider.name ? '测速中…' : '测速' }}</button>
             <template v-if="provider.source !== 'universal'">
               <button :disabled="locked" @click="edit(provider)">编辑</button>
               <button class="link danger-link" :disabled="locked" @click="removing = provider.name">删除</button>
             </template>
             <button v-else class="link" @click="app = 'universal'">在“统一”里修改</button>
           </div>
+          <ul v-if="speed(provider.name)" class="speed-results" :aria-label="`${provider.name} 的测速结果`">
+            <li v-for="result in speed(provider.name)!.results" :key="result.url" :data-url="result.url">
+              <span class="speed-url">{{ result.url.replace(/^https?:\/\//, '') }}</span>
+              <span class="badge" :class="result.latency === undefined ? 'warn' : result.latency < 300 ? 'ok' : ''">{{ result.latency === undefined ? result.error : `${result.latency} ms` }}</span>
+              <span v-if="result.url === provider.baseUrl" class="small muted">正在用</span>
+              <button v-else-if="result.latency !== undefined && provider.source !== 'universal'" class="link" :disabled="locked" @click="emit('command', { type: 'provider-save', app: current, name: provider.name, previous: provider.name, baseUrl: result.url })">用这个</button>
+            </li>
+            <li class="small muted">从这台电脑直接连接测得，{{ new Date(speed(provider.name)!.at).toLocaleTimeString() }}</li>
+          </ul>
         </li>
       </ul>
       <button v-if="!editor" class="add-provider" :disabled="locked" @click="startAdd">＋ 添加服务商</button>

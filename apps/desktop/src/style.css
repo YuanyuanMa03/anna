@@ -304,3 +304,6 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .sheet .apps-choice label.check { flex-direction: row; align-items: center; gap: 6px; color: #5d4874 }
 .sheet .apps-choice input[type=checkbox] { width: auto }
 .tier-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
+.speed-results { list-style: none; padding: 8px 0 0; margin: 4px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px }
+.speed-results li { display: flex; align-items: center; gap: 8px; font-size: 12px; border: 0; padding: 0 }
+.speed-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6f5d80 }

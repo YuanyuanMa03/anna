@@ -24,6 +24,8 @@ export interface Preset {
   baseUrl?: string
   model?: string
   wireApi?: string
+  /** Other addresses of the same service, for the speed test. */
+  endpoints?: string[]
   /** codex: `model_reasoning_effort`. */
   reasoningEffort?: string
   /** codex: the preset's model rows, for the model catalog. */

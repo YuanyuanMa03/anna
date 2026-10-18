@@ -14,6 +14,7 @@ import { detectAgents } from '../agents/detect'
 import { GlobalSwitcher } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
 import { findPreset, importCcSwitch, presetsFor } from '../agents/providers'
+import { testEndpoints } from '../agents/speedtest'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -21,6 +22,8 @@ export interface AgentsOptions {
   detect?: () => Promise<AgentInfo[]>
   configDirs?: Record<ProviderApp, string>
   ccSwitchDb?: string
+  /** The speed test's HTTP client (tests point it at a local server). */
+  fetch?: typeof fetch
 }
 
 const providerApps: Record<string, ProviderApp | undefined> = { claude: 'claude', codex: 'codex', gemini: 'gemini' }
@@ -69,6 +72,14 @@ export function universalPresets(universal: UniversalProvider): Partial<Record<P
   return out
 }
 
+/** A candidate origin takes the in-use address's path (`https://b.example` + `/v1`); one with its own path is kept. */
+export function withPath(candidate: string, current?: string) {
+  const url = new URL(candidate)
+  if (url.pathname !== '/' || !current)
+    return candidate.replace(/\/+$/, '')
+  return `${url.origin}${new URL(current).pathname.replace(/\/+$/, '')}`
+}
+
 /** Endpoint and model as the UI shows them, wherever the app keeps them. */
 function describe(app: ProviderApp, preset: Preset) {
   const fields = envFields[app]
@@ -84,6 +95,7 @@ export class AgentsHub {
   private detected: AgentInfo[] = []
   private detecting?: Promise<AgentInfo[]>
   private keys?: Record<string, string>
+  private speed: AgentsSnapshot['speed'] = {}
   readonly switcher: GlobalSwitcher
   constructor(private data: string, private store: SettingsStore, private secrets: SecretVault, private options: AgentsOptions = {}) {
     const home = homedir()
@@ -289,6 +301,22 @@ export class AgentsHub {
     await this.store.save()
   }
 
+  /** Time the provider's address and its preset's other addresses (with the same path), fastest first. */
+  async speedtest(appName: string, name: string, fetcher?: typeof fetch) {
+    const app = providerAppOf(appName)
+    const preset = app && this.preset(app, name)
+    if (!app || !preset)
+      throw new Error(`没有找到 ${name} 这个服务商`)
+    const current = describe(app, preset).baseUrl
+    const origin = findPreset(app, preset.name) ?? preset
+    const candidates = [...new Set([current, ...(preset.endpoints ?? origin.endpoints ?? [])].filter((url): url is string => Boolean(url)).map(url => withPath(url, current)))]
+    if (!candidates.length)
+      throw new Error('这个服务商没有可测的地址')
+    const results = await testEndpoints(candidates, { fetch: this.options.fetch ?? fetcher })
+    results.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity))
+    this.speed[`${app}:${name}`] = { at: new Date().toISOString(), results }
+  }
+
   /** Remove one of the user's providers and its key; an app that was using it goes back to its own login. */
   async deleteProvider(appName: string, name: string) {
     const app = providerAppOf(appName)
@@ -359,6 +387,7 @@ export class AgentsHub {
       global: { claude: this.switcher.status('claude'), codex: this.switcher.status('codex'), gemini: this.switcher.status('gemini') },
       presets,
       mine,
+      speed: this.speed,
       universal: (this.store.value.universal ?? []).map(item => ({ ...item, hasKey: Boolean(keys[`universal:${item.name}`]) })),
       ccSwitch: existsSync(this.ccSwitchDb),
     }

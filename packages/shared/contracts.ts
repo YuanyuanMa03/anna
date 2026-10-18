@@ -72,6 +72,8 @@ export interface AgentsSnapshot {
   presets: Record<string, PresetSummary[]>
   mine: Record<string, MyProvider[]>
   universal: (UniversalProvider & { hasKey: boolean })[]
+  /** The last speed test per provider (`app:name`), fastest first; candidates already carry the provider's path. */
+  speed: Record<string, { at: string, results: { url: string, latency?: number, status?: number, error?: string }[] }>
   ccSwitch: boolean
 }
 /**
@@ -190,6 +192,7 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
   | ({ type: 'provider-save' } & ProviderDraft)
   | { type: 'provider-delete', app: 'claude' | 'codex' | 'gemini', name: string }
+  | { type: 'provider-speedtest', app: 'claude' | 'codex' | 'gemini', name: string }
   | ({ type: 'universal-save' } & UniversalDraft)
   | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }

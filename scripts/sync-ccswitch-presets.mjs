@@ -38,7 +38,7 @@ function plain(url) {
   }
   catch { return url }
 }
-const pick = (preset, extra) => ({ name: preset.name, website: plain(preset.websiteUrl), apiKeyUrl: plain(preset.apiKeyUrl), official: Boolean(preset.isOfficial), category: preset.category ?? 'third_party', ...extra })
+const pick = (preset, extra) => ({ name: preset.name, website: plain(preset.websiteUrl), apiKeyUrl: plain(preset.apiKeyUrl), official: Boolean(preset.isOfficial), category: preset.category ?? 'third_party', ...extra, ...(preset.endpointCandidates?.length ? { endpoints: preset.endpointCandidates } : {}) })
 /**
  * The protocol each app speaks natively; any other `apiFormat` needs cc-switch's converting proxy. For Codex,
  * `openai_responses` (`responses` in older cc-switch) is native and `openai_chat` is not.

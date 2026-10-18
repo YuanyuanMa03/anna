@@ -10,7 +10,7 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 
 const fake = resolve('tests/fixtures/fake-agent.mjs')
 
-async function setup() {
+async function setup(options: { fetch?: typeof fetch } = {}) {
   const data = await mkdtemp(join(tmpdir(), 'anna-providers-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
@@ -22,7 +22,7 @@ async function setup() {
     sandbox: { available: false, reason: 'test' },
     kernel: context => createPiKernel(context, backend),
     secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } },
-    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }), detect: async () => [] },
+    agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }), detect: async () => [], fetch: options.fetch },
   })
   await host.initialize()
   const keys = () => JSON.parse(secrets.providers ?? '{}') as Record<string, string>
@@ -116,5 +116,24 @@ it('a universal provider: one gateway and key for all three apps, linked provide
   expect(host.snapshot().agents.mine.codex).toEqual([])
   expect(host.snapshot().agents.providers.codex?.provider).toBeUndefined()
   expect(keys()).toEqual({})
+  await host.close()
+})
+
+it('speed test: times the provider\'s address and its preset\'s other addresses, fastest first, with the same path', async () => {
+  const seen: string[] = []
+  // Only the speed test uses this fetch: it answers instantly for one host and fails for the rest.
+  const { host } = await setup({ fetch: (async (url: string) => {
+    seen.push(url)
+    if (url.startsWith('https://cf.api.fan'))
+      return new Response(null, { status: 404 })
+    throw new TypeError('fetch failed')
+  }) as typeof fetch })
+  await host.execute({ type: 'provider-save', app: 'claude', name: 'PackyCode', from: 'PackyCode', baseUrl: 'https://www.packyapi.ai/claude' })
+  await host.execute({ type: 'provider-speedtest', app: 'claude', name: 'PackyCode' })
+  const results = host.snapshot().agents.speed['claude:PackyCode']!.results
+  expect(results[0]).toMatchObject({ url: 'https://cf.api.fan/claude', status: 404, latency: expect.any(Number) })
+  expect(results.slice(1).every(result => result.error === '连接失败')).toBe(true)
+  expect(results.map(result => result.url)).toContain('https://www.packyapi.ai/claude')
+  expect(new Set(seen)).toEqual(new Set(results.map(result => result.url)))
   await host.close()
 })
