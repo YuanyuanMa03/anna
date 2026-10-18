@@ -271,3 +271,13 @@ it('with Claude Code as the brain, the companion can still hand work to Codex th
   expect(host.snapshot().result).toMatchObject({ changes: [{ path: 'done.txt', status: 'added' }] })
   await host.close()
 })
+
+it('an external brain\'s transcript survives saves that overlap (a delegation recorded mid-turn, then the turn\'s end)', async () => {
+  const { ExternalKernel } = await import('../packages/kernels/external/kernel')
+  const data = await mkdtemp(join(tmpdir(), 'anna-external-save-'))
+  const kernel = new ExternalKernel({ root: '.', data, workspace: data, trusted: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, key: '', instructions: [], gate: async () => ({ allow: true }), tools: [], emit: () => {} }, 'claude')
+  for (let index = 0; index < 20; index++) kernel.remember('delegation', { task: `t${index}`, text: 'ok', delegation: { agent: 'codex', label: 'Codex', task: `t${index}`, status: 'completed', steps: 0 }, nested: true })
+  await (kernel as unknown as { save: () => Promise<void> }).save()
+  const saved = JSON.parse(await readFile(kernel.sessionFile, 'utf8'))
+  expect(saved.entries).toHaveLength(20)
+})
