@@ -30,6 +30,8 @@ const agentModel = process.env.ANNA_AGENT_MODEL ?? 'Qwen/Qwen3.5-397B-A17B'
 /** Tried in order when a model's free quota runs out (HTTP 429): each ModelScope model has its own daily quota. */
 const fallbacks = (process.env.ANNA_FALLBACK_MODELS ?? 'Qwen/Qwen3.5-122B-A10B,Qwen/Qwen3.8-Flash-Next,Qwen/Qwen3.8-27B,Qwen/Qwen3.5-27B,Qwen/Qwen3.5-35B-A3B').split(',').map(name => name.trim()).filter(Boolean)
 const exhausted = new Map<string, number>()
+/** Every model has hit its quota in the last ten minutes, so a new message would fail. */
+const quotaOut = () => [model, agentModel, ...fallbacks].every(name => Date.now() - (exhausted.get(name) ?? 0) <= 600000)
 const upstream = 'https://api-inference.modelscope.cn/v1'
 const root = resolve(process.env.ANNA_ROOT ?? '.')
 const publicDir = resolve(process.env.ANNA_PUBLIC_DIR ?? 'dist/web')
@@ -170,6 +172,9 @@ const server = createServer(async (request, response) => {
     const token = typeof request.headers['x-anna-session'] === 'string' ? request.headers['x-anna-session'] : ''
     if (url.pathname === '/healthz')
       return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, isolation: asRoot ? 'per-visitor user' : 'process' })
+    // Public on purpose: the page shows the notice before anyone types, and it reveals nothing but a yes or no.
+    if (url.pathname === '/api/quota' && request.method === 'GET')
+      return json(response, 200, { out: quotaOut() })
     if (url.pathname === '/api/session' && request.method === 'POST') {
       if (/^[a-f0-9]{64}$/.test(token) && visitors.has(token))
         return json(response, 200, { session: token })

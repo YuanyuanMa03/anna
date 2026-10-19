@@ -268,6 +268,20 @@ watch(() => character.value.id, (_, previous) => {
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
 onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
 const web = Boolean(import.meta.env.VITE_ANNA_WEB)
+// Online demo: say so up front when the free model quota has run out, rather than letting a message fail.
+const quotaOut = ref(false)
+async function checkQuota() {
+  try {
+    quotaOut.value = Boolean((await (await fetch('./api/quota')).json()).out)
+  }
+  catch {}
+}
+if (web) {
+  void checkQuota()
+  const quotaTimer = window.setInterval(() => { void checkQuota() }, 60000)
+  onBeforeUnmount(() => window.clearInterval(quotaTimer))
+  watch(() => error.value || snapshot.value?.error, () => { void checkQuota() })
+}
 </script>
 
 <template>
@@ -343,7 +357,8 @@ const web = Boolean(import.meta.env.VITE_ANNA_WEB)
     <svg class="stage-overlay" aria-hidden="true"><path v-if="tail" class="speech-tail" :d="tail" /><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
-      <p v-if="web" class="web-notice">在线体验 · 完整的 Anna：真实模型、沙箱里的终端、审批卡、交付卡，还能 @claude、@codex 派活。每位访客有独立的电脑账号和示例项目，闲置 2 小时后清理。请勿输入敏感信息。</p>
+      <p v-if="web" class="web-notice">在线体验 · 完整的 Anna：真实模型、沙箱里的终端、审批卡、交付卡，还能 @claude、@codex 派活。每位访客有独立的电脑账号和示例项目，闲置 2 小时后清理。请勿输入敏感信息。喜欢她的话，<a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>，或者到 <a href="https://github.com/YuanyuanMa03/anna" target="_blank" rel="noopener">GitHub ↗</a> 点个 Star。</p>
+      <div v-if="web && quotaOut" class="setup-notice quota-notice" role="status"><span>在线体验今天的免费模型额度用完了，明天再来吧。等不及的话，可以下载桌面版，接上你自己的模型。</span><a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a></div>
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>

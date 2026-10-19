@@ -323,3 +323,6 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .link-confirm dd { margin: 0; overflow-wrap: anywhere }
 
 .web-notice { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: #706778; }
+.web-notice a { color: #7d64a3; font-weight: 500; white-space: nowrap; }
+.web-notice a:hover { text-decoration: underline; }
+.quota-notice a { flex: none; margin-left: auto; color: #7d64a3; font-weight: 600; }
