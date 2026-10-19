@@ -40,6 +40,11 @@ describe('settings', () => {
   it.each(['http://example.com', 'https://user:secret@example.com', 'https://example.com?key=secret'])('refuses credential-bearing or cleartext endpoints', (baseURL) => {
     expect(() => validateModel({ provider: 'custom', model: 'test-model', api: 'anthropic-messages', baseURL })).toThrow()
   })
+  it('allows plain HTTP only to this machine', () => {
+    for (const baseURL of ['http://127.0.0.1:7870/v1', 'http://localhost:7870/v1'])
+      expect(validateModel({ provider: 'custom', model: 'm', api: 'openai-completions', baseURL }).baseURL).toBe(baseURL)
+    expect(() => validateModel({ provider: 'custom', model: 'm', api: 'openai-completions', baseURL: 'http://192.168.1.2/v1' })).toThrow()
+  })
   it('chooses a data directory per platform', () => {
     expect(dataDirectory('darwin', {}, '/AppData', '/Users/a')).toBe('/Users/a/.local/share/anna-dsh')
     expect(dataDirectory('linux', { XDG_DATA_HOME: '/xdg' }, '/AppData', '/home/a')).toBe('/xdg/anna')

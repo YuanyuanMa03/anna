@@ -1,6 +1,28 @@
 # ModelScope browser deployment
 
-The browser build reuses Anna's Vue/Live2D renderer, `Host`, pi kernel, permission broker, checkpoints and memory. Electron continues using its existing IPC. The web build uses a per-tab random session capability and streamed events over HTTP, with no third-party cookie dependency.
+The browser build is the whole Anna: the Vue/Live2D renderer talks to a `Host` (pi kernel, command sandbox, approvals,
+checkpoints, memory, delegation to Claude Code and Codex) over HTTP and server-sent events instead of Electron IPC.
+
+## Shape
+
+- `apps/web/server.ts` serves the renderer, keeps visitor sessions and runs the inference relay.
+- Each visitor gets `apps/web/core.ts` in its own child process. When the server runs as root (the Studio), that
+  process runs as its own Unix user (uid 20001+), so visitors cannot read each other's files. The command sandbox
+  (`@anthropic-ai/sandbox-runtime`, bubblewrap on Linux) is process-wide, which is another reason for one process per
+  visitor.
+- `apps/web/seed.ts` writes a new visitor's settings and a small demo project into their default workspace.
+- `apps/web/commands.ts` is the command allowlist: everything a desktop user does inside Anna, minus what reaches
+  outside the visitor's home (folder pickers, WeChat, updates, agent installs, import/export, custom provider endpoints).
+
+## Model access
+
+The ModelScope key (`ANNA_MODEL_API_KEY`) stays in the server process. Anna, Claude Code and Codex use the relay on
+`127.0.0.1:7870` with a per-visitor token; the relay swaps it for the key, allows only the demo models, rate-limits each
+visitor and, when a model's free quota runs out (HTTP 429), falls back through `ANNA_FALLBACK_MODELS`. Claude Code and
+Codex reach the relay through Anna's own local routing, as a Chat Completions provider.
+
+Variables: `ANNA_MODEL` (Anna, default `Qwen/Qwen3.5-35B-A3B`), `ANNA_AGENT_MODEL` (Claude Code / Codex, default
+`Qwen/Qwen3.5-397B-A17B`), `ANNA_FALLBACK_MODELS`, `ANNA_MAX_SESSIONS` (default 12), `ANNA_WEB_DATA`.
 
 ## Local run
 
@@ -8,10 +30,11 @@ The browser build reuses Anna's Vue/Live2D renderer, `Host`, pi kernel, permissi
 pnpm install --frozen-lockfile
 pnpm assets
 pnpm build:web
-pnpm start:web
+ANNA_MODEL_API_KEY=... pnpm start:web
 ```
 
-Open http://127.0.0.1:7860. The model is unconfigured unless `ANNA_MODEL_API_KEY` is supplied to the server. The only supported online provider is the ModelScope free inference endpoint. Visitors can enter their own ModelScope key when the server has no key. Keys stay in server memory, never workspace files or the renderer response.
+Open http://127.0.0.1:7860. Locally the server is not root, so every visitor shares your user; the sandbox is Seatbelt
+on macOS.
 
 ## Deploy
 
@@ -20,17 +43,11 @@ pnpm build:web
 node scripts/package-modelscope.mjs
 ```
 
-The output is `artifacts/modelscope/`. It includes a production dependency lockfile, the compiled renderer and server, original licenses and deployment provenance. Publish this directory to a ModelScope Docker Studio's `master` branch; use a credential helper, never a token in the remote URL. Use `platform/2v-cpu-8g-mem` only if the current hardware API reports it as free. Port is `7860`. Keep the root repository's private history and local settings out of the Studio.
+Publish `artifacts/modelscope/` to the Docker Studio's `master` branch with a credential helper (never a token in the
+remote URL), set the `ANNA_MODEL_API_KEY` secret, and deploy on free hardware only. Port 7860.
 
-Optional secrets: `ANNA_MODEL_API_KEY`. Variables: `ANNA_MODEL` (default `Qwen/Qwen3.5-35B-A3B`), `ANNA_MAX_SESSIONS` (default 30), `ANNA_WEB_DATA` (default `/tmp/anna-web-sessions`). This deployment intentionally uses disposable demo sessions, not persistent personal storage.
+## Limits
 
-## Boundaries and validation
-
-- Per visitor: Host, model key, session, memory, workspace, provider config directories and event stream.
-- Tool allowlist: workspace `read/write/edit/grep/find/ls`, `anna_memory`, `anna_status`. No shell, external agents, workspace reassignment, provider routing or Weixin.
-- Canonical path checks cover symlinks and pi path spellings; the original permission gate still handles mode and approval.
-- HTTP commands are allowlisted; model endpoints are fixed to ModelScope, preventing requests to arbitrary internal services.
-- A visitor session allows at most 8 messages/minute, three event streams, 100 KB writes and 12,000-character messages; sessions expire after 2 idle hours. These limits are demonstration controls, not an internet-scale tenancy system.
-- Test inputs are synthetic and labeled. Unit/integration results demonstrate implementation behavior only. Real model, public URL and browser acceptance must be recorded separately.
-
-The online version cannot run code/tests, access the visitor's computer or supervise installed Claude Code/Codex. It must not claim those capabilities. Browser speech relies on local speech synthesis availability.
+A visitor session allows 8 messages and 30 model calls a minute and expires after 2 idle hours; the Studio holds 12
+sessions. Delegated agents run as the visitor's user but outside the command sandbox, as on the desktop. These are
+demonstration controls, not an internet-scale tenancy system.

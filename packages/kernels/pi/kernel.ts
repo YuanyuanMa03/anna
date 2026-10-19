@@ -93,7 +93,7 @@ export class PiKernel implements AgentKernel {
       modelRuntime,
       model,
       thinkingLevel: model.reasoning ? 'medium' : 'off',
-      tools: [...builtin, ...custom.map(tool => tool.name)].filter(name => !this.context.allowedTools || this.context.allowedTools.includes(name)),
+      tools: [...builtin, ...custom.map(tool => tool.name)],
       customTools: custom,
       resourceLoader,
       sessionManager,

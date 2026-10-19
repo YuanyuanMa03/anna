@@ -36,8 +36,10 @@ const settingsSchema = v.object({
 export function validateModel(value: unknown): ModelSettings {
   const model = v.parse(modelSchema, value)
   const url = new URL(model.baseURL)
-  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
-    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址')
+  // Plain HTTP only to this machine (a local gateway such as the online demo's inference relay).
+  const loopback = url.protocol === 'http:' && (url.hostname === 'localhost' || /^127\./.test(url.hostname) || url.hostname === '[::1]')
+  if ((url.protocol !== 'https:' && !loopback) || url.username || url.password || url.search || url.hash)
+    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址（只有本机地址可以用 HTTP）')
   return model
 }
 

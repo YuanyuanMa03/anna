@@ -43,8 +43,6 @@ export interface KernelContext {
   /** Wrap a shell command in the OS sandbox; absent when no sandbox is available. */
   sandbox?: { wrap: (command: string, id: string) => Promise<string> }
   tools: AnnaTool[]
-  /** Optional tool allowlist for a constrained deployment such as the public Studio. */
-  allowedTools?: string[]
   emit: (event: KernelEvent) => void
   /** The permission mode in force (external kernels map it onto their own flags). */
   mode?: () => import('../permissions/modes').PermissionMode

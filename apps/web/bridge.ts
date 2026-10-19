@@ -7,7 +7,7 @@ export async function installWebBridge() {
   const headers = () => ({ 'Content-Type': 'application/json', 'X-Anna-Session': token })
   const check = await fetch('./api/session', { method: 'POST', headers: headers() })
   if (!check.ok)
-    throw new Error('在线体验暂时满员，请稍后刷新。')
+    throw new Error((await check.json().catch(() => ({}))).error ?? '在线体验暂时无法连接，请稍后刷新。')
   token = (await check.json()).session
   sessionStorage.setItem('anna.web.session', token)
 
@@ -23,6 +23,12 @@ export async function installWebBridge() {
   async function stream() {
     try {
       const response = await fetch('./api/events', { headers: headers() })
+      // The session ended (idle cleanup or a restart): start a fresh one rather than retrying forever.
+      if (response.status === 401) {
+        sessionStorage.removeItem('anna.web.session')
+        location.reload()
+        return
+      }
       if (!response.ok || !response.body)
         throw new Error('会话连接中断，请刷新页面。')
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()

@@ -7,4 +7,4 @@ async function main() {
     await (await import('../../web/bridge')).installWebBridge()
   createApp(App).mount('#app')
 }
-void main().catch(() => { document.querySelector('#app')!.textContent = 'Anna 在线体验暂时无法连接。请稍后刷新页面。' })
+void main().catch((error: Error) => { document.querySelector('#app')!.textContent = error.message || 'Anna 在线体验暂时无法连接。请稍后刷新页面。' })
