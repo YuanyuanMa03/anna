@@ -1,8 +1,8 @@
 import type { ClaudeModels } from '../routing/server'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { claudeConnectionKey, codexCatalogFile, codexCompose, codexSections, json, parseJson, tomlString } from './global'
+import { claudeConnectionKey, codexCatalogFile, codexCompose, codexSections, json, parseJson, tomlString, writeConfig } from './global'
 
 /**
  * Global routing: an agent's own config points at Anna's routing, so the CLI the user runs in a terminal goes through
@@ -119,8 +119,7 @@ export class RoutingTakeover {
   private async read(path: string) { return existsSync(path) ? readFile(path, 'utf8') : undefined }
   private async write(path: string, text: string) {
     await mkdir(join(path, '..'), { recursive: true })
-    await writeFile(`${path}.anna-tmp`, text, { mode: 0o600 })
-    await rename(`${path}.anna-tmp`, path)
+    await writeConfig(path, text)
   }
 
   /** Whether Anna holds this agent's config (also right after a crash, until the next start sorts it out). */

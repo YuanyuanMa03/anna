@@ -102,7 +102,7 @@ function judgeRead(path: string, context: PolicyContext, folder: boolean, reach?
   if (ruled === 'deny')
     return { kind: 'deny', reason: '你的权限规则禁止读取这个位置。' }
   const where = shown(path, context)
-  const secrets = unapproved(paths.some(isSecretFile) ? [path] : reach ? secretsIn(real, reach) : [], context)
+  const secrets = unapproved(paths.some(file => isSecretFile(file, zone.options.home)) ? [path] : reach ? secretsIn(real, reach, 3, zone.options.home) : [], context)
   if (secrets.length)
     return secretAsk(reach ? '搜索会读到可能含有密钥的文件，内容会发送给模型' : '读取可能含有密钥的文件，内容会发送给模型', secrets, where, context)
   if (ruled === 'ask')
@@ -200,8 +200,8 @@ function judgeCommand(command: string, context: PolicyContext): Decision {
     return { kind: 'deny', reason: '现在是规划模式，只运行查看类命令。请先给出方案，等用户切换模式后再执行。' }
 
   // Secret files: the same check whether the command names them or a recursive search would read them.
-  const named = pieces.filter(piece => !piece.metadata).flatMap(piece => piece.paths).filter(path => path.some(isSecretFile)).map(path => path[0]!)
-  const secrets = unapproved([...new Set([...named, ...searches.flatMap(search => secretsIn(search.dir.at(-1)!, search.reach))])], context)
+  const named = pieces.filter(piece => !piece.metadata).flatMap(piece => piece.paths).filter(path => path.some(file => isSecretFile(file, zone.options.home))).map(path => path[0]!)
+  const secrets = unapproved([...new Set([...named, ...searches.flatMap(search => secretsIn(search.dir.at(-1)!, search.reach, 3, zone.options.home))])], context)
   if (secrets.length)
     return secretAsk('命令会读取可能含有密钥的文件，内容会发送给模型', secrets, details, context, kind)
 

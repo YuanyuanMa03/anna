@@ -2,7 +2,7 @@ import type { Buffer } from 'node:buffer'
 import type { FileChange } from '../shared/contracts'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { createTwoFilesPatch } from 'diff'
 import { canonical } from '../permissions/paths'
@@ -11,6 +11,9 @@ interface Entry { path: string, existed: boolean, blob?: string }
 interface Manifest { taskId: string, workspace: string, entries: Entry[], after?: Record<string, string | null> }
 const hash = (data: Buffer | string) => createHash('sha256').update(data).digest('hex')
 const maxBytes = 5 * 1024 * 1024
+/** Undo history kept: the newest tasks, and none older than a month. */
+const keptTasks = 200
+const keptDays = 30
 
 /**
  * File checkpoints for undo: before a tool first writes a file in a task, its previous content is stored.
@@ -20,13 +23,21 @@ export class Checkpoints {
   private manifests = new Map<string, Manifest>()
   constructor(private directory: string) {}
 
-  private file(taskId: string) { return join(this.directory, taskId, 'manifest.json') }
+  /** A task's folder. Task ids are Anna's own (`<time>-<hex>`); anything else (a path) is refused. */
+  private folder(taskId: string) {
+    if (!/^[\w-]{1,100}$/.test(taskId))
+      throw new Error('无效的任务编号')
+    return join(this.directory, taskId)
+  }
+
+  private file(taskId: string) { return join(this.folder(taskId), 'manifest.json') }
   private async load(taskId: string) {
     const cached = this.manifests.get(taskId)
     if (cached)
       return cached
+    const file = this.file(taskId)
     try {
-      const manifest = JSON.parse(await readFile(this.file(taskId), 'utf8')) as Manifest
+      const manifest = JSON.parse(await readFile(file, 'utf8')) as Manifest
       this.manifests.set(taskId, manifest)
       return manifest
     }
@@ -34,7 +45,7 @@ export class Checkpoints {
   }
 
   private async save(manifest: Manifest) {
-    await mkdir(join(this.directory, manifest.taskId), { recursive: true, mode: 0o700 })
+    await mkdir(this.folder(manifest.taskId), { recursive: true, mode: 0o700 })
     await writeFile(this.file(manifest.taskId), JSON.stringify(manifest), { mode: 0o600 })
   }
 
@@ -55,8 +66,8 @@ export class Checkpoints {
       if (data.length > maxBytes)
         return
       const blob = hash(data)
-      await mkdir(join(this.directory, taskId, 'blobs'), { recursive: true, mode: 0o700 })
-      await writeFile(join(this.directory, taskId, 'blobs', blob), data, { mode: 0o600 })
+      await mkdir(join(this.folder(taskId), 'blobs'), { recursive: true, mode: 0o700 })
+      await writeFile(join(this.folder(taskId), 'blobs', blob), data, { mode: 0o600 })
       manifest.entries.push({ path, existed: true, blob })
     }
     await this.save(manifest)
@@ -79,15 +90,48 @@ export class Checkpoints {
   /** Whether a path (in any spelling) is already recorded. */
   async has(taskId: string, path: string) { return (await this.known(taskId)).has(canonical(path)) }
 
-  /** Seal the task: remember what each file looked like afterwards, so undo can detect later edits. */
+  /**
+   * Seal the task: remember what each file looked like afterwards, so undo can detect later edits. Files the task
+   * didn't change are dropped (a delegation snapshots the whole workspace first), and old tasks' history is pruned.
+   */
   async seal(taskId: string) {
     const manifest = await this.load(taskId)
     if (!manifest)
       return []
     manifest.after = {}
-    for (const entry of manifest.entries) manifest.after[entry.path] = existsSync(entry.path) ? hash(await readFile(entry.path)) : null
+    const kept: Entry[] = []
+    for (const entry of manifest.entries) {
+      const after = existsSync(entry.path) ? hash(await readFile(entry.path)) : null
+      if (entry.existed ? after === entry.blob : after === null)
+        continue
+      manifest.after[entry.path] = after
+      kept.push(entry)
+    }
+    const used = new Set(kept.map(entry => entry.blob))
+    for (const entry of manifest.entries) {
+      if (entry.blob && !used.has(entry.blob)) {
+        used.add(entry.blob)
+        await rm(join(this.folder(taskId), 'blobs', entry.blob), { force: true })
+      }
+    }
+    manifest.entries = kept
     await this.save(manifest)
+    await this.prune(taskId).catch(() => {})
     return this.changes(taskId)
+  }
+
+  /** Keep the newest tasks' history and nothing older than a month; the task just sealed always stays. */
+  private async prune(current: string) {
+    const names = (await readdir(this.directory, { withFileTypes: true })).filter(entry => entry.isDirectory() && entry.name !== current).map(entry => entry.name)
+    const tasks = await Promise.all(names.map(async name => ({ name, at: (await stat(join(this.directory, name))).mtimeMs })))
+    tasks.sort((a, b) => b.at - a.at)
+    const cutoff = Date.now() - keptDays * 24 * 60 * 60 * 1000
+    for (const [index, task] of tasks.entries()) {
+      if (index >= keptTasks - 1 || task.at < cutoff) {
+        await rm(join(this.directory, task.name), { recursive: true, force: true })
+        this.manifests.delete(task.name)
+      }
+    }
   }
 
   async changes(taskId: string): Promise<FileChange[]> {
@@ -99,7 +143,7 @@ export class Checkpoints {
       const exists = existsSync(entry.path)
       if (!entry.existed && !exists)
         continue
-      const before = entry.blob ? await readFile(join(this.directory, taskId, 'blobs', entry.blob), 'utf8') : ''
+      const before = entry.blob ? await readFile(join(this.folder(taskId), 'blobs', entry.blob), 'utf8') : ''
       const after = exists ? await readFile(entry.path, 'utf8') : ''
       if (entry.existed && before === after)
         continue
@@ -128,12 +172,12 @@ export class Checkpoints {
     const restored: string[] = []
     for (const entry of manifest.entries) {
       if (entry.existed)
-        await writeFile(entry.path, await readFile(join(this.directory, taskId, 'blobs', entry.blob!)))
+        await writeFile(entry.path, await readFile(join(this.folder(taskId), 'blobs', entry.blob!)))
       else
         await rm(entry.path, { force: true })
       restored.push(relative(manifest.workspace, entry.path))
     }
-    await rm(join(this.directory, taskId), { recursive: true, force: true })
+    await rm(this.folder(taskId), { recursive: true, force: true })
     this.manifests.delete(taskId)
     return { restored, conflicts }
   }

@@ -34,7 +34,7 @@ const peer = new RpcPeer(message => parent.postMessage(message), {
     return host!.snapshot()
   },
   shutdown: async () => {
-    await Promise.allSettled([host?.close(), weixin?.stop()])
+    await Promise.allSettled([host?.shutdown(), weixin?.stop()])
     setTimeout(() => process.exit(0), 50)
   },
 })

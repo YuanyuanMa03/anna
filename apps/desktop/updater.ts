@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 import { app, shell } from 'electron'
-import { planUpdate, swapScript, verifyDigest } from '../../packages/shared/update'
+import { planUpdate, ps, sh, swapScript, verifyDigest, verifyManifest } from '../../packages/shared/update'
 
 const run = promisify(execFile)
 /** `manual`: Anna can't replace itself here (the .deb in /opt, or /Applications for a standard user), so the update is a new installer. */
@@ -53,7 +53,11 @@ export class Updater {
       const response = await fetch(`${this.base}/latest.json`, { redirect: 'follow', signal: AbortSignal.timeout(15000) })
       if (!response.ok)
         throw new Error(`HTTP ${response.status}`)
-      this.plan = planUpdate(await response.json(), app.getVersion(), process.platform, process.arch)
+      const manifest = await response.json()
+      // The checksum below only proves the download matches the manifest; the signature proves the manifest is ours.
+      if (!verifyManifest(manifest))
+        throw new Error('发布信息没有有效的签名，已停止更新')
+      this.plan = planUpdate(manifest, app.getVersion(), process.platform, process.arch)
       this.set(this.plan.available ? { state: 'available', version: this.plan.version, notes: this.plan.notes, manual: !(await this.replaceable()) } : { state: 'current', version: this.plan.version, message: this.plan.reason })
     }
     catch (error) {
@@ -86,14 +90,15 @@ export class Updater {
       if (process.platform === 'darwin')
         await run('/usr/bin/ditto', ['-x', '-k', archive, unpacked])
       else if (process.platform === 'win32')
-        await run('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -Path '${archive}' -DestinationPath '${unpacked}' -Force`])
+        await run('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath ${ps(archive)} -DestinationPath ${ps(unpacked)} -Force`])
       else
         await run('tar', ['-xzf', archive, '-C', unpacked])
       const name = process.platform === 'darwin' ? 'Anna.app' : 'Anna'
       if (!(await readdir(unpacked)).includes(name))
         throw new Error(`更新包里没有 ${name}`)
       const current = this.installed()
-      const relaunch = process.platform === 'darwin' ? `open ${JSON.stringify(current)}` : process.platform === 'win32' ? `Start-Process '${join(current, 'Anna.exe')}'` : `nohup ${JSON.stringify(join(current, 'anna'))} >/dev/null 2>&1 &`
+      // Quoted for the shell that runs it: a path with ', $ or ` in it stays one word.
+      const relaunch = process.platform === 'darwin' ? `open ${sh(current)}` : process.platform === 'win32' ? `Start-Process -FilePath ${ps(join(current, 'Anna.exe'))}` : `nohup ${sh(join(current, 'anna'))} >/dev/null 2>&1 &`
       const script = swapScript(process.platform, { pid: process.pid, current, staged: join(unpacked, name), relaunch })
       const scriptPath = join(work, process.platform === 'win32' ? 'swap.ps1' : 'swap.sh')
       await writeFile(scriptPath, script, { mode: 0o700 })

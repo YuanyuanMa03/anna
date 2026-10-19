@@ -48,7 +48,8 @@ app.on('open-url', (event, url) => {
 })
 if (linkIn(process.argv))
   links.push(linkIn(process.argv)!)
-if (process.env.ANNA_TEST_CDP) {
+// Remote debugging for the test harness only: never in the installed app, whatever its environment says.
+if (process.env.ANNA_TEST_CDP && !app.isPackaged) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ANNA_TEST_CDP)
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 }
@@ -233,6 +234,10 @@ async function start() {
       return { ok: false as const, error: 'Unauthorized window' }
     try {
       let forward: Command = request
+      // A workspace only ever comes from the user's own folder dialog, never as a path from the window (the scripted
+      // acceptance test, which can't click a native dialog, is the one exception).
+      if (request.type === 'workspace' && !process.env.ANNA_TEST_SCRIPT)
+        throw new Error('工作文件夹只能通过选择对话框更换')
       if (request.type === 'choose-workspace') {
         const choice = await dialog.showOpenDialog(win, { title: '选择 Anna 可以处理的工作文件夹', properties: ['openDirectory', 'createDirectory'] })
         if (choice.canceled || !choice.filePaths[0])

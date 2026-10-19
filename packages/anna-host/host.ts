@@ -215,8 +215,12 @@ export class Host {
 
   // ── Permission gate ─────────────────────────────────────────────────────────
 
+  /**
+   * Anna's own data, out of every tool's reach. `agent-backups` holds the agents' original configs, keys included;
+   * the default workspace (`workspace`) is the one folder here tools may use.
+   */
   private protectedPaths() {
-    return ['credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions'].map(name => join(this.data, name))
+    return ['credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
@@ -511,9 +515,14 @@ export class Host {
     }
   }
 
-  async close() {
-    // The agents' own configs go back as they were; the next start takes them over again.
+  /** When Anna quits: the agents' own configs go back as they were (the next start takes them over again), then close. */
+  async shutdown() {
     await this.hub.releaseRouting().catch(() => {})
+    await this.close()
+  }
+
+  /** Stop the kernel and the sandbox. Also part of every reconfiguration, so global routing stays as it is. */
+  async close() {
     this.approvals.cancel()
     if (this.kernel)
       await this.kernel.close()
@@ -730,7 +739,10 @@ export class Host {
         return this.snapshot()
       case 'send':
         if (this.current && this.current.origin === 'desktop' && this.kernel?.capabilities.steering) {
-          await this.kernel.steer(command.text.trim())
+          const text = command.text.trim()
+          if (!text || text.length > 30000)
+            throw new Error('消息长度必须为 1–30000 个字符')
+          await this.kernel.steer(text)
           this.refreshHistory()
           this.publish()
         }

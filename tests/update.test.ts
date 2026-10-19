@@ -59,3 +59,44 @@ describe('swap script', () => {
     expect(existsSync(marker)).toBe(true)
   })
 })
+
+describe('signed release manifests', () => {
+  it('only a manifest signed with the release key is trusted; any change to it breaks the signature', async () => {
+    const { generateKeyPairSync, sign } = await import('node:crypto')
+    const { manifestPayload, verifyManifest, releasePublicKey } = await import('../packages/shared/update')
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+    const key = publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+    const signed = { ...manifest, signature: sign(null, Buffer.from(manifestPayload(manifest)), privateKey).toString('base64') }
+    expect(verifyManifest(signed, key)).toBe(true)
+    expect(verifyManifest(signed, releasePublicKey)).toBe(false)
+    expect(verifyManifest(manifest, key)).toBe(false)
+    expect(verifyManifest({ ...signed, version: '9.9.9' }, key)).toBe(false)
+    expect(verifyManifest({ ...signed, assets: { ...signed.assets, 'darwin-arm64': { ...signed.assets['darwin-arm64'], url: 'https://evil.example/a.zip' } } }, key)).toBe(false)
+    expect(verifyManifest({ ...signed, notes: 'changed' }, key)).toBe(false)
+    expect(verifyManifest({ ...signed, signature: 'not base64 at all' }, key)).toBe(false)
+  })
+
+  it('scripts/sign-manifest.mjs signs what the app verifies, keeping one asset per line for install.sh', async () => {
+    const { generateKeyPairSync } = await import('node:crypto')
+    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { execFileSync } = await import('node:child_process')
+    const { verifyManifest } = await import('../packages/shared/update')
+    const dir = await mkdtemp(join(tmpdir(), 'anna-sign-'))
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+    await writeFile(join(dir, 'key.pem'), privateKey.export({ type: 'pkcs8', format: 'pem' }))
+    await writeFile(join(dir, 'latest.json'), JSON.stringify(manifest))
+    execFileSync(process.execPath, ['scripts/sign-manifest.mjs', join(dir, 'latest.json')], { env: { ...process.env, ANNA_RELEASE_SIGNING_KEY: join(dir, 'key.pem') } })
+    const text = await readFile(join(dir, 'latest.json'), 'utf8')
+    expect(verifyManifest(JSON.parse(text), publicKey.export({ type: 'spki', format: 'der' }).toString('base64'))).toBe(true)
+    expect(text.split('\n').filter(line => line.includes('"sha256"'))).toHaveLength(2)
+    expect(text).toMatch(/^ {2}"version": "0\.5\.0",$/m)
+  })
+
+  it('quotes paths for the shell that runs them', async () => {
+    const { sh, ps } = await import('../packages/shared/update')
+    expect(sh('/Applications/O\'Brien $HOME `x`.app')).toBe('\'/Applications/O\'\\\'\'Brien $HOME `x`.app\'')
+    expect(ps('C:\\Users\\O\'Brien\\Anna.exe')).toBe('\'C:\\Users\\O\'\'Brien\\Anna.exe\'')
+  })
+})
