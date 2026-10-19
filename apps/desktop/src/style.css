@@ -171,6 +171,27 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
   .connection { display: none }
   .dock { padding: 6px 16px 12px }
 }
+/* Online demo: on a phone the page scrolls as one column (stage, reply, cards) with the composer pinned below. */
+@media (max-width: 600px) {
+  .app-shell { height: auto; min-height: 100dvh; overflow: visible; grid-template-rows: auto auto auto }
+  .topbar { flex-wrap: nowrap; padding: 10px 12px 4px }
+  .brand { font-size: 24px; flex: none }
+  .header-actions { overflow-x: auto; scrollbar-width: none; min-width: 0 }
+  .header-actions::-webkit-scrollbar { display: none }
+  .header-actions button { white-space: nowrap; flex: none; padding: 6px 10px }
+  .scene { display: flex; flex-direction: column; gap: 10px; padding: 0 12px }
+  .stage { height: 46dvh; min-height: 300px; flex: none }
+  .speech { position: static; width: auto; margin: 0 }
+  .bubble { max-height: none }
+  .props { position: static; width: auto; max-height: none; overflow: visible; padding: 0 }
+  .stage-overlay { display: none }
+  .dock { position: sticky; bottom: 0; padding: 8px 12px 12px; background: linear-gradient(transparent, var(--bg) 18px) }
+  .composer-actions { flex-wrap: wrap; row-gap: 6px }
+  .mode-switch { order: -1; flex-basis: 100%; justify-content: space-between }
+  .mode-switch button { padding: 5px 8px }
+  .mode-switch button small { display: none }
+  .composer-actions label { margin-right: auto }
+}
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
 
 /* ── Permission modes ─────────────────────────────────────────────── */
@@ -322,6 +343,11 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .link-confirm dt { color: #8a769b }
 .link-confirm dd { margin: 0; overflow-wrap: anywhere }
 
+.tour-card dl { margin: 0; display: grid; gap: 2px 0 }
+.tour-card dt { font-size: 13px; font-weight: 500; margin-top: 6px }
+.tour-card dd { margin: 0; font-size: 12px; line-height: 1.7; color: var(--muted) }
+.tour-card .desktop-only dt::after { content: '桌面版'; margin-left: 6px; font-size: 9px; font-weight: 400; color: #9a80ab; border: 1px solid #ddd0e8; border-radius: 6px; padding: 0 4px }
+.tour-card .link { align-self: flex-start; color: var(--accent); font-size: 12px }
 .web-notice { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: #706778; }
 .web-notice a { color: #7d64a3; font-weight: 500; white-space: nowrap; }
 .web-notice a:hover { text-decoration: underline; }

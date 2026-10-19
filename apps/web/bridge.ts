@@ -1,4 +1,5 @@
 import type { AnnaBridge, AnnaEvent, Command, Reply } from '../../packages/shared/contracts'
+import { shortPaths } from '../desktop/src/online'
 
 /** Same contracts as Electron; a per-tab random capability replaces the desktop IPC boundary. */
 export async function installWebBridge() {
@@ -11,10 +12,15 @@ export async function installWebBridge() {
   token = (await check.json()).session
   sessionStorage.setItem('anna.web.session', token)
 
+  // The visitor's workspace, learned from the first snapshot: shown as `workspace` rather than the server's path.
+  let root = ''
+  const learn = (value: { snapshot?: { workspace?: { path?: string } } }) => { root ||= value.snapshot?.workspace?.path ?? '' }
   const bridge: AnnaBridge = {
     async invoke(command: Command): Promise<Reply> {
       const response = await fetch('./api/command', { method: 'POST', headers: headers(), body: JSON.stringify(command) })
-      return response.json()
+      const reply = await response.json() as Reply
+      learn(reply as never)
+      return shortPaths(reply, root)
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener) } },
   }
@@ -44,7 +50,8 @@ export async function installWebBridge() {
           pending = pending.slice(end + 2)
           if (frame.startsWith('data: ')) {
             const event = JSON.parse(frame.slice(6)) as AnnaEvent
-            for (const listener of listeners) listener(event)
+            learn(event as never)
+            for (const listener of listeners) listener(shortPaths(event, root))
           }
         }
       }

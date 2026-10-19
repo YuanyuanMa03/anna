@@ -12,6 +12,7 @@ import ApprovalCard from './components/approval-card.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
+import { tour, tourPrompts } from './online'
 import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -50,7 +51,7 @@ let release: (() => void) | undefined
 let clock: number | undefined
 
 const character = computed(() => companion(snapshot.value?.settings.characterId))
-const suggestions = computed(() => ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', `${character.value.name}，你好，介绍一下你自己。`])
+const suggestions = computed(() => import.meta.env.VITE_ANNA_WEB ? tourPrompts() : ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', `${character.value.name}，你好，介绍一下你自己。`])
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
@@ -313,6 +314,14 @@ if (web) {
       </div>
 
       <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
+        <div v-if="web && !messages.length && !running" class="card tour-card">
+          <span class="eyebrow">Anna 不只是会聊天</span>
+          <dl><template v-for="item in tour.online" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
+          <span class="eyebrow">桌面版还能</span>
+          <dl class="desktop-only"><template v-for="item in tour.desktop" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
+          <a class="link" href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>
+        </div>
+
         <div v-if="needsTrust" class="card trust-card" role="alert">
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>
@@ -357,7 +366,7 @@ if (web) {
     <svg class="stage-overlay" aria-hidden="true"><path v-if="tail" class="speech-tail" :d="tail" /><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
-      <p v-if="web" class="web-notice">在线体验 · 完整的 Anna：真实模型、沙箱里的终端、审批卡、交付卡，还能 @claude、@codex 派活。每位访客有独立的电脑账号和示例项目，闲置 2 小时后清理。请勿输入敏感信息。喜欢她的话，<a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>，或者到 <a href="https://github.com/YuanyuanMa03/anna" target="_blank" rel="noopener">GitHub ↗</a> 点个 Star。</p>
+      <p v-if="web" class="web-notice">在线体验 · 每位访客有独立的电脑账号和示例项目，闲置 2 小时后清理，请勿输入敏感信息。喜欢她的话，<a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>，或者到 <a href="https://github.com/YuanyuanMa03/anna" target="_blank" rel="noopener">GitHub ↗</a> 点个 Star。</p>
       <div v-if="web && quotaOut" class="setup-notice quota-notice" role="status"><span>在线体验今天的免费模型额度用完了，明天再来吧。等不及的话，可以下载桌面版，接上你自己的模型。</span><a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a></div>
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
