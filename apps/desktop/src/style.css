@@ -173,8 +173,8 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 }
 /* Online demo: on a phone the page scrolls as one column (stage, reply, cards) with the composer pinned below. */
 @media (max-width: 600px) {
-  .app-shell { height: auto; min-height: 100dvh; overflow: visible; grid-template-rows: auto auto auto }
-  .topbar { flex-wrap: nowrap; padding: 10px 12px 4px }
+  .app-shell { height: auto; min-height: 100dvh; overflow: visible; grid-template-rows: auto auto auto; grid-template-columns: minmax(0, 1fr) }
+  .topbar { flex-wrap: nowrap; padding: 10px 12px 4px; min-width: 0 }
   .brand { font-size: 24px; flex: none }
   .header-actions { overflow-x: auto; scrollbar-width: none; min-width: 0 }
   .header-actions::-webkit-scrollbar { display: none }

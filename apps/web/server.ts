@@ -107,6 +107,8 @@ async function createVisitor(id: string): Promise<Visitor> {
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
     LANG: 'C.UTF-8',
+    // Visitors are mostly in China: "today" and the weekday the brain is told follow Beijing time.
+    TZ: process.env.ANNA_TZ ?? 'Asia/Shanghai',
     NODE_ENV: 'production',
     HOME: join(data, 'home'),
     TMPDIR: join(data, 'tmp'),
