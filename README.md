@@ -84,7 +84,8 @@ credit.
   third-party models, and runs on DeepSeek, which speaks its Responses API natively; providers that only speak Chat
   Completions reach Claude Code and Codex through Anna's local routing, which converts the format on this machine and
   keeps the real key to itself. Give Claude Code or Codex backup providers and a failing one is swapped out mid-task,
-  with a circuit breaker per provider. Global routing, MCP and skills sync and usage stats come next.
+  with a circuit breaker per provider. Switch on global routing and the Claude Code or Codex you run in a terminal goes
+  through Anna too (its config goes back when Anna quits). MCP and skills sync and usage stats come next.
 - 💬 **WeChat remote.** Message Anna from your phone through WeChat ClawBot. She queues the task and messages back when
   it's done. Approvals stay on the desktop.
 

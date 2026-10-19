@@ -2,9 +2,11 @@ import type { DelegateAgent } from '../agents/adapters'
 import type { LinkImport } from '../agents/deeplink'
 import type { AgentInfo } from '../agents/detect'
 import type { ImportedProvider, Preset, ProviderApp, ProviderChoice } from '../agents/providers'
-import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, UniversalDraft, UniversalProvider } from '../shared/contracts'
+import type { RouteHandle } from '../routing/server'
+import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, RoutingPolicy, UniversalDraft, UniversalProvider } from '../shared/contracts'
 import type { SettingsStore } from './settings'
 import { execFile } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -12,14 +14,17 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
+import { codexCatalog } from '../agents/codex-catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
 import { GlobalSwitcher, routedOnlyInAnna } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
-import { canRoute, chatReasoningOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna } from '../agents/providers'
+import { canRoute, chatReasoningOf, chatRouteOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna, upstreamOf } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
+import { RoutingTakeover } from '../agents/takeover'
 import { queryUsage, usageKind } from '../agents/usage'
-import { routingIfStarted } from '../routing/server'
+import { failoverDefaults } from '../routing/breaker'
+import { routing, routingIfStarted } from '../routing/server'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -29,7 +34,15 @@ export interface AgentsOptions {
   ccSwitchDb?: string
   /** The speed test's HTTP client (tests point it at a local server). */
   fetch?: typeof fetch
+  /** Global routing's fixed port (tests use a free one). */
+  routingPort?: number
 }
+
+/** Global routing's port: next to cc-switch's 15721, so both can run. */
+export const globalRoutingPort = 15722
+const routedApps = ['claude', 'codex'] as const
+/** The failover settings the user can change, and their bounds. */
+const policyBounds: Record<keyof RoutingPolicy, [number, number]> = { maxRetries: [0, 10], firstByteTimeout: [5, 600], idleTimeout: [10, 1800], failureThreshold: [1, 50], openSeconds: [5, 3600] }
 
 const providerApps: Record<string, ProviderApp | undefined> = { claude: 'claude', codex: 'codex', gemini: 'gemini' }
 export const providerAppOf = (agent: string) => providerApps[agent]
@@ -105,9 +118,124 @@ export class AgentsHub {
   /** A link's provider waiting for confirmation; its key never leaves this process unmasked. */
   private pending?: LinkImport
   readonly switcher: GlobalSwitcher
+  readonly takeover: RoutingTakeover
+  /** Global routing's open routes, one per agent, and how each one stands. */
+  private globalRoutes: Partial<Record<'claude' | 'codex', RouteHandle>> = {}
+  private routingStatus: Partial<Record<'claude' | 'codex', { url?: string, error?: string }>> = {}
   constructor(private data: string, private store: SettingsStore, private secrets: SecretVault, private options: AgentsOptions = {}) {
     const home = homedir()
-    this.switcher = new GlobalSwitcher(join(data, 'agent-backups'), options.configDirs ?? { claude: join(home, '.claude'), codex: join(home, '.codex'), gemini: join(home, '.gemini') })
+    const dirs = options.configDirs ?? { claude: join(home, '.claude'), codex: join(home, '.codex'), gemini: join(home, '.gemini') }
+    this.switcher = new GlobalSwitcher(join(data, 'agent-backups'), dirs)
+    this.takeover = new RoutingTakeover(join(data, 'agent-backups'), dirs)
+  }
+
+  /** Global routing's token for an agent: kept with the keys, so the CLI's config stays valid across restarts. */
+  private async routeToken(app: 'claude' | 'codex') {
+    const keys = await this.allKeys()
+    if (!keys[`route:${app}`])
+      await this.saveKey(`route:${app}`, `anna-route-${randomBytes(24).toString('hex')}`)
+    return keys[`route:${app}`]!
+  }
+
+  /** Failover settings in force for an agent: the defaults with the user's changes. */
+  private policy(app: 'claude' | 'codex'): Required<RoutingPolicy> {
+    const { maxRetries, firstByteTimeout, idleTimeout, failureThreshold, openSeconds } = failoverDefaults[app]
+    return { maxRetries, firstByteTimeout, idleTimeout, failureThreshold, openSeconds, ...this.store.value.routing?.policies?.[app] }
+  }
+
+  async setRoutingPolicy(appName: string, policy: RoutingPolicy) {
+    const app = providerAppOf(appName)
+    if (app !== 'claude' && app !== 'codex')
+      throw new Error('只有 Claude Code 和 Codex 经过 Anna 的路由')
+    const clean: RoutingPolicy = {}
+    for (const [key, value] of Object.entries(policy) as [keyof RoutingPolicy, unknown][]) {
+      const bounds = policyBounds[key]
+      if (!bounds)
+        continue
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < bounds[0] || value > bounds[1])
+        throw new Error(`${key} 要在 ${bounds[0]} 到 ${bounds[1]} 之间`)
+      clean[key] = value
+    }
+    const routingSettings = this.store.value.routing ?? {}
+    this.store.value.routing = { ...routingSettings, policies: { ...routingSettings.policies, [app]: clean } }
+    await this.store.save()
+    routingIfStarted()?.configure(app, clean)
+  }
+
+  /** Turn global routing on or off for an agent; its config is written (or given back) right away. */
+  async setGlobalRouting(appName: string, on: boolean) {
+    const app = providerAppOf(appName)
+    if (app !== 'claude' && app !== 'codex')
+      throw new Error('只有 Claude Code 和 Codex 能经过 Anna 的路由')
+    if (on && this.switcher.status(app).switched)
+      throw new Error(`Anna 已经把 ${app === 'claude' ? 'Claude Code' : 'Codex'} 的配置直接切到了 ${this.switcher.status(app).provider}，先恢复原配置`)
+    const routingSettings = this.store.value.routing ?? {}
+    this.store.value.routing = { ...routingSettings, global: { ...routingSettings.global, [app]: on } }
+    await this.store.save()
+    await this.syncRouting()
+    if (on && this.routingStatus[app]?.error)
+      throw new Error(this.routingStatus[app]!.error)
+  }
+
+  /**
+   * Bring global routing in line with the settings and the providers chosen now: the route follows the provider in
+   * use and its backups, and the agent's config is (re)written when its view changes. Also run at start, which
+   * renews a takeover left by a crash, or gives the config back when routing was switched off.
+   */
+  async syncRouting() {
+    const enabled = this.store.value.routing?.global ?? {}
+    const server = enabled.claude || enabled.codex ? await routing() : routingIfStarted()
+    for (const app of routedApps) server?.configure(app, this.store.value.routing?.policies?.[app] ?? {})
+    for (const app of routedApps) {
+      if (!enabled[app]) {
+        this.globalRoutes[app]?.close()
+        delete this.globalRoutes[app]
+        delete this.routingStatus[app]
+        if (await this.takeover.active(app))
+          await this.takeover.release(app)
+        continue
+      }
+      try {
+        const choice = await this.choice(app)
+        if (!choice || !canRoute(app, choice.preset))
+          throw new Error('先在这里选一个服务商：它自己的登录不能经过 Anna 的路由')
+        const base = await server!.listen(this.options.routingPort ?? globalRoutingPort)
+        const backups = (await this.backups(app)).filter(backup => canRoute(app, backup.preset))
+        const spec = { ...chatRouteOf(app, choice), ...(backups.length ? { backups: backups.map(backup => upstreamOf(app, backup)) } : {}) }
+        const token = await this.routeToken(app)
+        const handle = this.globalRoutes[app]
+        if (handle)
+          handle.update(spec)
+        else this.globalRoutes[app] = server!.open(spec, token)
+        const url = `${base}${app === 'claude' ? '/claude' : '/codex/v1'}`
+        if (app === 'claude') {
+          await this.takeover.apply({ app, target: { url, token, models: upstreamOf(app, choice).models ?? {} } })
+        }
+        else {
+          const catalog = codexCatalog(choice.preset, choice.model)
+          await this.takeover.apply({ app, target: { url, token, model: choice.model ?? choice.preset.model }, ...(catalog ? { catalog: `${JSON.stringify(catalog, null, 2)}\n` } : {}) })
+        }
+        this.routingStatus[app] = { url }
+      }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        this.routingStatus[app] = { error: /EADDRINUSE/.test(message) ? `端口 ${this.options.routingPort ?? globalRoutingPort} 被占用了（另一个 Anna 在运行？）` : message }
+        // A config pointing at a route that can't answer would only break the CLI: give it back.
+        this.globalRoutes[app]?.close()
+        delete this.globalRoutes[app]
+        if (await this.takeover.active(app))
+          await this.takeover.release(app)
+      }
+    }
+  }
+
+  /** On quit: every config Anna holds goes back as it was; the settings stay, so the next start takes over again. */
+  async releaseRouting() {
+    for (const app of routedApps) {
+      this.globalRoutes[app]?.close()
+      delete this.globalRoutes[app]
+      await this.takeover.release(app)
+    }
   }
 
   private get ccSwitchDb() { return this.options.ccSwitchDb ?? join(homedir(), '.cc-switch', 'cc-switch.db') }
@@ -494,6 +622,8 @@ export class AgentsHub {
       throw new Error('请先选择服务商')
     if (routedThroughAnna(app, choice.preset))
       throw new Error(routedOnlyInAnna(choice.preset.name))
+    if ((app === 'claude' || app === 'codex') && this.store.value.routing?.global?.[app])
+      throw new Error('它在终端里正经过 Anna 的路由，先关掉“终端也走 Anna 的路由”')
     await this.switcher.apply(app, choice)
   }
 
@@ -546,7 +676,8 @@ export class AgentsHub {
     return {
       detected,
       providers,
-      global: { claude: this.switcher.status('claude'), codex: this.switcher.status('codex'), gemini: this.switcher.status('gemini') },
+      global: { claude: { ...this.switcher.status('claude'), ...(this.routingStatus.claude ? { routing: this.routingStatus.claude } : {}) }, codex: { ...this.switcher.status('codex'), ...(this.routingStatus.codex ? { routing: this.routingStatus.codex } : {}) }, gemini: this.switcher.status('gemini') },
+      routingPolicies: { claude: this.policy('claude'), codex: this.policy('codex') },
       presets,
       mine,
       speed: this.speed,

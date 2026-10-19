@@ -312,6 +312,15 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .provider-tools { align-items: center; margin: 4px 0 0 }
 .provider-tools label.check { flex-direction: row; align-items: center; gap: 4px; color: #7d6a8e }
 .provider-tools input[type=checkbox] { width: auto }
+.routing-global { border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; margin: 8px 0 }
+.routing-global p { margin: 6px 0 0 }
+.sheet .routing-global label.check { flex-direction: row; align-items: center; gap: 6px; color: #5d4874 }
+.sheet .routing-global input[type=checkbox] { width: auto }
+.routing-policy summary { cursor: pointer; color: #7d6a8e; margin-top: 8px }
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 }
+.policy-grid label { display: flex; flex-direction: column; gap: 4px; color: #7d6a8e }
+.policy-grid span { display: flex; align-items: center; gap: 6px }
+.sheet .policy-grid input { width: 80px; padding: 6px 8px }
 p.warn { color: #9a6a24; margin: 4px 0 }
 .link-import { display: flex; flex-direction: row !important; gap: 8px; margin: 8px 0 !important }
 .link-import input { flex: 1 }

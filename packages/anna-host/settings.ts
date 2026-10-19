@@ -24,6 +24,10 @@ const settingsSchema = v.object({
   agents: v.optional(v.record(v.string(), v.object({ provider: v.optional(v.string()), backups: v.optional(v.array(v.string())) }))),
   universal: v.optional(v.array(v.looseObject({ name: v.string(), baseUrl: v.string(), apps: v.object({ claude: v.boolean(), codex: v.boolean(), gemini: v.boolean() }), models: v.looseObject({}) }))),
   providers: v.optional(v.array(v.object({ app: v.picklist(['claude', 'codex', 'gemini']), name: v.string(), source: v.optional(v.picklist(['preset', 'custom', 'imported', 'universal'])), preset: v.looseObject({ name: v.string(), official: v.boolean(), category: v.string() }) }))),
+  routing: v.optional(v.object({
+    global: v.optional(v.object({ claude: v.optional(v.boolean()), codex: v.optional(v.boolean()) })),
+    policies: v.optional(v.object(Object.fromEntries((['claude', 'codex'] as const).map(app => [app, v.optional(v.object(Object.fromEntries(['maxRetries', 'firstByteTimeout', 'idleTimeout', 'failureThreshold', 'openSeconds'].map(key => [key, v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))]))))])))),
+  })),
 })
 
 /** Validate the endpoint before a credential crosses the host network boundary. */
