@@ -99,3 +99,20 @@ describe('on stage', () => {
     expect(presence.state).toMatchObject({ phase: 'retrying', line: 'DeepSeek 返回了 503，换成 Kimi' })
   })
 })
+
+describe('kept across restarts', () => {
+  it('the settings file keeps the backup queue', async () => {
+    const { mkdtemp } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { SettingsStore } = await import('../packages/anna-host/settings')
+    const directory = await mkdtemp(join(tmpdir(), 'anna-settings-'))
+    const store = new SettingsStore(directory)
+    await store.load()
+    store.value.agents = { codex: { provider: 'DeepSeek', backups: ['Kimi', 'PPIO'] } }
+    await store.save()
+    const again = new SettingsStore(directory)
+    await again.load()
+    expect(again.value.agents).toEqual({ codex: { provider: 'DeepSeek', backups: ['Kimi', 'PPIO'] } })
+  })
+})
