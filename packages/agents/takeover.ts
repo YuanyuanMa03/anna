@@ -1,4 +1,5 @@
 import type { ClaudeModels } from '../routing/server'
+import type { PickerRow } from './aggregate'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -26,13 +27,17 @@ const oneM = /\s*\[1m\]\s*$/i
 
 /**
  * What the takeover sets aside in settings.json: the connection fields in `env`, and top-level settings that would
- * supply another key (`apiKeyHelper`, whose key Claude Code would send instead of the route's token).
+ * supply another key (`apiKeyHelper`, whose key Claude Code would send instead of the route's token) or list models
+ * the route doesn't know (`modelPicker`, which carries the listed providers' models instead).
  */
 export interface ClaudeOriginals { env: Record<string, string>, top?: Record<string, unknown> }
-const claudeTopKeys = ['apiKeyHelper']
+const claudeTopKeys = ['apiKeyHelper', 'modelPicker']
 
-/** settings.json with Claude Code pointed at the route; `originals` are the fields it replaced. */
-export function claudeTakeover(text: string | undefined, target: RoutingTarget & { models: ClaudeModels }, originals?: ClaudeOriginals) {
+/**
+ * settings.json with Claude Code pointed at the route; `originals` are the fields it replaced. `picker`: the listed
+ * providers' models, added to `/model` after the built-in rows (the provider in use's tiers).
+ */
+export function claudeTakeover(text: string | undefined, target: RoutingTarget & { models: ClaudeModels, picker?: PickerRow[] }, originals?: ClaudeOriginals) {
   const parsed = parseJson('settings.json', text)
   const env: Record<string, unknown> = parsed.env && typeof parsed.env === 'object' ? parsed.env : {}
   const kept = Object.fromEntries(Object.entries(env).filter(([key]) => !claudeConnectionKey(key)))
@@ -50,12 +55,14 @@ export function claudeTakeover(text: string | undefined, target: RoutingTarget &
     ours[`ANTHROPIC_DEFAULT_${name}_MODEL`] = `${claudeAliases[tier]}${tier !== 'haiku' && oneM.test(upstream) ? '[1M]' : ''}`
     ours[`ANTHROPIC_DEFAULT_${name}_MODEL_NAME`] = upstream.replace(oneM, '')
   }
-  return { text: json({ ...settings, env: { ...kept, ...ours } }, text), originals: captured }
+  const picker = target.picker?.length ? { modelPicker: { options: target.picker } } : {}
+  return { text: json({ ...settings, ...picker, env: { ...kept, ...ours } }, text), originals: captured }
 }
 
 /** settings.json with the fields set aside as they were before the takeover; the rest as it is now. */
 export function claudeRelease(text: string | undefined, originals: ClaudeOriginals) {
-  const settings = { ...parseJson('settings.json', text), ...originals.top }
+  const now = Object.entries(parseJson('settings.json', text)).filter(([key]) => !claudeTopKeys.includes(key))
+  const settings: Record<string, any> = { ...Object.fromEntries(now), ...originals.top }
   const env: Record<string, unknown> = settings.env && typeof settings.env === 'object' ? settings.env : {}
   const next = { ...Object.fromEntries(Object.entries(env).filter(([key]) => !claudeConnectionKey(key))), ...originals.env }
   if (Object.keys(next).length)
@@ -84,7 +91,7 @@ export function codexRelease(text: string | undefined, originals: CodexOriginals
   return codexCompose(top, originals.top, rest, originals.table ?? [])
 }
 
-type Target = { app: 'claude', target: RoutingTarget & { models: ClaudeModels } } | { app: 'codex', target: RoutingTarget & { model?: string }, catalog?: string }
+type Target = { app: 'claude', target: RoutingTarget & { models: ClaudeModels, picker?: PickerRow[] } } | { app: 'codex', target: RoutingTarget & { model?: string }, catalog?: string }
 /**
  * `original`: the whole file before the takeover (null: there was none), put back as it was when nothing else
  * changed meanwhile (the file is still `written`); otherwise only the connection fields go back.

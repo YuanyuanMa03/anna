@@ -317,6 +317,7 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .sheet .routing-global label.check { flex-direction: row; align-items: center; gap: 6px; color: #5d4874 }
 .sheet .routing-global input[type=checkbox] { width: auto }
 .routing-policy summary { cursor: pointer; color: #7d6a8e; margin-top: 8px }
+.routing-aggregate .aggregate-list { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 4px }
 .policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 }
 .policy-grid label { display: flex; flex-direction: column; gap: 4px; color: #7d6a8e }
 .policy-grid span { display: flex; align-items: center; gap: 6px }

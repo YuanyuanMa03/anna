@@ -35,8 +35,12 @@ export interface Settings {
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
   universal?: UniversalProvider[]
-  /** Anna's local routing: which agents' own configs point at it (global routing), and failover settings per agent. */
-  routing?: { global?: Partial<Record<'claude' | 'codex', boolean>>, policies?: Partial<Record<'claude' | 'codex', RoutingPolicy>> }
+  /**
+   * Anna's local routing: which agents' own configs point at it (global routing), failover settings per agent, the
+   * providers listed in each agent's own model list (aggregation), and the key each one's models are published under
+   * (kept for good; null for a provider since deleted).
+   */
+  routing?: { global?: Partial<Record<'claude' | 'codex', boolean>>, policies?: Partial<Record<'claude' | 'codex', RoutingPolicy>>, aggregate?: Partial<Record<'claude' | 'codex', string[]>>, keys?: Partial<Record<'claude' | 'codex', Record<string, string | null>>> }
 }
 /** Failover settings for one agent (unset fields keep the defaults). Times in seconds. */
 export interface RoutingPolicy { maxRetries?: number, firstByteTimeout?: number, idleTimeout?: number, failureThreshold?: number, openSeconds?: number }
@@ -86,7 +90,7 @@ export interface UsageReport {
 export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string, routed?: boolean }
 export interface AgentsSnapshot {
   detected: AgentStatus[]
-  providers: Record<string, { provider?: string, hasKey: boolean, backups?: string[] }>
+  providers: Record<string, { provider?: string, hasKey: boolean, backups?: string[], /** Listed in the agent's own model list (global routing). */ aggregate?: string[] }>
   global: Record<string, { switched: boolean, provider?: string, /** Global routing: on (its address), or why it couldn't be. */ routing?: { url?: string, error?: string } }>
   /** Failover settings in force per agent (defaults with the user's changes). */
   routingPolicies?: Record<'claude' | 'codex', Required<RoutingPolicy>>
@@ -218,6 +222,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'provider-backups', app: 'claude' | 'codex', names: string[] }
   /** Point the agent's own config at Anna's routing (or give it back). */
   | { type: 'provider-routing', app: 'claude' | 'codex', on: boolean }
+  /** Other providers whose models join the agent's own model list under global routing. */
+  | { type: 'provider-aggregate', app: 'claude' | 'codex', names: string[] }
   /** Failover settings for one agent; an empty policy goes back to the defaults. */
   | { type: 'routing-policy', app: 'claude' | 'codex', policy: RoutingPolicy }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }

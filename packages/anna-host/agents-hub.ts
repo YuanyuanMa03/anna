@@ -1,4 +1,5 @@
 import type { DelegateAgent } from '../agents/adapters'
+import type { Listed } from '../agents/aggregate'
 import type { LinkImport } from '../agents/deeplink'
 import type { AgentInfo } from '../agents/detect'
 import type { ImportedProvider, Preset, ProviderApp, ProviderChoice } from '../agents/providers'
@@ -13,6 +14,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
+import { claudePickerRows, codexAggregateCatalog, modelKeyFor } from '../agents/aggregate'
 import { catalog } from '../agents/catalog'
 import { codexCatalog } from '../agents/codex-catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
@@ -201,7 +203,10 @@ export class AgentsHub {
           throw new Error('先在这里选一个服务商：它自己的登录不能经过 Anna 的路由')
         const base = await server!.listen(this.options.routingPort ?? globalRoutingPort)
         const backups = (await this.backups(app)).filter(backup => canRoute(app, backup.preset))
-        const spec = { ...chatRouteOf(app, choice), ...(backups.length ? { backups: backups.map(backup => upstreamOf(app, backup)) } : {}) }
+        const listed = await this.listed(app)
+        const spec = { ...chatRouteOf(app, choice), ...(backups.length ? { backups: backups.map(backup => upstreamOf(app, backup)) } : {}), ...(listed.length ? { aggregate: Object.fromEntries(listed.map(({ key, choice }) => [key, upstreamOf(app, choice)])) } : {}) }
+        // The provider in use answers to the agent's default model names; it isn't listed a second time.
+        const published = listed.filter(item => item.choice.preset.name !== choice.preset.name)
         const token = await this.routeToken(app)
         const handle = this.globalRoutes[app]
         if (handle)
@@ -209,10 +214,10 @@ export class AgentsHub {
         else this.globalRoutes[app] = server!.open(spec, token)
         const url = `${base}${app === 'claude' ? '/claude' : '/codex/v1'}`
         if (app === 'claude') {
-          await this.takeover.apply({ app, target: { url, token, models: upstreamOf(app, choice).models ?? {} } })
+          await this.takeover.apply({ app, target: { url, token, models: upstreamOf(app, choice).models ?? {}, picker: claudePickerRows(published) } })
         }
         else {
-          const catalog = codexCatalog(choice.preset, choice.model)
+          const catalog = codexAggregateCatalog(codexCatalog(choice.preset, choice.model), published)
           await this.takeover.apply({ app, target: { url, token, model: choice.model ?? choice.preset.model }, ...(catalog ? { catalog: `${JSON.stringify(catalog, null, 2)}\n` } : {}) })
         }
         this.routingStatus[app] = { url }
@@ -236,6 +241,44 @@ export class AgentsHub {
       delete this.globalRoutes[app]
       await this.takeover.release(app)
     }
+  }
+
+  /** The providers listed in the agent's own model list, with their keys; any that Anna can't route are left out. */
+  private async listed(app: 'claude' | 'codex'): Promise<Listed[]> {
+    const routingSettings = this.store.value.routing
+    const keyOf = Object.fromEntries(Object.entries(routingSettings?.keys?.[app] ?? {}).flatMap(([key, name]) => name ? [[name, key]] : []))
+    const keys = await this.allKeys()
+    return (routingSettings?.aggregate?.[app] ?? []).flatMap((name) => {
+      const preset = this.preset(app, name)
+      return preset && keyOf[name] && canRoute(app, preset) ? [{ key: keyOf[name], choice: { preset, key: keys[`${app}:${name}`] } }] : []
+    })
+  }
+
+  /**
+   * Which other providers' models join the agent's own model list under global routing, in order. Each provider gets
+   * its key the first time and keeps it for good.
+   */
+  async setAggregate(appName: string, names: string[]) {
+    const app = providerAppOf(appName)
+    if (app !== 'claude' && app !== 'codex')
+      throw new Error('只有 Claude Code 和 Codex 能把别的服务商列进模型列表')
+    for (const name of names) {
+      const preset = this.preset(app, name)
+      if (!preset)
+        throw new Error(`没有找到 ${name} 这个服务商`)
+      if (!canRoute(app, preset))
+        throw new Error(`${name} 用的是它自己的登录，不能列进模型列表`)
+    }
+    const list = [...new Set(names)]
+    const routingSettings = this.store.value.routing ?? {}
+    const registry = { ...routingSettings.keys?.[app] }
+    for (const name of list) {
+      if (!Object.values(registry).includes(name))
+        registry[modelKeyFor(name, Object.keys(registry))] = name
+    }
+    this.store.value.routing = { ...routingSettings, aggregate: { ...routingSettings.aggregate, [app]: list }, keys: { ...routingSettings.keys, [app]: registry } }
+    await this.store.save()
+    await this.syncRouting()
   }
 
   private get ccSwitchDb() { return this.options.ccSwitchDb ?? join(homedir(), '.cc-switch', 'cc-switch.db') }
@@ -292,8 +335,15 @@ export class AgentsHub {
     this.store.value.agents = { ...this.store.value.agents, [agent]: { ...(merged.provider ? { provider: merged.provider } : {}), ...(backups.length ? { backups } : {}) } }
   }
 
-  /** A provider renamed (or, without `to`, gone): in use and among the backups alike. */
+  /** A provider renamed (or, without `to`, gone): in use, among the backups and in the model list alike. */
   private renameChosen(agent: string, from: string, to?: string) {
+    const routingSettings = this.store.value.routing
+    if ((agent === 'claude' || agent === 'codex') && (routingSettings?.aggregate?.[agent] || routingSettings?.keys?.[agent])) {
+      // Its model key stays with it; a deleted provider's stays reserved, so ids an agent remembers fail rather than move.
+      const list = (routingSettings.aggregate?.[agent] ?? []).flatMap(name => name !== from ? [name] : to ? [to] : [])
+      const registry = Object.fromEntries(Object.entries(routingSettings.keys?.[agent] ?? {}).map(([key, name]) => [key, name === from ? to ?? null : name]))
+      this.store.value.routing = { ...routingSettings, aggregate: { ...routingSettings.aggregate, [agent]: list }, keys: { ...routingSettings.keys, [agent]: registry } }
+    }
     const current = this.store.value.agents?.[agent]
     if (!current)
       return
@@ -660,7 +710,8 @@ export class AgentsHub {
     const providers: AgentsSnapshot['providers'] = {}
     for (const agent of ['claude', 'codex', 'gemini']) {
       const { provider, backups } = this.store.value.agents?.[agent] ?? {}
-      providers[agent] = { provider, hasKey: Boolean(provider && keys[`${agent}:${provider}`]), ...(backups?.length ? { backups } : {}) }
+      const aggregate = agent === 'gemini' ? undefined : this.store.value.routing?.aggregate?.[agent as 'claude' | 'codex']
+      providers[agent] = { provider, hasKey: Boolean(provider && keys[`${agent}:${provider}`]), ...(backups?.length ? { backups } : {}), ...(aggregate?.length ? { aggregate } : {}) }
     }
     const presets: AgentsSnapshot['presets'] = {}
     const mine: AgentsSnapshot['mine'] = {}

@@ -27,6 +27,8 @@ const settingsSchema = v.object({
   routing: v.optional(v.object({
     global: v.optional(v.object({ claude: v.optional(v.boolean()), codex: v.optional(v.boolean()) })),
     policies: v.optional(v.object(Object.fromEntries((['claude', 'codex'] as const).map(app => [app, v.optional(v.object(Object.fromEntries(['maxRetries', 'firstByteTimeout', 'idleTimeout', 'failureThreshold', 'openSeconds'].map(key => [key, v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))]))))])))),
+    aggregate: v.optional(v.object({ claude: v.optional(v.array(v.string())), codex: v.optional(v.array(v.string())) })),
+    keys: v.optional(v.object({ claude: v.optional(v.record(v.string(), v.nullable(v.string()))), codex: v.optional(v.record(v.string(), v.nullable(v.string()))) })),
   })),
 })
 

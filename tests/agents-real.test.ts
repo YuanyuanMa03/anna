@@ -670,4 +670,54 @@ describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real C
       setup.close()
     }
   }, 180000)
+
+  it.skipIf(!wanted.includes('codex'))('aggregated: codex exec -m with a listed provider\'s id answers from that provider; an unknown id fails', async () => {
+    const codex = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'codex')!
+    const setup = await prepare()
+    try {
+      await setup.host.execute({ type: 'provider-save', app: 'codex', name: 'Fake Chat', baseUrl: `${setup.url}/v1`, model: 'fake-chat-1', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'provider-save', app: 'codex', name: 'Kimi Fake', baseUrl: `${setup.url}/kimi/v1`, model: 'kimi-k3', key: 'sk-kimi', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Fake Chat' })
+      await setup.host.execute({ type: 'provider-routing', app: 'codex', on: true })
+      await setup.host.execute({ type: 'provider-aggregate', app: 'codex', names: ['Kimi Fake'] })
+      const output = await terminal(codex.path!, ['exec', '--skip-git-repo-check', '-m', 'anna-kimi-fake/kimi-k3', 'Say hello.'], setup.workspace, { CODEX_HOME: setup.configs.codex })
+      process.stdout.write(`aggregated codex: ${output.trim().split('\n').slice(-3).join(' | ')} hits: ${JSON.stringify(setup.hits.map(hit => [hit.path, hit.model]))}\n`)
+      expect(output).toContain('routed through Anna')
+      expect(setup.hits.length).toBeGreaterThan(0)
+      expect(setup.hits.every(hit => hit.path === '/kimi/v1/chat/completions' && hit.authorization === 'Bearer sk-kimi' && hit.model === 'kimi-k3')).toBe(true)
+      const before = setup.hits.length
+      const refused = await terminal(codex.path!, ['exec', '--skip-git-repo-check', '-m', 'anna-gone/x', 'Say hello.'], setup.workspace, { CODEX_HOME: setup.configs.codex })
+      expect(refused).toContain('pick another model')
+      expect(setup.hits.length).toBe(before)
+      await setup.host.shutdown()
+    }
+    finally {
+      setup.close()
+    }
+  }, 240000)
+
+  it.skipIf(!wanted.includes('claude'))('aggregated: claude -p --model with a listed provider\'s id answers from that provider', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const { join } = await import('node:path')
+    const claude = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'claude')!
+    const setup = await prepare()
+    try {
+      await setup.host.execute({ type: 'provider-save', app: 'claude', name: 'Fake Chat', baseUrl: setup.url, model: 'fake-chat-pro', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'provider-save', app: 'claude', name: 'GLM Fake', baseUrl: `${setup.url}/glm`, model: 'glm-5', key: 'sk-glm', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'agent-provider', agent: 'claude', provider: 'Fake Chat' })
+      await setup.host.execute({ type: 'provider-routing', app: 'claude', on: true })
+      await setup.host.execute({ type: 'provider-aggregate', app: 'claude', names: ['GLM Fake'] })
+      const settings = JSON.parse(await readFile(join(setup.configs.claude, 'settings.json'), 'utf8'))
+      expect(settings.modelPicker.options[0].model).toBe('anna-claude-glm-fake--glm-5')
+      const output = await terminal(claude.path!, ['-p', '--model', 'anna-claude-glm-fake--glm-5', 'Say hello.'], setup.workspace, { CLAUDE_CONFIG_DIR: setup.configs.claude })
+      process.stdout.write(`aggregated claude: ${output.trim().split('\n').slice(-3).join(' | ')} hits: ${JSON.stringify(setup.hits.map(hit => [hit.path, hit.model]))}\n`)
+      expect(output).toContain('routed through Anna')
+      // Claude Code's own side requests (titles, haiku) may use the tiers; the main turn goes to GLM.
+      expect(setup.hits.some(hit => hit.path === '/glm/v1/chat/completions' && hit.authorization === 'Bearer sk-glm' && hit.model === 'glm-5')).toBe(true)
+      await setup.host.shutdown()
+    }
+    finally {
+      setup.close()
+    }
+  }, 180000)
 })
