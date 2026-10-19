@@ -30,6 +30,7 @@ describe('online demo seed', () => {
       expect(settings.providers?.map(p => [p.app, (p.preset as { apiFormat?: string }).apiFormat])).toEqual([['claude', 'openai_chat'], ['codex', 'openai_chat']])
       expect(await readFile(join(data, 'workspace/README.md'), 'utf8')).toContain('示例项目')
       expect(await readFile(join(data, 'workspace/src/planner.js'), 'utf8')).toContain('days - 1')
+      expect(await readFile(join(data, 'workspace/.git/HEAD'), 'utf8')).toContain('main')
       expect(JSON.parse(providerKeys('t'))).toEqual({ [`claude:${relayProvider}`]: 't', [`codex:${relayProvider}`]: 't' })
     }
     finally { await rm(data, { recursive: true, force: true }) }

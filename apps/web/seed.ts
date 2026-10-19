@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 import { defaultSettings } from '../../packages/anna-host/settings'
 
 /** The provider name visitors see for Claude Code and Codex. */
@@ -107,6 +109,9 @@ export async function seedVisitor(data: string, { relay, model, agentModel }: Se
     await mkdir(dirname(join(workspace, path)), { recursive: true })
     await writeFile(join(workspace, path), content)
   }
+  // A git history lets Anna and the agents check changes with `git diff`. Without git the demo still works.
+  const git = (...args: string[]) => promisify(execFile)('git', ['-c', 'user.name=Anna', '-c', 'user.email=anna@example.invalid', ...args], { cwd: workspace })
+  await git('init', '-q', '-b', 'main').then(() => git('add', '-A')).then(() => git('commit', '-q', '-m', '示例项目')).catch(() => {})
 }
 
 /** The keys Claude Code and Codex use for the relay provider: the visitor's relay token. */
