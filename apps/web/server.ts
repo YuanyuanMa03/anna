@@ -313,9 +313,40 @@ const relayServer = createServer(async (request, response) => {
 })
 
 server.requestTimeout = 0
+/**
+ * With ANNA_SELF_TEST set, one throwaway visitor runs `npm test` in the demo project in "auto" mode at startup and the
+ * outcome goes to the run log: the Studio's own proof that per-visitor users, the sandbox and the relay work there.
+ */
+async function selfTest() {
+  const visitor = await createVisitor(randomBytes(32).toString('hex'))
+  try {
+    interface Snap { platform: { sandbox: unknown }, agents: { detected: { id: string, installed: boolean, version?: string }[] }, anna: { phase: string }, messages: { role: string, text?: string }[] }
+    const execute = (command: unknown) => visitor.peer.call<Snap>('execute', command)
+    const first = await execute({ type: 'snapshot' })
+    console.warn('[self-test] uid', visitor.uid ?? 'shared', 'sandbox', JSON.stringify(first.platform.sandbox), 'agents', JSON.stringify(first.agents.detected.filter(agent => agent.installed).map(agent => `${agent.id}@${agent.version}`)))
+    await execute({ type: 'mode', mode: 'auto' })
+    await execute({ type: 'send', text: '运行 npm test，用一句话告诉我结果。' })
+    for (let i = 0; i < 60; i++) {
+      await new Promise(resolve => setTimeout(resolve, 5000))
+      const now = await execute({ type: 'snapshot' })
+      if (['done', 'failed', 'idle'].includes(now.anna.phase) && i > 0) {
+        console.warn('[self-test]', now.anna.phase, JSON.stringify(now.messages.at(-1)?.text ?? '').slice(0, 400))
+        return
+      }
+    }
+    console.warn('[self-test] timed out')
+  }
+  catch (error) { console.error('[self-test] failed', error instanceof Error ? error.message : error) }
+  finally { await close(visitor) }
+}
+
 void mkdir(sessionRoot, { recursive: true, mode: 0o711 }).then(() => {
   relayServer.listen(relayPort, '127.0.0.1')
-  server.listen(Number(process.env.PORT ?? 7860), '0.0.0.0', () => { console.warn('Anna web listening on port', process.env.PORT ?? 7860, asRoot ? '(per-visitor users)' : '(single user)') })
+  server.listen(Number(process.env.PORT ?? 7860), '0.0.0.0', () => {
+    console.warn('Anna web listening on port', process.env.PORT ?? 7860, asRoot ? '(per-visitor users)' : '(single user)')
+    if (process.env.ANNA_SELF_TEST && modelKey)
+      void selfTest()
+  })
 })
 setInterval(() => {
   for (const visitor of visitors.values()) {
