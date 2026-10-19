@@ -53,7 +53,7 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
       <div class="plugin-row"><div><h3>长期记忆</h3><p>伙伴们共用的记忆：你的偏好与约定，跨会话、换伙伴都生效。</p></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.memoryEnabled" @click="emit('command', { type: 'memory', enabled: !snapshot.settings.memoryEnabled })">{{ snapshot.settings.memoryEnabled ? '关闭记忆' : '开启记忆' }}</button></div>
       <p v-if="!snapshot.memories.length" class="small muted">还没有记忆。可以直接对伙伴说“记住……”。</p>
       <ul class="rule-list">
-        <li v-for="item in snapshot.memories" :key="item.id"><span>{{ item.text }}</span><button class="link" @click="emit('command', { type: 'memory-forget', id: item.id })">忘记</button></li>
+        <li v-for="item in snapshot.memories" :key="item.id"><span>{{ item.text }}<small v-if="item.by" class="muted"> · {{ item.by }} 记下</small></span><button class="link" @click="emit('command', { type: 'memory-forget', id: item.id })">忘记</button></li>
       </ul>
 
       <div class="plugin-row"><div><h3>审阅派出的活</h3><p>用 @claude、@codex 派活后，伙伴会亲自检查改动（能很快跑完的测试也会跑），再告诉你结果能不能放心用。每次多一轮模型调用；大脑换成 Claude Code 或 Codex 时不审阅。</p></div><button :aria-pressed="snapshot.settings.reviewDelegations" @click="emit('command', { type: 'review', enabled: !snapshot.settings.reviewDelegations })">{{ snapshot.settings.reviewDelegations ? '不再审阅' : '开启审阅' }}</button></div>
