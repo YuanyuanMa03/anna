@@ -64,7 +64,7 @@ it('answers only the holder of its token, and never a browser', async () => {
 })
 
 it('keeps a slow tool call alive: progress notifications when the client asked for them, SSE comments otherwise', async () => {
-  const slow: AnnaTool = { name: 'anna_delegate', label: '派活', description: 'slow', parameters: { type: 'object' }, execute: () => new Promise(resolve => setTimeout(() => resolve('完成'), 120)) }
+  const slow: AnnaTool = { name: 'anna_delegate', label: '派活', description: 'slow', parameters: { type: 'object' }, execute: () => new Promise(resolve => setTimeout(() => resolve('完成'), 400)) }
   const server = await serveTools([slow], { keepAlive: 20 })
   close = server.close
   const call = (meta?: object) => fetch(server.url, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': `Bearer ${server.token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'anna_delegate', arguments: {}, ...(meta ? { _meta: meta } : {}) } }) }).then(response => response.text())
