@@ -60,6 +60,8 @@ export interface RouteHandle {
   baseUrl: string
   /** What the agent sends as its key. It opens this route and nothing else, and stops working on `close`. */
   token: string
+  /** Point the open route at other providers (the token stays). */
+  update: (route: ChatRoute) => void
   close: () => void
 }
 
@@ -79,7 +81,12 @@ export interface RouteRecord {
 
 export interface RoutingServer {
   url: string
-  open: (route: ChatRoute) => RouteHandle
+  /** A route with a new random token, or with `token` (global routing keeps one per agent across restarts). */
+  open: (route: ChatRoute, token?: string) => RouteHandle
+  /** Also listen on a fixed port (global routing: the agents' own configs point there); its base URL. */
+  listen: (port: number) => Promise<string>
+  /** Failover settings for one agent, over the defaults. */
+  configure: (client: Client, policy: Partial<FailoverPolicy>) => void
   /** The latest requests, oldest first. */
   records: () => RouteRecord[]
   /** Each provider's circuit breaker, by `client:id`; only providers that took part in a failover line-up. */
@@ -178,6 +185,7 @@ export async function startRouting(): Promise<RoutingServer> {
   const routes = new Map<string, ChatRoute>()
   const kept: RouteRecord[] = []
   const breakers = new Map<string, CircuitBreaker>()
+  const overrides: Partial<Record<Client, Partial<FailoverPolicy>>> = {}
   const service: Service = {
     record(entry) {
       kept.push(entry)
@@ -193,13 +201,16 @@ export async function startRouting(): Promise<RoutingServer> {
       }
       return breaker
     },
-    policy: client => failoverDefaults[client],
+    policy: client => ({ ...failoverDefaults[client], ...overrides[client] }),
   }
-  const server = createServer((request, response) => {
+  const listener = (request: IncomingMessage, response: ServerResponse) => {
     void handle(routes, service, request, response).catch((error) => {
       sendJson(response, 500, errorBody(error instanceof Error ? error.message : String(error), 'routing_error'))
     })
-  })
+  }
+  const server = createServer(listener)
+  /** The fixed-port listener, once global routing asked for one. */
+  let fixed: { port: number, server: ReturnType<typeof createServer> } | undefined
   // A stream from a reasoning model can run for many minutes.
   server.requestTimeout = 0
   server.headersTimeout = 60_000
@@ -212,17 +223,40 @@ export async function startRouting(): Promise<RoutingServer> {
   const url = `http://127.0.0.1:${port}`
   return {
     url,
-    open(route) {
-      const token = `anna-route-${randomBytes(24).toString('hex')}`
+    open(route, given) {
+      const token = given ?? `anna-route-${randomBytes(24).toString('hex')}`
       const hash = hashOf(token)
       routes.set(hash, route)
-      return { baseUrl: `${url}${route.client === 'claude' ? claudePath : codexPath}`, token, close: () => routes.delete(hash) }
+      return { baseUrl: `${url}${route.client === 'claude' ? claudePath : codexPath}`, token, update: next => void (routes.has(hash) && routes.set(hash, next)), close: () => routes.delete(hash) }
     },
+    async listen(port) {
+      if (fixed && fixed.port !== port) {
+        fixed.server.closeAllConnections()
+        await new Promise(resolve => fixed!.server.close(resolve))
+        fixed = undefined
+      }
+      if (!fixed) {
+        const extra = createServer(listener)
+        extra.requestTimeout = 0
+        extra.headersTimeout = 60_000
+        await new Promise<void>((resolve, reject) => {
+          extra.once('error', reject)
+          extra.listen(port, '127.0.0.1', () => resolve())
+        })
+        extra.unref()
+        fixed = { port, server: extra }
+      }
+      // Port 0 (tests) means any free port: report the one it got.
+      return `http://127.0.0.1:${(fixed.server.address() as { port: number }).port}`
+    },
+    configure(client, policy) { overrides[client] = policy },
     records: () => [...kept],
     health: () => Object.fromEntries([...breakers].map(([key, breaker]) => [key, breaker.stats()])),
     resetHealth: key => breakers.get(key)?.reset(),
     close: () => new Promise<void>((resolve) => {
       routes.clear()
+      fixed?.server.closeAllConnections()
+      fixed?.server.close()
       server.closeAllConnections()
       server.close(() => resolve())
     }),

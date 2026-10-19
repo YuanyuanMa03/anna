@@ -30,13 +30,16 @@ export interface Settings {
   modelVerified?: boolean
   workspace?: string
   workspaces: Record<string, WorkspaceSettings>
-  /** Provider chosen for each external agent when Anna delegates to it (keys live in the encrypted store). */
-  /** Per agent: the provider in use, and the ones to fall back on when it fails (Claude Code and Codex). */
+  /** Per agent: the provider in use, and the ones to fall back on when it fails (keys live in the encrypted store). */
   agents?: Record<string, { provider?: string, backups?: string[] }>
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
   universal?: UniversalProvider[]
+  /** Anna's local routing: which agents' own configs point at it (global routing), and failover settings per agent. */
+  routing?: { global?: Partial<Record<'claude' | 'codex', boolean>>, policies?: Partial<Record<'claude' | 'codex', RoutingPolicy>> }
 }
+/** Failover settings for one agent (unset fields keep the defaults). Times in seconds. */
+export interface RoutingPolicy { maxRetries?: number, firstByteTimeout?: number, idleTimeout?: number, failureThreshold?: number, openSeconds?: number }
 export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: string, source?: 'preset' | 'custom' | 'imported' | 'universal', preset: { name: string, official: boolean, category: string, website?: string, apiKeyUrl?: string, env?: Record<string, string>, keyField?: string, baseUrl?: string, model?: string, wireApi?: string, reasoningEffort?: string, models?: { model: string }[], apiFormat?: 'openai_chat', chatReasoning?: { supportsThinking?: boolean, supportsEffort?: boolean, thinkingParam?: string, effortParam?: string, effortValueMode?: string } } }
 export interface AgentStatus {
   id: string
@@ -84,7 +87,9 @@ export interface PresetSummary { name: string, category: string, official: boole
 export interface AgentsSnapshot {
   detected: AgentStatus[]
   providers: Record<string, { provider?: string, hasKey: boolean, backups?: string[] }>
-  global: Record<string, { switched: boolean, provider?: string }>
+  global: Record<string, { switched: boolean, provider?: string, /** Global routing: on (its address), or why it couldn't be. */ routing?: { url?: string, error?: string } }>
+  /** Failover settings in force per agent (defaults with the user's changes). */
+  routingPolicies?: Record<'claude' | 'codex', Required<RoutingPolicy>>
   presets: Record<string, PresetSummary[]>
   mine: Record<string, MyProvider[]>
   universal: (UniversalProvider & { hasKey: boolean })[]
@@ -211,6 +216,10 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
   /** The whole backup queue for Claude Code or Codex, in order. */
   | { type: 'provider-backups', app: 'claude' | 'codex', names: string[] }
+  /** Point the agent's own config at Anna's routing (or give it back). */
+  | { type: 'provider-routing', app: 'claude' | 'codex', on: boolean }
+  /** Failover settings for one agent; an empty policy goes back to the defaults. */
+  | { type: 'routing-policy', app: 'claude' | 'codex', policy: RoutingPolicy }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
   | ({ type: 'provider-save' } & ProviderDraft)

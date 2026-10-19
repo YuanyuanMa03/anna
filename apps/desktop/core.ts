@@ -1,5 +1,6 @@
 import type { Command } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
+import { join } from 'node:path'
 import process from 'node:process'
 import { Host } from '../../packages/anna-host/host'
 import { companion } from '../../packages/character/manifest'
@@ -56,6 +57,9 @@ async function main() {
       ? { agents: {
           locate: agent => ({ command: process.env.ANNA_TEST_NODE ?? 'node', prefix: [fake, agent] }),
           detect: async () => (['claude', 'codex'] as const).map(id => ({ id, label: id === 'claude' ? 'Claude Code' : 'Codex', tier: 'delegate' as const, installed: true, path: `/fake/${id}`, version: '9.9.9', loggedIn: true, configured: true, configDir: '/fake' })),
+          // Global switching and routing write the agents' own configs: here, folders of the test's data, never ~.
+          configDirs: { claude: join(data, 'test-home/.claude'), codex: join(data, 'test-home/.codex'), gemini: join(data, 'test-home/.gemini') },
+          routingPort: 0,
         } }
       : {}),
     secrets: vaultFor('providers.bin'),
