@@ -11,6 +11,8 @@ import { onlineNotes } from './seed'
  * share a process. This process never holds the Studio's ModelScope key: its model and agent providers point at the
  * server's inference relay with a per-visitor relay token.
  */
+// Whatever this visitor creates, including in the shared /tmp, is readable by this visitor only (and by what it runs).
+process.umask(0o077)
 const root = process.env.ANNA_CORE_ROOT!
 const data = process.env.ANNA_CORE_DATA!
 const relayToken = process.env.ANNA_RELAY_TOKEN!

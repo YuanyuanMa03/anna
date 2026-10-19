@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { validateCommand } from './commands'
+import { capRelayBody, clientAddress, sessionDirectory, staticFile, UidPool } from './guards'
 import { providerKeys, seedVisitor } from './seed'
 
 /**
@@ -42,13 +43,17 @@ const relay = `http://127.0.0.1:${relayPort}/v1`
 const coreScript = join(dirname(fileURLToPath(import.meta.url)), 'web-core.js')
 const asRoot = process.getuid?.() === 0
 const ttl = 2 * 60 * 60 * 1000
+/** However busy, a session ends after this long, so nobody holds a slot all day by keeping it touched. */
+const maxAge = 4 * 60 * 60 * 1000
 const run = promisify(execFile)
 
-interface Visitor { id: string, child: ChildProcess, peer: RpcPeer, clients: Set<ServerResponse>, data: string, uid?: number, touched: number, sends: number[], relayToken: string, relayCalls: number[], ready: Promise<void>, closed?: boolean }
+interface Visitor { id: string, created: number, child: ChildProcess, peer: RpcPeer, clients: Set<ServerResponse>, data: string, uid?: number, touched: number, sends: number[], relayToken: string, relayCalls: number[], ready: Promise<void>, closed?: boolean }
 const visitors = new Map<string, Visitor>()
 const byRelayToken = new Map<string, Visitor>()
 const sessionsByIP = new Map<string, number[]>()
-const freeUids = Array.from({ length: maxSessions }, (_, i) => 20001 + i)
+const uids = new UidPool(20001, 29999)
+/** Sessions being created right now: they count against the limit before their first await. */
+let starting = 0
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.moc3': 'application/octet-stream', '.ico': 'image/x-icon' }
 
 function clean(value: unknown, visitor?: Visitor) {
@@ -83,23 +88,41 @@ async function close(visitor: Visitor) {
   await visitor.peer.call('shutdown').catch(() => {})
   setTimeout(() => visitor.child.kill('SIGKILL'), 3000).unref()
   await new Promise(resolve => setTimeout(resolve, 500))
-  // Stray processes the visitor started (a dev server, a delegated agent) end with the visitor.
-  if (visitor.uid !== undefined)
-    await run('pkill', ['-KILL', '-u', String(visitor.uid)]).catch(() => {})
+  // Stray processes the visitor started (a dev server, a delegated agent, anything that keeps forking) end with the
+  // visitor, and so do files left in the shared temporary folders.
+  if (visitor.uid !== undefined) {
+    const uid = String(visitor.uid)
+    for (let pass = 0; pass < 10; pass++) {
+      await run('pkill', ['-KILL', '-u', uid]).catch(() => {})
+      if (!(await run('pgrep', ['-u', uid]).then(() => true, () => false)))
+        break
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    for (const dir of ['/tmp', '/var/tmp', '/dev/shm'])
+      await run('find', [dir, '-xdev', '-user', uid, '-delete']).catch(() => {})
+  }
   await rm(visitor.data, { recursive: true, force: true }).catch(() => {})
   if (visitor.uid !== undefined)
-    freeUids.push(visitor.uid)
+    uids.release(visitor.uid)
 }
 
 async function createVisitor(id: string): Promise<Visitor> {
-  const data = join(sessionRoot, id)
+  const data = sessionDirectory(sessionRoot)
   const relayToken = randomBytes(24).toString('hex')
-  await seedVisitor(data, { relay, model, agentModel })
-  await mkdir(join(data, 'home'), { recursive: true })
-  await mkdir(join(data, 'tmp'), { recursive: true })
-  const uid = asRoot ? freeUids.shift() : undefined
+  const uid = asRoot ? uids.take() : undefined
   if (asRoot && uid === undefined)
     throw new Error('体验人数已满，请稍后再试。')
+  try {
+    await seedVisitor(data, { relay, model, agentModel })
+    await mkdir(join(data, 'home'), { recursive: true })
+    await mkdir(join(data, 'tmp'), { recursive: true })
+  }
+  catch (error) {
+    await rm(data, { recursive: true, force: true }).catch(() => {})
+    if (uid !== undefined)
+      uids.release(uid)
+    throw error
+  }
   if (uid !== undefined) {
     await run('chown', ['-R', `${uid}:${uid}`, data])
     await run('chmod', ['700', data])
@@ -128,7 +151,7 @@ async function createVisitor(id: string): Promise<Visitor> {
   let markReady!: () => void
   let fail!: (error: Error) => void
   const ready = new Promise<void>((resolve, reject) => { markReady = resolve; fail = reject })
-  const visitor: Visitor = { id, child, data, uid, clients: new Set(), touched: Date.now(), sends: [], relayToken, relayCalls: [], ready, peer: undefined as unknown as RpcPeer }
+  const visitor: Visitor = { id, created: Date.now(), child, data, uid, clients: new Set(), touched: Date.now(), sends: [], relayToken, relayCalls: [], ready, peer: undefined as unknown as RpcPeer }
   visitor.peer = new RpcPeer(message => child.send(message), {}, (event: AnnaEvent | { type: 'core', status: string }) => {
     if (event.type === 'core')
       markReady()
@@ -151,7 +174,7 @@ async function createVisitor(id: string): Promise<Visitor> {
 
 function clientIP(request: IncomingMessage) {
   const forwarded = request.headers['x-forwarded-for']
-  return (typeof forwarded === 'string' ? forwarded.split(',')[0]!.trim() : '') || request.socket.remoteAddress || 'unknown'
+  return clientAddress(typeof forwarded === 'string' ? forwarded : undefined, request.socket.remoteAddress)
 }
 
 async function readBody(request: IncomingMessage, limit: number) {
@@ -182,7 +205,7 @@ const server = createServer(async (request, response) => {
         return json(response, 200, { session: token })
       if (!modelKey)
         return json(response, 503, { ok: false, error: '在线体验的模型还没有配置好，请稍后再来。' })
-      if (visitors.size >= maxSessions)
+      if (visitors.size + starting >= maxSessions)
         return json(response, 503, { ok: false, error: '体验人数已满，请过几分钟再试。' })
       const ip = clientIP(request)
       const recent = (sessionsByIP.get(ip) ?? []).filter(t => Date.now() - t < 60000)
@@ -190,7 +213,9 @@ const server = createServer(async (request, response) => {
         return json(response, 429, { ok: false, error: '请稍后再创建体验会话。' })
       sessionsByIP.set(ip, [...recent, Date.now()])
       const id = randomBytes(32).toString('hex')
-      await createVisitor(id)
+      starting++
+      try { await createVisitor(id) }
+      finally { starting-- }
       return json(response, 200, { session: id })
     }
     if (url.pathname.startsWith('/api/')) {
@@ -226,8 +251,8 @@ const server = createServer(async (request, response) => {
     }
     if (!['GET', 'HEAD'].includes(request.method ?? ''))
       return json(response, 405, { ok: false, error: '不支持的请求' })
-    const path = resolve(publicDir, `.${decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)}`)
-    if (!path.startsWith(`${publicDir}/`) || /(?:^|\/)\./.test(url.pathname))
+    const path = staticFile(publicDir, url.pathname)
+    if (!path)
       return json(response, 404, { ok: false, error: '文件不存在' })
     try {
       const info = await stat(path)
@@ -270,7 +295,7 @@ const relayServer = createServer(async (request, response) => {
     if (visitor.relayCalls.length >= 30)
       return json(response, 429, { error: { message: '在线体验的模型调用太频繁了，请稍等一分钟。' } })
     visitor.relayCalls.push(Date.now())
-    const body = JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>
+    const body = capRelayBody(JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>)
     const requested = [model, agentModel].includes(String(body.model)) ? String(body.model) : agentModel
     // Skip models that ran out of quota in the last ten minutes, then fall back in order.
     const candidates = [...new Set([requested, ...fallbacks])].filter(name => Date.now() - (exhausted.get(name) ?? 0) > 600000)
@@ -361,6 +386,10 @@ void mkdir(sessionRoot, { recursive: true, mode: 0o711 }).then(() => {
 })
 setInterval(() => {
   for (const visitor of visitors.values()) {
+    if (Date.now() - visitor.created > maxAge) {
+      void close(visitor)
+      continue
+    }
     if (Date.now() - visitor.touched < ttl)
       continue
     void visitor.peer.call<boolean>('busy').catch(() => false).then(busy => busy ? undefined : close(visitor))

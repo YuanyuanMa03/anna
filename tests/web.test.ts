@@ -17,6 +17,11 @@ describe('online demo commands', () => {
     expect(() => validateCommand({ type: 'agent-provider', agent: 'claude', provider: 'DeepSeek', key: 'sk-x' })).toThrow()
     expect(() => validateCommand({ type: 'send', text: '' })).toThrow()
   })
+  it('keeps routing to the demo\'s own relay: no global routing (one shared port), backups, policies or other providers', () => {
+    for (const command of [{ type: 'provider-routing', app: 'claude', on: true }, { type: 'provider-backups', app: 'codex', names: ['DeepSeek'] }, { type: 'routing-policy', app: 'claude', policy: {} }, { type: 'agent-provider', agent: 'claude', provider: 'DeepSeek' }])
+      expect(() => validateCommand(command), command.type).toThrow()
+    expect(validateCommand({ type: 'agent-provider', agent: 'codex', provider: relayProvider })).toMatchObject({ provider: relayProvider })
+  })
 })
 
 describe('online demo seed', () => {

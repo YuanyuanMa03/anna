@@ -48,6 +48,25 @@ remote URL), set the `ANNA_MODEL_API_KEY` secret, and deploy on free hardware on
 
 ## Limits
 
-A visitor session allows 8 messages and 30 model calls a minute and expires after 2 idle hours; the Studio holds 12
-sessions. Delegated agents run as the visitor's user but outside the command sandbox, as on the desktop. These are
-demonstration controls, not an internet-scale tenancy system.
+A visitor session allows 8 messages and 30 model calls a minute (each call asks for one answer of at most 16384
+tokens), expires after 2 idle hours and ends after 4 hours however busy; the Studio holds 12 sessions, and session
+creation is limited per client address (the rightmost `X-Forwarded-For` entry, the one the Studio's proxy added).
+
+Isolation, and where it stops:
+
+- A visitor's folder has a random name unrelated to the session token (folder paths show in `ps`), mode 0700, owned
+  by the visitor's uid; the visitor's processes run with umask 077, so files they leave in `/tmp` are theirs alone.
+- uids rotate through 20001–29999 instead of being reused right away. Closing a session kills the uid's processes
+  until none are left and deletes its files in `/tmp`, `/var/tmp` and `/dev/shm`.
+- Anna's own (pi) shell commands run in the command sandbox. Claude Code and Codex, delegated or as the brain, run as
+  the visitor's user **outside** it, as on the desktop: they can reach the network (the Studio's egress), but not
+  another visitor's files or the ModelScope key.
+- Global routing, provider backups and routing policies are desktop only: the routing server's port is shared by
+  every visitor, and the relay is the only provider to route to.
+
+These are demonstration controls, not an internet-scale tenancy system.
+
+Operator variables: `ANNA_SELF_TEST=1` runs one throwaway visitor through `npm test` in auto mode at startup and logs
+the outcome (`ANNA_SELF_TEST_TEXT` sets the task; it approves everything it is asked, so set it only to check a deploy
+and remove it after, since each cold start spends quota); `ANNA_RELAY_DEBUG` logs each relay call; `ANNA_TZ` sets the
+visitors' time zone (default Asia/Shanghai).
