@@ -37,6 +37,10 @@ provider, converts the format, and can move a request to another provider when o
 - **Giving it back.** On quit, when switched off, and when it can't be kept up (no provider chosen, the port taken):
   a file untouched since Anna wrote it goes back byte for byte (or away, if there was none); one changed meanwhile —
   by the user, or by the agent itself, e.g. a permission rule — gets only its connection fields back, the rest stays.
+  Renewing the takeover (a provider, backup or key change) keeps that distinction: once the file changed since Anna
+  last wrote it, the byte-for-byte copy is dropped for good, so a later release can't undo those changes. An
+  `apiKeyHelper` or `modelPicker` set while Anna holds the file is the user's own now: it is the one set aside and put
+  back, not the value from before the takeover.
   The replaced fields and the original file are saved before the first write, so after a crash the next start renews
   the takeover (still switched on) or gives the config back (switched off).
 - **The token** is one per agent, kept with the keys in the encrypted store, so the config stays valid across
