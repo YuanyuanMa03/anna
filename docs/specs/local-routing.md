@@ -29,7 +29,8 @@ provider, converts the format, and can move a request to another provider when o
   - Claude Code `settings.json` `env`: `ANTHROPIC_BASE_URL` (the route on 127.0.0.1:15722), `ANTHROPIC_AUTH_TOKEN`
     (the route's token), and per tier `ANTHROPIC_DEFAULT_*_MODEL` = cc-switch's current Claude aliases
     (`claude-sonnet-5`…, `[1M]` kept) with `*_MODEL_NAME` = the provider's model. The routing maps the aliases back.
-    Every other connection key (`claudeConnectionKey`) is set aside.
+    Every other connection key (`claudeConnectionKey`) is set aside, and so is a top-level `apiKeyHelper`, whose key
+    Claude Code would send instead of the route's token.
   - Codex `config.toml`: `model_provider = "custom"`, the provider's `model`, Anna's model catalog, and a
     `[model_providers.custom]` table with the route and its token as `experimental_bearer_token` — `auth.json` and the
     ChatGPT login in it are not touched.

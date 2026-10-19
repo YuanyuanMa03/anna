@@ -42,7 +42,7 @@ export interface AgentsOptions {
 export const globalRoutingPort = 15722
 const routedApps = ['claude', 'codex'] as const
 /** The failover settings the user can change, and their bounds. */
-const policyBounds: Record<keyof RoutingPolicy, [number, number]> = { maxRetries: [0, 10], firstByteTimeout: [5, 600], idleTimeout: [10, 1800], failureThreshold: [1, 50], openSeconds: [5, 3600] }
+const policyBounds: Record<keyof RoutingPolicy, [number, number, string]> = { maxRetries: [0, 10, '最多再试几家'], firstByteTimeout: [5, 600, '等第一个字的秒数'], idleTimeout: [10, 1800, '输出中断多久算失败'], failureThreshold: [1, 50, '连续失败几次就暂停'], openSeconds: [5, 3600, '暂停的秒数'] }
 
 const providerApps: Record<string, ProviderApp | undefined> = { claude: 'claude', codex: 'codex', gemini: 'gemini' }
 export const providerAppOf = (agent: string) => providerApps[agent]
@@ -153,7 +153,7 @@ export class AgentsHub {
       if (!bounds)
         continue
       if (typeof value !== 'number' || !Number.isInteger(value) || value < bounds[0] || value > bounds[1])
-        throw new Error(`${key} 要在 ${bounds[0]} 到 ${bounds[1]} 之间`)
+        throw new Error(`“${bounds[2]}”要是 ${bounds[0]} 到 ${bounds[1]} 之间的整数`)
       clean[key] = value
     }
     const routingSettings = this.store.value.routing ?? {}

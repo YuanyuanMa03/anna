@@ -27,7 +27,14 @@ describe('claude Code\'s settings.json', () => {
     })
     expect(settings.permissions).toEqual({ allow: ['Bash(ls)'] })
     expect(settings.model).toBe('opus')
-    expect(originals).toEqual({ ANTHROPIC_BASE_URL: 'https://api.deepseek.com/anthropic', ANTHROPIC_AUTH_TOKEN: 'sk-mine', ANTHROPIC_MODEL: 'deepseek-v4-pro' })
+    expect(originals).toEqual({ env: { ANTHROPIC_BASE_URL: 'https://api.deepseek.com/anthropic', ANTHROPIC_AUTH_TOKEN: 'sk-mine', ANTHROPIC_MODEL: 'deepseek-v4-pro' } })
+  })
+
+  it('a key helper would replace the route\'s token, so it is set aside too, and comes back', () => {
+    const withHelper = JSON.stringify({ apiKeyHelper: '~/bin/key.sh', env: {} })
+    const { text, originals } = claudeTakeover(withHelper, { ...target, models: {} })
+    expect(JSON.parse(text)).not.toHaveProperty('apiKeyHelper')
+    expect(JSON.parse(claudeRelease(text, originals)).apiKeyHelper).toBe('~/bin/key.sh')
   })
 
   it('giving it back restores those fields and keeps what changed meanwhile', () => {
@@ -38,7 +45,7 @@ describe('claude Code\'s settings.json', () => {
     const back = JSON.parse(claudeRelease(JSON.stringify(meanwhile), originals))
     expect(back.env).toEqual({ API_TIMEOUT_MS: '600000', MY_FLAG: '1', ANTHROPIC_BASE_URL: 'https://api.deepseek.com/anthropic', ANTHROPIC_AUTH_TOKEN: 'sk-mine', ANTHROPIC_MODEL: 'deepseek-v4-pro' })
     expect(back.permissions.allow).toEqual(['Bash(ls)', 'Bash(pwd)'])
-    expect(JSON.parse(claudeRelease(claudeTakeover(undefined, { ...target, models: {} }).text, {}))).toEqual({})
+    expect(JSON.parse(claudeRelease(claudeTakeover(undefined, { ...target, models: {} }).text, { env: {} }))).toEqual({})
   })
 })
 

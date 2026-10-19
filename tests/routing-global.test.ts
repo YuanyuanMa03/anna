@@ -130,7 +130,7 @@ it('failover settings per agent: checked, saved, and back to the defaults with a
   expect(host.snapshot().agents.routingPolicies?.claude).toEqual({ maxRetries: 6, firstByteTimeout: 90, idleTimeout: 180, failureThreshold: 8, openSeconds: 90 })
   await host.execute({ type: 'routing-policy', app: 'codex', policy: { firstByteTimeout: 30, maxRetries: 1 } })
   expect(host.snapshot().agents.routingPolicies?.codex).toMatchObject({ firstByteTimeout: 30, maxRetries: 1, idleTimeout: 120 })
-  await expect(host.execute({ type: 'routing-policy', app: 'codex', policy: { maxRetries: 99 } })).rejects.toThrow('0 到 10')
+  await expect(host.execute({ type: 'routing-policy', app: 'codex', policy: { maxRetries: 99 } })).rejects.toThrow('“最多再试几家”要是 0 到 10 之间的整数')
   await host.execute({ type: 'routing-policy', app: 'codex', policy: {} })
   expect(host.snapshot().agents.routingPolicies?.codex.firstByteTimeout).toBe(60)
   await host.close()

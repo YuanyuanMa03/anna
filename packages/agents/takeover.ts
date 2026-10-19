@@ -24,12 +24,21 @@ export interface RoutingTarget {
 export const claudeAliases = { haiku: 'claude-haiku-5-5', sonnet: 'claude-sonnet-5', opus: 'claude-opus-5', fable: 'claude-fable-5' } as const
 const oneM = /\s*\[1m\]\s*$/i
 
-/** settings.json with Claude Code pointed at the route; `originals` are the connection fields it replaced. */
-export function claudeTakeover(text: string | undefined, target: RoutingTarget & { models: ClaudeModels }, originals?: Record<string, string>) {
-  const settings = parseJson('settings.json', text)
-  const env: Record<string, unknown> = settings.env && typeof settings.env === 'object' ? settings.env : {}
+/**
+ * What the takeover sets aside in settings.json: the connection fields in `env`, and top-level settings that would
+ * supply another key (`apiKeyHelper`, whose key Claude Code would send instead of the route's token).
+ */
+export interface ClaudeOriginals { env: Record<string, string>, top?: Record<string, unknown> }
+const claudeTopKeys = ['apiKeyHelper']
+
+/** settings.json with Claude Code pointed at the route; `originals` are the fields it replaced. */
+export function claudeTakeover(text: string | undefined, target: RoutingTarget & { models: ClaudeModels }, originals?: ClaudeOriginals) {
+  const parsed = parseJson('settings.json', text)
+  const env: Record<string, unknown> = parsed.env && typeof parsed.env === 'object' ? parsed.env : {}
   const kept = Object.fromEntries(Object.entries(env).filter(([key]) => !claudeConnectionKey(key)))
-  const captured = originals ?? Object.fromEntries(Object.entries(env).filter(([key, value]) => claudeConnectionKey(key) && typeof value === 'string')) as Record<string, string>
+  const top = Object.fromEntries(claudeTopKeys.filter(key => key in parsed).map(key => [key, parsed[key]]))
+  const settings = Object.fromEntries(Object.entries(parsed).filter(([key]) => !claudeTopKeys.includes(key)))
+  const captured: ClaudeOriginals = originals ?? { env: Object.fromEntries(Object.entries(env).filter(([key, value]) => claudeConnectionKey(key) && typeof value === 'string')) as Record<string, string>, ...(Object.keys(top).length ? { top } : {}) }
   const ours: Record<string, string> = { ANTHROPIC_BASE_URL: target.url, ANTHROPIC_AUTH_TOKEN: target.token }
   const { models } = target
   const tiers: [keyof typeof claudeAliases, string | undefined][] = [['haiku', models.haiku ?? models.default], ['sonnet', models.sonnet ?? models.default], ['opus', models.opus ?? models.default], ['fable', models.fable]]
@@ -44,11 +53,11 @@ export function claudeTakeover(text: string | undefined, target: RoutingTarget &
   return { text: json({ ...settings, env: { ...kept, ...ours } }, text), originals: captured }
 }
 
-/** settings.json with the connection fields as they were before the takeover; the rest as it is now. */
-export function claudeRelease(text: string | undefined, originals: Record<string, string>) {
-  const settings = parseJson('settings.json', text)
+/** settings.json with the fields set aside as they were before the takeover; the rest as it is now. */
+export function claudeRelease(text: string | undefined, originals: ClaudeOriginals) {
+  const settings = { ...parseJson('settings.json', text), ...originals.top }
   const env: Record<string, unknown> = settings.env && typeof settings.env === 'object' ? settings.env : {}
-  const next = { ...Object.fromEntries(Object.entries(env).filter(([key]) => !claudeConnectionKey(key))), ...originals }
+  const next = { ...Object.fromEntries(Object.entries(env).filter(([key]) => !claudeConnectionKey(key))), ...originals.env }
   if (Object.keys(next).length)
     settings.env = next
   else delete settings.env
@@ -80,7 +89,7 @@ type Target = { app: 'claude', target: RoutingTarget & { models: ClaudeModels } 
  * `original`: the whole file before the takeover (null: there was none), put back as it was when nothing else
  * changed meanwhile (the file is still `written`); otherwise only the connection fields go back.
  */
-interface State { active: boolean, originals?: Record<string, unknown> | CodexOriginals, original?: string | null, written?: string, catalog?: string | null }
+interface State { active: boolean, originals?: ClaudeOriginals | CodexOriginals, original?: string | null, written?: string, catalog?: string | null }
 
 /**
  * Applies and releases global routing on the real config files. The state (with the replaced fields) is saved before
@@ -126,7 +135,7 @@ export class RoutingTakeover {
       const catalogPath = join(dir, codexCatalogFile)
       const current = await this.read(path)
       const plan = spec.app === 'claude'
-        ? claudeTakeover(current, spec.target, state.active ? state.originals as Record<string, string> : undefined)
+        ? claudeTakeover(current, spec.target, state.active ? state.originals as ClaudeOriginals : undefined)
         : codexTakeover(current, { ...spec.target, ...(spec.catalog ? { catalogPath } : {}) }, state.active ? state.originals as CodexOriginals : undefined)
       // Intent first: after a crash between here and the write, the next start still knows what to put back.
       const next: State = state.active ? { ...state, written: plan.text } : { active: true, originals: plan.originals, original: current ?? null, written: plan.text, ...(spec.app === 'codex' ? { catalog: (await this.read(catalogPath)) ?? null } : {}) }
@@ -160,7 +169,7 @@ export class RoutingTakeover {
         else await this.write(path, state.original)
       }
       else if (app === 'claude') {
-        await this.write(path, claudeRelease(current, (state.originals ?? {}) as Record<string, string>))
+        await this.write(path, claudeRelease(current, (state.originals ?? { env: {} }) as ClaudeOriginals))
       }
       else {
         await this.write(path, codexRelease(current, (state.originals ?? { top: [] }) as CodexOriginals))
