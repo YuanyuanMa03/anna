@@ -11,6 +11,8 @@ await writeFile(`${output}/package.json`, `${JSON.stringify(runtime, null, 2)}\n
 for (const name of ['LICENSE', 'NOTICE.md', 'COMMERCIAL.md']) await cp(name, `${output}/${name}`)
 for (const name of ['Dockerfile', 'README.md']) await cp(`deploy/modelscope/${name}`, `${output}/${name}`)
 await cp('dist/web', `${output}/dist/web`, { recursive: true })
+// The persona Anna's host loads at every start.
+await cp('plugins', `${output}/plugins`, { recursive: true })
 await cp('dist/web-server.js', `${output}/dist/web-server.js`)
 await cp('dist/web-server.js.map', `${output}/dist/web-server.js.map`)
 await cp('dist/web-core.js', `${output}/dist/web-core.js`)

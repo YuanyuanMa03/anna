@@ -9,6 +9,7 @@ RUN npm install -g @openai/codex@0.160.0 @anthropic-ai/claude-code@2.1.302 && np
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY dist ./dist
+COPY plugins ./plugins
 COPY LICENSE NOTICE.md COMMERCIAL.md ./
 EXPOSE 7860
 # Runs as root only to start each visitor's Anna under its own Unix user (uid 20001+); the ModelScope key stays here.

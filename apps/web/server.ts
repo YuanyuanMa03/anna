@@ -330,7 +330,7 @@ async function selfTest() {
       await new Promise(resolve => setTimeout(resolve, 5000))
       const now = await execute({ type: 'snapshot' })
       if (['done', 'failed', 'idle'].includes(now.anna.phase) && i > 0) {
-        console.warn('[self-test]', now.anna.phase, JSON.stringify(now.messages.at(-1)?.text ?? '').slice(0, 400))
+        console.warn('[self-test]', now.anna.phase, JSON.stringify(now.messages.at(-1)?.text ?? '').slice(0, 400), 'agents', JSON.stringify(now.agents.detected.filter(agent => agent.installed).map(agent => `${agent.id}@${agent.version}`)))
         return
       }
     }
