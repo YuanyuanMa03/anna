@@ -98,7 +98,9 @@
     flag, so Gatekeeper shows no prompt.
   - Windows: `irm …/install.ps1 | iex` installs to `%LOCALAPPDATA%\Programs\Anna`.
   - Linux: `install.sh` installs to `~/.local/share/anna-app` and adds a desktop entry.
-- **In-app updates.** Download the new version, verify its SHA-256, swap it in and restart.
+- **In-app updates.** Check `latest.json`'s Ed25519 signature against the release key built into the app (from
+  v0.5.0 on; earlier versions don't check it), then download the new version, verify its SHA-256, swap it in and
+  restart. An unsigned or altered manifest is refused.
 - **Secrets.**
   - All secrets are merged into one encrypted record, read once at startup and then kept in memory.
   - On Linux without a system keyring, they fall back to a 0600 file, and the UI says so.
