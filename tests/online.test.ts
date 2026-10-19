@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { shortPaths } from '../apps/desktop/src/online'
+import { shortPaths, tourPrompts } from '../apps/desktop/src/online'
+import { explicitMemory } from '../packages/anna-host/memory'
 
 /** The online demo shows the visitor's workspace as `workspace`, not the server's 100-character path. */
 describe('short paths in the online demo', () => {
@@ -21,5 +22,12 @@ describe('short paths in the online demo', () => {
   it('leaves a longer folder name, numbers and permission rules alone', () => {
     const snapshot = { note: `${root}-old/a.txt`, steps: 3, ok: true, workspace: { rules: { allow: [`Bash(cat ${root}/a.txt)`] } } }
     expect(shortPaths(snapshot, root)).toEqual(snapshot)
+  })
+})
+
+describe('the tour', () => {
+  it('its memory prompt is one Anna keeps for sure, not left to the model', () => {
+    const remembered = tourPrompts().map(prompt => explicitMemory(prompt)).filter(Boolean)
+    expect(remembered).toEqual(['我每周三下午有实验课，复习时喜欢番茄钟'])
   })
 })

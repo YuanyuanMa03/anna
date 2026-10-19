@@ -3,6 +3,7 @@ import type { Wire } from '../../packages/shared/rpc'
 import process from 'node:process'
 import { Host } from '../../packages/anna-host/host'
 import { RpcPeer } from '../../packages/shared/rpc'
+import { onlineNotes } from './seed'
 
 /**
  * One visitor's Anna: a whole Host (pi kernel, command sandbox, approvals, checkpoints, memory, delegation) in its
@@ -39,6 +40,7 @@ async function main() {
   host = new Host(root, data, { read: async () => relayToken, write: async () => {} }, event => peer.event(event), {
     secrets: { read: async () => providerKeys, write: async (value) => { providerKeys = value } },
     secretsMode: async () => 'file',
+    notes: onlineNotes,
   })
   await host.initialize()
   markReady()
