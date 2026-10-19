@@ -11,28 +11,14 @@ Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-6cb38f)](LICENSE)
-[![赞助](https://img.shields.io/badge/%E2%99%A5%20%E8%B5%9E%E5%8A%A9-%E5%BE%AE%E4%BF%A1%20%C2%B7%20%E6%94%AF%E4%BB%98%E5%AE%9D-e5739a)](#赞助-anna)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)
 
-[English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top) · [**♥ 赞助**](#赞助-anna)
+[English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top)
 
 <img src="docs/media/work.webp" alt="Anna 连接 DeepSeek 完成一个真实任务：回复、执行过的步骤和交付卡" width="880">
 
 </div>
-
-## 赞助 Anna
-
-Anna 由一个人利用业余时间开发。模型调用、测试设备，还有每个版本背后的时间，都是实打实的成本。独立开发不易，如果 Anna 陪伴了你，或者帮你省了事，欢迎随手赞助，多少都是支持。谢谢你 ♥
-
-<table>
-  <tr>
-    <td align="center"><img src="website/public/media/wechat.webp" alt="微信收款码" width="200"><br><sub>微信</sub></td>
-    <td align="center"><img src="website/public/media/alipay.webp" alt="支付宝收款码" width="200"><br><sub>支付宝</sub></td>
-  </tr>
-</table>
-
-个人和非商业使用免费。拿去卖、做成收费产品或在公司里使用，需要[商业授权](COMMERCIAL.md)。
 
 ## 认识 Anna
 
@@ -173,6 +159,8 @@ Anna 换了三次大脑，她一直是 Anna。
 ## 参与贡献
 
 欢迎提 issue 和 PR，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+
+Anna 由一个人开发。如果她帮到了你，想支持她继续长大，可以在[官网](https://anna.mayuanyuan.top)赞助。
 
 ## 致谢
 

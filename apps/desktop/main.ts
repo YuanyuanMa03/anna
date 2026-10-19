@@ -184,11 +184,10 @@ process.on('SIGINT', () => app.quit())
 function menu(context: ReturnType<typeof createContext>['context']) {
   const settings = { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => context.emit(runtimeEvent, { type: 'navigate', panel: 'settings' }) }
   const update = { label: '检查更新…', click: () => void updater.check() }
-  const sponsor = { label: '赞助 Anna…', click: () => context.emit(runtimeEvent, { type: 'navigate', panel: 'sponsor' }) }
   return Menu.buildFromTemplate([
     mac
-      ? { label: 'Anna', submenu: [{ label: '关于 Anna', role: 'about' }, sponsor, update, settings, { type: 'separator' }, { label: '隐藏 Anna', role: 'hide' }, { label: '隐藏其他', role: 'hideOthers' }, { type: 'separator' }, { label: '退出 Anna', role: 'quit' }] }
-      : { label: 'Anna', submenu: [sponsor, update, settings, { type: 'separator' }, { label: '退出 Anna', role: 'quit' }] },
+      ? { label: 'Anna', submenu: [{ label: '关于 Anna', role: 'about' }, update, settings, { type: 'separator' }, { label: '隐藏 Anna', role: 'hide' }, { label: '隐藏其他', role: 'hideOthers' }, { type: 'separator' }, { label: '退出 Anna', role: 'quit' }] }
+      : { label: 'Anna', submenu: [update, settings, { type: 'separator' }, { label: '退出 Anna', role: 'quit' }] },
     { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
     { label: '窗口', submenu: mac ? [{ role: 'minimize', label: '最小化' }, { role: 'zoom', label: '缩放' }, { role: 'front', label: '全部置于前面' }] : [{ role: 'minimize', label: '最小化' }, { role: 'close', label: '关闭' }] },
   ])
