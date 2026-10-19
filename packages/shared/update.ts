@@ -85,8 +85,9 @@ export const ps = (value: string) => `'${value.replace(/'/g, `''`)}'`
  * A detached script that finishes an update after Anna quits: wait for the old process, move the old app aside,
  * move the verified staged app into place, clear quarantine on macOS, then relaunch. On failure the old app is put back.
  */
-export function swapScript(platform: NodeJS.Platform, options: { pid: number, current: string, staged: string, relaunch: string }) {
-  const { pid, current, staged, relaunch } = options
+/** `work`: the download's own temporary folder (the archive, this script), removed once the new version is in place. */
+export function swapScript(platform: NodeJS.Platform, options: { pid: number, current: string, staged: string, relaunch: string, work?: string }) {
+  const { pid, current, staged, relaunch, work } = options
   if (platform === 'win32') {
     return [
       `$ErrorActionPreference = 'Stop'`,
@@ -96,6 +97,7 @@ export function swapScript(platform: NodeJS.Platform, options: { pid: number, cu
       `Move-Item $current $old`,
       `try { Move-Item $staged $current; Remove-Item -Recurse -Force $old } catch { if (Test-Path $old) { Move-Item $old $current } }`,
       relaunch,
+      ...(work ? [`Remove-Item -Recurse -Force ${ps(work)} -ErrorAction SilentlyContinue`] : []),
     ].join('\r\n')
   }
   return [
@@ -108,6 +110,7 @@ export function swapScript(platform: NodeJS.Platform, options: { pid: number, cu
     'if mv "$STAGED" "$CURRENT"; then rm -rf "$CURRENT.old"; else mv "$CURRENT.old" "$CURRENT"; fi',
     ...(platform === 'darwin' ? ['/usr/bin/xattr -dr com.apple.quarantine "$CURRENT" >/dev/null 2>&1 || true'] : []),
     relaunch,
+    ...(work ? [`rm -rf ${sh(work)}`] : []),
     '',
   ].join('\n')
 }

@@ -99,7 +99,7 @@ export class Updater {
       const current = this.installed()
       // Quoted for the shell that runs it: a path with ', $ or ` in it stays one word.
       const relaunch = process.platform === 'darwin' ? `open ${sh(current)}` : process.platform === 'win32' ? `Start-Process -FilePath ${ps(join(current, 'Anna.exe'))}` : `nohup ${sh(join(current, 'anna'))} >/dev/null 2>&1 &`
-      const script = swapScript(process.platform, { pid: process.pid, current, staged: join(unpacked, name), relaunch })
+      const script = swapScript(process.platform, { pid: process.pid, current, staged: join(unpacked, name), relaunch, work })
       const scriptPath = join(work, process.platform === 'win32' ? 'swap.ps1' : 'swap.sh')
       await writeFile(scriptPath, script, { mode: 0o700 })
       const child = process.platform === 'win32'
