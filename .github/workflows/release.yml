@@ -131,8 +131,11 @@ jobs:
           node scripts/release-manifest.mjs "https://github.com/${{ github.repository }}/releases/download/$TAG" \
             darwin-arm64=$(ls release/darwin-arm64/*.zip) win32-x64=$(ls release/win32-x64/*.zip) linux-x64=$(ls release/linux-x64/*.tar.gz)
           cp website/public/latest.json release/latest.json
+      # A draft: the mac files are swapped for a locally signed build and latest.json is signed before anyone sees the
+      # release; publishing it (and making it Latest) is a manual step.
       - uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             release/**/*.dmg
             release/**/*.exe
