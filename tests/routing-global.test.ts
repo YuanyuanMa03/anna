@@ -96,14 +96,14 @@ it('codex in a terminal goes through Anna: the config points at the route, follo
   // No direct global switch while routed.
   await expect(host.execute({ type: 'provider-global', app: 'codex', provider: 'Chat B' })).rejects.toThrow('路由')
   // Quit: the config goes back; the setting stays for the next start.
-  await host.close()
+  await host.shutdown()
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
   const again = await setup(data, Number(new URL(url).port))
   expect(toml(await readFile(join(configs.codex, 'config.toml'), 'utf8'), 'experimental_bearer_token')).toBe(token)
   await again.host.execute({ type: 'provider-routing', app: 'codex', on: false })
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
   expect(again.host.snapshot().agents.global.codex).not.toHaveProperty('routing')
-  await again.host.close()
+  await again.host.shutdown()
 })
 
 it('switching routing off while another sync is under way gives the config back for good', async () => {
@@ -130,7 +130,7 @@ it('switching routing off while another sync is under way gives the config back 
   }
   finally { held.mockRestore() }
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
-  await host.close()
+  await host.shutdown()
 })
 
 it('claude Code in a terminal: the route, a token, Claude tier names; after a crash the next start sorts it out', async () => {
@@ -150,7 +150,7 @@ it('claude Code in a terminal: the route, a token, Claude tier names; after a cr
   await writeFile(join(data, 'settings.json'), JSON.stringify(settings))
   const again = await setup(data)
   expect(JSON.parse(await readFile(join(configs.claude, 'settings.json'), 'utf8'))).toEqual({ env: { ANTHROPIC_AUTH_TOKEN: 'sk-mine' } })
-  await again.host.close()
+  await again.host.shutdown()
 })
 
 it('failover settings per agent: checked, saved, and back to the defaults with an empty policy', async () => {
@@ -161,7 +161,7 @@ it('failover settings per agent: checked, saved, and back to the defaults with a
   await expect(host.execute({ type: 'routing-policy', app: 'codex', policy: { maxRetries: 99 } })).rejects.toThrow('“最多再试几家”要是 0 到 10 之间的整数')
   await host.execute({ type: 'routing-policy', app: 'codex', policy: {} })
   expect(host.snapshot().agents.routingPolicies?.codex.firstByteTimeout).toBe(60)
-  await host.close()
+  await host.shutdown()
 })
 
 it('the backup queue and routing settings survive a restart (the settings schema keeps them)', async () => {
@@ -171,9 +171,23 @@ it('the backup queue and routing settings survive a restart (the settings schema
   await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'One' })
   await host.execute({ type: 'provider-backups', app: 'codex', names: ['Two'] })
   await host.execute({ type: 'routing-policy', app: 'claude', policy: { openSeconds: 30 } })
-  await host.close()
+  await host.shutdown()
   const again = await setup(data)
   expect(again.host.snapshot().agents.providers.codex).toMatchObject({ provider: 'One', backups: ['Two'] })
   expect(again.host.snapshot().agents.routingPolicies?.claude.openSeconds).toBe(30)
-  await again.host.close()
+  await again.host.shutdown()
+})
+
+it('everyday changes (companion, conversation, plugins) keep the terminal routed; only quitting gives the config back', async () => {
+  const { host, configs } = await setup()
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'Chat A', baseUrl: `${base}/a/v1`, model: 'model-a', key: 'sk-a', apiFormat: 'openai_chat' })
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Chat A' })
+  await host.execute({ type: 'provider-routing', app: 'codex', on: true })
+  const routed = await readFile(join(configs.codex, 'config.toml'), 'utf8')
+  for (const command of [{ type: 'character', id: 'mark' }, { type: 'new-session' }, { type: 'memory', enabled: true }] as const) {
+    await host.execute(command)
+    expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(routed)
+  }
+  await host.shutdown()
+  expect(await readFile(join(configs.codex, 'config.toml'), 'utf8').catch(() => 'gone')).toBe('gone')
 })

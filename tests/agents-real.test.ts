@@ -644,7 +644,7 @@ describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real C
       expect(output).toContain('routed through Anna')
       expect(setup.hits.every(hit => hit.path === '/v1/chat/completions' && hit.authorization === 'Bearer sk-fake-real')).toBe(true)
       expect(setup.hits.length).toBeGreaterThan(0)
-      await setup.host.close()
+      await setup.host.shutdown()
       const { readFile } = await import('node:fs/promises')
       expect(await readFile(join(setup.configs.codex, 'config.toml'), 'utf8').catch(() => 'gone')).toBe('gone')
     }
@@ -664,7 +664,7 @@ describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real C
       process.stdout.write(`terminal claude: ${output.trim().split('\n').slice(-3).join(' | ')} hits: ${JSON.stringify(setup.hits.map(hit => [hit.path, hit.model]))}\n`)
       expect(output).toContain('routed through Anna')
       expect(setup.hits.every(hit => hit.path === '/v1/chat/completions' && hit.authorization === 'Bearer sk-fake-real' && hit.model === 'fake-chat-pro')).toBe(true)
-      await setup.host.close()
+      await setup.host.shutdown()
     }
     finally {
       setup.close()

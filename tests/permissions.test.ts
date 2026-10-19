@@ -78,12 +78,23 @@ describe('audit regressions: writes cannot leave the workspace unasked', () => {
 describe('credential folders are ordinary paths outside the workspace, as in Claude Code', () => {
   it('reads ask outside Auto mode and offer "always allow"; Auto mode reads them', () => {
     for (const mode of ['plan', 'ask', 'edit'] as const) {
-      for (const path of ['~/.ssh/config', '~/.aws/credentials'])
-        expect(decide('read', { path }, ctx({ mode }))).toMatchObject({ kind: 'ask', danger: false, rule: expect.stringMatching(/^Read\(\/\/.*\/\*\*\)$/) })
+      expect(decide('read', { path: '~/.ssh/config' }, ctx({ mode }))).toMatchObject({ kind: 'ask', danger: false, rule: expect.stringMatching(/^Read\(\/\/.*\/\*\*\)$/) })
       expect(bash('cat ~/.ssh/config', { mode, sandboxed: true })).toMatchObject({ kind: 'ask', danger: false })
     }
     expect(decide('read', { path: '~/.ssh/config' }, ctx({ mode: 'auto' })).kind).toBe('allow')
     expect(bash('cat ~/.ssh/config', { mode: 'auto', sandboxed: true }).kind).toBe('allow')
+  })
+  it('known credential files (CLI logins, cloud keys, the agents\' own configs) ask in every mode, file by file', () => {
+    for (const mode of ['ask', 'edit', 'auto'] as const) {
+      for (const path of ['~/.aws/credentials', '~/.codex/auth.json', '~/.codex/config.toml', '~/.claude/settings.json', '~/.claude.json', '~/.cc-switch/cc-switch.db', '~/.config/gh/hosts.yml', '~/.npmrc', `${workspace}/.npmrc`]) {
+        const decision = decide('read', { path }, ctx({ mode }))
+        expect(decision, `${mode} ${path}`).toMatchObject({ kind: 'ask', reason: expect.stringContaining('密钥') })
+        expect(decision.kind === 'ask' && decision.rule).not.toMatch(/\*\*\)$/)
+      }
+      expect(bash('cat ~/.codex/auth.json', { mode, sandboxed: true }).kind).toBe('ask')
+    }
+    // A project's own .claude/settings.json is not the user's: only the one in the home folder counts.
+    expect(decide('read', { path: `${workspace}/.claude/settings.json` }, ctx({ mode: 'edit' })).kind).toBe('allow')
   })
   it('the rule "always allow" saves keeps working through the symlinked ~/.ssh', () => {
     const decision = decide('read', { path: '~/.ssh/config' }, ctx())

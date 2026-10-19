@@ -55,12 +55,12 @@ function included(name: string, reach: SearchReach) {
  * everything. The walk is bounded (entries and depth) and never enters `.git` or `node_modules`, so it is a
  * best-effort guard against sending keys to the model, like Claude Code's checks on recognised file commands.
  */
-export function secretsIn(root: string, reach: SearchReach, limit = 3): string[] {
+export function secretsIn(root: string, reach: SearchReach, limit = 3, home?: string): string[] {
   let directory = false
   try { directory = statSync(root).isDirectory() }
   catch { return [] }
   if (!directory)
-    return isSecretFile(root) ? [root] : []
+    return isSecretFile(root, home) ? [root] : []
   const repository = reach.ignored ? undefined : repositoryRoot(root)
   const inherited: IgnoreRule[] = []
   if (repository) {
@@ -94,7 +94,7 @@ export function secretsIn(root: string, reach: SearchReach, limit = 3): string[]
         continue
       if (isDirectory)
         walk(path, depth + 1, scoped)
-      else if (isSecretFile(entry.name) && included(entry.name, reach))
+      else if (isSecretFile(path, home) && included(entry.name, reach))
         found.push(path)
     }
   }

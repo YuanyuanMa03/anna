@@ -101,8 +101,20 @@ export function globMayReach(pattern: string, root: string, platform: NodeJS.Pla
   return true
 }
 
-/** File names that usually hold secrets wherever they live. */
-export function isSecretFile(path: string) {
+/** Credential files with names of their own, wherever they live. */
+const credentialNames = new Set(['.npmrc', '.netrc', '_netrc', '.pypirc', '.git-credentials', '.pgpass'])
+/**
+ * Where coding agents and CLIs keep logins and keys under the home folder (several of them are written by Anna's and
+ * cc-switch's own provider switching). Reading any of these sends a key to the model.
+ */
+const credentialPaths = ['.codex/auth.json', '.codex/config.toml', '.claude/settings.json', '.claude/.credentials.json', '.claude.json', '.gemini/oauth_creds.json', '.cc-switch/cc-switch.db', '.aws/credentials', '.docker/config.json', '.config/gh/hosts.yml', '.kube/config']
+
+/** Files that usually hold secrets: by name anywhere (`.env`, private keys, `.npmrc` …), or a known credential file in `home`. */
+export function isSecretFile(path: string, home = homedir()) {
   const name = basename(path).toLowerCase()
-  return name === '.env' || (name.startsWith('.env.') && !name.endsWith('.example') && !name.endsWith('.sample') && !name.endsWith('.template')) || /^id_(?:rsa|ed25519|ecdsa|dsa)$/.test(name) || name.endsWith('.pem') || name.endsWith('.p12') || name.endsWith('.key')
+  if (name === '.env' || (name.startsWith('.env.') && !name.endsWith('.example') && !name.endsWith('.sample') && !name.endsWith('.template')) || /^id_(?:rsa|ed25519|ecdsa|dsa)$/.test(name) || name.endsWith('.pem') || name.endsWith('.p12') || name.endsWith('.key') || credentialNames.has(name))
+    return true
+  const inHome = relative(home, path).split(sep).join('/')
+  const fold = (value: string) => process.platform === 'win32' || process.platform === 'darwin' ? value.toLowerCase() : value
+  return credentialPaths.some(known => fold(inHome) === fold(known))
 }

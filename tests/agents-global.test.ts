@@ -1,6 +1,10 @@
+import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { globalPlan } from '../packages/agents/global'
 import { findPreset } from '../packages/agents/providers'
+
+/** Windows keeps no Unix permission bits: a writable file always reports 0o666. */
+const unixModes = process.platform !== 'win32'
 
 const deepseek = { preset: findPreset('claude', 'DeepSeek')!, key: 'sk-ds' }
 
@@ -80,5 +84,38 @@ describe('globalSwitcher: first-write backup, verified writes, restore', () => {
     expect(await readFile(join(codexDir, 'config.toml'), 'utf8')).toBe(original)
     expect(existsSync(join(codexDir, 'auth.json'))).toBe(false)
     expect(switcher.status('codex')).toMatchObject({ switched: false })
+  })
+
+  it('a config changed after the switch keeps those changes on restore; only the connection fields go back', async () => {
+    const { mkdtemp, readFile, writeFile, mkdir, stat, chmod } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { GlobalSwitcher } = await import('../packages/agents/global')
+    const root = await mkdtemp(join(tmpdir(), 'anna-global-'))
+    const dirs = { codex: join(root, '.codex'), claude: join(root, '.claude'), gemini: join(root, '.gemini') }
+    for (const dir of Object.values(dirs)) await mkdir(dir)
+    await writeFile(join(dirs.codex, 'config.toml'), 'model = "o3"\nweb_search = "live"\n')
+    await chmod(join(dirs.codex, 'config.toml'), 0o644)
+    await writeFile(join(dirs.codex, 'auth.json'), JSON.stringify({ OPENAI_API_KEY: 'sk-mine' }))
+    await writeFile(join(dirs.claude, 'settings.json'), JSON.stringify({ env: { ANTHROPIC_AUTH_TOKEN: 'sk-claude' } }))
+    const switcher = new GlobalSwitcher(join(root, 'anna-data', 'agent-backups'), dirs)
+    await switcher.apply('codex', { preset: findPreset('codex', 'MiniMax')!, key: 'k1' })
+    await switcher.apply('claude', { preset: findPreset('claude', 'DeepSeek')!, key: 'k2' })
+    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(unixModes ? 0o644 : 0o666)
+    // Meanwhile: Codex trusts a folder and gets an MCP server, a ChatGPT login lands in auth.json, Claude Code adds a rule.
+    await writeFile(join(dirs.codex, 'config.toml'), `${await readFile(join(dirs.codex, 'config.toml'), 'utf8')}\n[projects."/work"]\ntrust_level = "trusted"\n\n[mcp_servers.docs]\ncommand = "docs"\n`)
+    await writeFile(join(dirs.codex, 'auth.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dirs.codex, 'auth.json'), 'utf8')), tokens: { id_token: 'login' } }))
+    const claude = JSON.parse(await readFile(join(dirs.claude, 'settings.json'), 'utf8'))
+    await writeFile(join(dirs.claude, 'settings.json'), JSON.stringify({ ...claude, permissions: { allow: ['Bash(ls)'] } }))
+    await switcher.restore('codex')
+    await switcher.restore('claude')
+    const config = await readFile(join(dirs.codex, 'config.toml'), 'utf8')
+    expect(config).toContain('model = "o3"\nweb_search = "live"')
+    expect(config).toContain('[projects."/work"]\ntrust_level = "trusted"')
+    expect(config).toContain('[mcp_servers.docs]')
+    expect(config).not.toMatch(/model_provider|minimax|web_search = "disabled"/i)
+    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(unixModes ? 0o644 : 0o666)
+    expect(JSON.parse(await readFile(join(dirs.codex, 'auth.json'), 'utf8'))).toEqual({ OPENAI_API_KEY: 'sk-mine', tokens: { id_token: 'login' } })
+    expect(JSON.parse(await readFile(join(dirs.claude, 'settings.json'), 'utf8'))).toEqual({ env: { ANTHROPIC_AUTH_TOKEN: 'sk-claude' }, permissions: { allow: ['Bash(ls)'] } })
   })
 })

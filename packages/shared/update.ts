@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, createPublicKey, timingSafeEqual, verify } from 'node:crypto'
 
 /** The release manifest published as https://anna.mayuanyuan.top/latest.json (see scripts/release-manifest.mjs). */
 export interface ReleaseManifest {
@@ -7,6 +7,31 @@ export interface ReleaseManifest {
   notes?: string
   /** Keyed by `${platform}-${arch}`, e.g. darwin-arm64, win32-x64, linux-x64. */
   assets: Record<string, { url: string, sha256: string }>
+  /** Ed25519 signature of `manifestPayload` with the release key (scripts/sign-manifest.mjs). */
+  signature?: string
+}
+
+/**
+ * The release key's public half (SPKI, base64; scripts/release-keygen.mjs). The website only carries the manifest:
+ * an update is installed only when the release machine signed it, so a changed website can't push code.
+ */
+export const releasePublicKey = 'MCowBQYDK2VwAyEAk69bdR8Cj6bbDY2zfDBzpCyCidyLQb6H3bGz+903alY='
+
+/** The bytes the signature covers; must match scripts/manifest-payload.mjs. */
+export function manifestPayload(manifest: ReleaseManifest) {
+  const assets = Object.fromEntries(Object.keys(manifest.assets).sort().map(name => [name, { url: manifest.assets[name]!.url, sha256: manifest.assets[name]!.sha256.toLowerCase() }]))
+  return JSON.stringify({ version: manifest.version, notes: manifest.notes ?? '', assets })
+}
+
+/** Whether the manifest carries a valid signature by the release key. */
+export function verifyManifest(manifest: ReleaseManifest, publicKey = releasePublicKey) {
+  if (typeof manifest?.signature !== 'string' || !manifest.assets || typeof manifest.version !== 'string')
+    return false
+  try {
+    const key = createPublicKey({ key: Buffer.from(publicKey, 'base64'), format: 'der', type: 'spki' })
+    return verify(null, Buffer.from(manifestPayload(manifest)), key, Buffer.from(manifest.signature, 'base64'))
+  }
+  catch { return false }
 }
 export type UpdatePlan = { available: true, version: string, notes?: string, url: string, sha256: string } | { available: false, version: string, reason?: string }
 
@@ -52,8 +77,9 @@ export function verifyDigest(bytes: Uint8Array, sha256: string) {
   return expected.length === actual.length && timingSafeEqual(actual, expected)
 }
 
-const sh = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
-const ps = (value: string) => `'${value.replace(/'/g, `''`)}'`
+/** A value as one single-quoted word for sh / PowerShell, whatever characters the path holds. */
+export const sh = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
+export const ps = (value: string) => `'${value.replace(/'/g, `''`)}'`
 
 /**
  * A detached script that finishes an update after Anna quits: wait for the old process, move the old app aside,

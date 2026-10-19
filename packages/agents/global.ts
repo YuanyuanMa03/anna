@@ -1,6 +1,6 @@
 import type { ProviderApp, ProviderChoice } from './providers'
 import { existsSync, readFileSync } from 'node:fs'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { codexCatalog, rejectsWebSearch } from './codex-catalog'
 import { keyFieldOf, providerEnv, routedThroughAnna, usesOwnLogin } from './providers'
@@ -149,12 +149,67 @@ export function globalPlan(app: ProviderApp, files: Record<string, string | unde
 /** The files each app's global switch may touch, relative to its config directory. */
 export const globalFiles: Record<ProviderApp, string[]> = { claude: ['settings.json'], codex: ['config.toml', 'auth.json', codexCatalogFile], gemini: ['.env', 'settings.json'] }
 
-interface SwitchState { switched: boolean, provider?: string, at?: string, originals: Record<string, boolean> }
+/** `written`: the text Anna last wrote to each file, to tell on restore whether anything else changed it since. */
+interface SwitchState { switched: boolean, provider?: string, at?: string, originals: Record<string, boolean>, written?: Record<string, string> }
+
+/**
+ * A config file changed since the switch, with only the connection fields put back as they were before it; whatever
+ * else changed meanwhile (Codex's trusted folders and MCP servers, Claude Code's settings, a new login) stays.
+ * Undefined for a file only Anna owns, or one that can't be read safely: that one goes back whole.
+ */
+export function mergeBack(app: ProviderApp, name: string, current: string, original: string | undefined): string | undefined {
+  try {
+    if (app === 'claude' && name === 'settings.json') {
+      const now = parseJson(name, current)
+      const before = parseJson(name, original)
+      const env = { ...Object.fromEntries(Object.entries(now.env ?? {}).filter(([key]) => !claudeConnectionKey(key))), ...Object.fromEntries(Object.entries(before.env ?? {}).filter(([key]) => claudeConnectionKey(key))) }
+      const { env: _env, ...rest } = now
+      return json(Object.keys(env).length ? { ...rest, env } : rest, current)
+    }
+    if (app === 'codex' && name === 'config.toml') {
+      const webSearch = (line: string) => /^\s*web_search\s*=/.test(line)
+      const now = codexSections(current)
+      const before = codexSections(original ?? '')
+      // `web_search` is the user's own setting that the switch may have turned off: it goes back too.
+      return codexCompose(now.top.filter(line => !webSearch(line)), [...before.connection, ...before.top.filter(webSearch)], now.rest, before.custom ?? [])
+    }
+    if (app === 'codex' && name === 'auth.json') {
+      const now = parseJson(name, current)
+      const key = parseJson(name, original).OPENAI_API_KEY
+      const { OPENAI_API_KEY: _key, ...rest } = now
+      return json(key === undefined ? rest : { ...rest, OPENAI_API_KEY: key }, current)
+    }
+    if (app === 'gemini' && name === '.env') {
+      const keyOf = (line: string) => /^\s*(?:export\s+)?([\w.-]+)\s*=/.exec(line)?.[1] ?? ''
+      const kept = current.split('\n').filter(line => !geminiConnectionKey(keyOf(line)))
+      const connection = (original ?? '').split('\n').filter(line => geminiConnectionKey(keyOf(line)))
+      return `${[...kept, ...connection].join('\n').replace(/\n+$/, '')}\n`
+    }
+    if (app === 'gemini' && name === 'settings.json') {
+      const now = parseJson(name, current)
+      const selected = parseJson(name, original).security?.auth?.selectedType
+      const auth = { ...now.security?.auth }
+      if (selected === undefined)
+        delete auth.selectedType
+      else auth.selectedType = selected
+      return json({ ...now, security: { ...now.security, auth } }, current)
+    }
+  }
+  catch {}
+  return undefined
+}
+
+/** Write a config file atomically, keeping the mode it had (a new one is readable by its owner only). */
+export async function writeConfig(target: string, text: string | Uint8Array) {
+  const mode = existsSync(target) ? (await stat(target)).mode & 0o777 : 0o600
+  await writeFile(`${target}.anna-tmp`, text, { mode })
+  await rename(`${target}.anna-tmp`, target)
+}
 
 /**
  * Applies global plans to the real config files: the first write backs up each original (or records that it did not
- * exist), writes are atomic and re-read to verify, and `restore` puts every original back byte-for-byte.
- * Writes are serialized per process.
+ * exist), writes are atomic and re-read to verify. `restore` puts a file Anna's write is still in back byte-for-byte;
+ * one changed since gets only its connection fields back (`mergeBack`). Writes are serialized per process.
  */
 export class GlobalSwitcher {
   private chain: Promise<unknown> = Promise.resolve()
@@ -204,14 +259,15 @@ export class GlobalSwitcher {
       }
       await this.save(app, state)
       await mkdir(dir, { recursive: true })
+      const written = { ...state.written }
       for (const [name, text] of Object.entries(writes)) {
         const target = join(dir, name)
-        await writeFile(`${target}.anna-tmp`, text, { mode: 0o600 })
-        await rename(`${target}.anna-tmp`, target)
+        await writeConfig(target, text)
+        written[name] = text
         if (await readFile(target, 'utf8') !== text)
           throw new Error(`${name} 写入后内容不一致，已停止`)
       }
-      await this.save(app, { ...state, switched: true, provider: choice.preset.name, at: new Date().toISOString() })
+      await this.save(app, { ...state, written, switched: true, provider: choice.preset.name, at: new Date().toISOString() })
     })
   }
 
@@ -221,8 +277,13 @@ export class GlobalSwitcher {
       const dir = this.dirs[app]
       for (const [name, existed] of Object.entries(state.originals)) {
         const target = join(dir, name)
-        if (existed)
-          await writeFile(target, await readFile(join(this.backupRoot, app, `${name}.orig`)))
+        const original = existed ? await readFile(join(this.backupRoot, app, `${name}.orig`)) : undefined
+        const current = existsSync(target) ? await readFile(target, 'utf8') : undefined
+        const merged = current !== undefined && current !== state.written?.[name] ? mergeBack(app, name, current, original?.toString('utf8')) : undefined
+        if (merged !== undefined)
+          await writeConfig(target, merged)
+        else if (original)
+          await writeConfig(target, original)
         else
           await rm(target, { force: true })
       }
