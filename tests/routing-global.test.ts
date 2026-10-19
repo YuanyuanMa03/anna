@@ -130,7 +130,7 @@ it('switching routing off while another sync is under way gives the config back 
   }
   finally { held.mockRestore() }
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
-  await host.close()
+  await host.shutdown()
 })
 
 it('claude Code in a terminal: the route, a token, Claude tier names; after a crash the next start sorts it out', async () => {
