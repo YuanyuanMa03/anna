@@ -320,15 +320,19 @@ server.requestTimeout = 0
 async function selfTest() {
   const visitor = await createVisitor(randomBytes(32).toString('hex'))
   try {
-    interface Snap { platform: { sandbox: unknown }, agents: { detected: { id: string, installed: boolean, version?: string }[] }, anna: { phase: string }, messages: { role: string, text?: string }[] }
+    interface Snap { platform: { sandbox: unknown }, agents: { detected: { id: string, installed: boolean, version?: string }[] }, anna: { phase: string }, approvals: { id: string, details?: string }[], messages: { role: string, text?: string }[] }
     const execute = (command: unknown) => visitor.peer.call<Snap>('execute', command)
     const first = await execute({ type: 'snapshot' })
     console.warn('[self-test] uid', visitor.uid ?? 'shared', 'sandbox', JSON.stringify(first.platform.sandbox), 'agents', JSON.stringify(first.agents.detected.filter(agent => agent.installed).map(agent => `${agent.id}@${agent.version}`)))
     await execute({ type: 'mode', mode: 'auto' })
-    await execute({ type: 'send', text: '运行 npm test，用一句话告诉我结果。' })
+    await execute({ type: 'send', text: process.env.ANNA_SELF_TEST_TEXT || '运行 npm test，用一句话告诉我结果。' })
     for (let i = 0; i < 60; i++) {
       await new Promise(resolve => setTimeout(resolve, 5000))
       const now = await execute({ type: 'snapshot' })
+      for (const approval of now.approvals) {
+        console.warn('[self-test] approving', JSON.stringify(approval.details ?? '').slice(0, 160))
+        await execute({ type: 'approval', id: approval.id, allow: true, scope: 'session' })
+      }
       if (['done', 'failed', 'idle'].includes(now.anna.phase) && i > 0) {
         console.warn('[self-test]', now.anna.phase, JSON.stringify(now.messages.at(-1)?.text ?? '').slice(0, 400), 'agents', JSON.stringify(now.agents.detected.filter(agent => agent.installed).map(agent => `${agent.id}@${agent.version}`)))
         return
