@@ -260,6 +260,38 @@ describe('providers in the agent\'s own format, passed through', () => {
     expect(routing.records().at(-1)).toMatchObject({ provider: 'm', usage: { input: 5, output: 3, cached: 0 } })
   })
 
+  it('the agent\'s user agent goes everywhere; its client headers only to a native provider; never its token', async () => {
+    behaviors.chat = chatText('ok')
+    behaviors.native = (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      response.end('event: response.completed\ndata: {"type":"response.completed","response":{"status":"completed"}}\n\n')
+    }
+    for (const [name, format] of [['chat', 'chat'], ['native', 'native']] as const) {
+      const handle = routing.open({ ...provider(name, { format }) })
+      await (await fetch(`${handle.baseUrl}/responses`, { method: 'POST', headers: { 'authorization': `Bearer ${handle.token}`, 'user-agent': 'codex_cli_rs/0.160.0', 'originator': 'codex_cli_rs', 'session_id': 's-1' }, body: JSON.stringify(responsesRequest) })).text()
+      handle.close()
+    }
+    const [chat, native] = [seen.find(item => item.name === 'chat')!, seen.find(item => item.name === 'native')!]
+    expect(chat.headers['user-agent']).toBe('codex_cli_rs/0.160.0')
+    expect(chat.headers.originator).toBeUndefined()
+    expect(native.headers).toMatchObject({ 'user-agent': 'codex_cli_rs/0.160.0', 'originator': 'codex_cli_rs', 'session_id': 's-1', 'authorization': 'Bearer sk-native' })
+  })
+
+  it('a whole (non-streaming) answer that breaks off while being read moves on too', async () => {
+    behaviors.a = (_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json', 'content-length': '1000' })
+      response.write('{"id":"x","choices":[')
+      setTimeout(() => response.destroy(), 20)
+    }
+    behaviors.b = (_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ id: 'chatcmpl_b', choices: [{ message: { role: 'assistant', content: 'from b' }, finish_reason: 'stop' }] }))
+    }
+    const { status: code, text } = await codex({ ...provider('a'), backups: [provider('b')], failover: fast }, { ...responsesRequest, stream: false })
+    expect(code).toBe(200)
+    expect(text).toContain('from b')
+  })
+
   it('a native provider\'s error goes to the agent as the provider sent it', async () => {
     behaviors.n = (_request, response) => {
       response.writeHead(400, { 'content-type': 'application/json' })

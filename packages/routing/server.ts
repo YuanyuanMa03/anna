@@ -352,22 +352,32 @@ interface Plan {
   context?: CodexToolContext
 }
 
+/**
+ * The agent's own headers that go along: its user agent everywhere (coding plans check who is calling), and for a
+ * provider in the agent's own format the protocol and client headers it would have sent itself. Never its key.
+ */
+const forwarded: Record<Client, string[]> = { claude: ['anthropic-version', 'anthropic-beta', 'x-app'], codex: ['originator', 'version', 'openai-beta', 'session_id'] }
+function agentHeaders(client: Client, native: boolean, given: IncomingHttpHeaders) {
+  const out: Record<string, string> = {}
+  for (const name of ['user-agent', ...(native ? forwarded[client] : [])]) {
+    const value = given[name]
+    if (typeof value === 'string' && value && !/[\r\n]/.test(value))
+      out[name] = value
+  }
+  return out
+}
+
 function plan(route: ChatRoute, client: Client, upstream: Upstream, body: Json, agent: { query?: string, headers: IncomingHttpHeaders }): Plan {
   const requested = typeof body.model === 'string' ? body.model : ''
   const model = client === 'claude' ? claudeModelFor(requested, upstream.models, route.models) : upstream.model ?? requested
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (upstream.format === 'native') {
+  const native = upstream.format === 'native'
+  const headers: Record<string, string> = { ...agentHeaders(client, native, agent.headers), 'content-type': 'application/json' }
+  if (native) {
     const payload: Json = { ...body, model }
     if (client === 'codex' && upstream.dropWebSearch && Array.isArray(payload.tools))
       payload.tools = payload.tools.filter((tool: Json) => !String(tool?.type ?? '').startsWith('web_search'))
-    if (client === 'claude') {
-      for (const name of ['anthropic-version', 'anthropic-beta']) {
-        const value = agent.headers[name]
-        if (typeof value === 'string')
-          headers[name] = value
-      }
+    if (client === 'claude')
       headers['anthropic-version'] ??= '2023-06-01'
-    }
     if (upstream.key)
       headers[upstream.keyHeader === 'x-api-key' ? 'x-api-key' : 'authorization'] = upstream.keyHeader === 'x-api-key' ? upstream.key : `Bearer ${upstream.key}`
     return { upstream, url: nativeEndpoint(upstream.baseUrl, client, client === 'claude' ? agent.query : undefined), headers: { ...headers, accept: body.stream === true ? 'text/event-stream' : 'application/json' }, payload, stream: body.stream === true, model }
@@ -390,7 +400,7 @@ function plan(route: ChatRoute, client: Client, upstream: Upstream, body: Json, 
 }
 
 type Attempt
-  = | { ok: true, response: Response, chunks?: AsyncIterable<Uint8Array>, latency: number }
+  = | { ok: true, response: Response, chunks?: AsyncIterable<Uint8Array>, text?: string, latency: number }
     | { ok: false, retry: boolean, kind: FailureKind, reason: string, status: number, latency: number, response?: Response, text?: string, aborted?: boolean }
 
 /** Reads a stream, failing when it stays silent too long (only with somewhere else to go). */
@@ -438,8 +448,11 @@ async function attempt(target: Plan, policy: FailoverPolicy | undefined, agentGo
       const text = await response.text().catch(() => '')
       return { ok: false, retry: retryableStatus(response.status), kind: 'status', reason: `HTTP ${response.status}`, status: response.status, latency, response, text }
     }
-    if (!target.stream || !response.body)
-      return target.stream ? { ok: true, response, chunks: emptyStream(), latency } : { ok: true, response, latency }
+    // A whole answer is read here, still within the time limit; a failure on the way can move on like any other.
+    if (!target.stream)
+      return { ok: true, response, text: await response.text(), latency }
+    if (!response.body)
+      return { ok: true, response, chunks: emptyStream(), latency }
     if (!policy)
       return { ok: true, response, chunks: response.body as unknown as AsyncIterable<Uint8Array>, latency }
     const reader = response.body.getReader()
@@ -542,7 +555,7 @@ async function deliver(client: Client, target: Plan, result: Extract<Attempt, { 
   if (!target.stream) {
     let converted: Json
     try {
-      const json = await result.response.json()
+      const json = JSON.parse(result.text ?? '')
       converted = native ? json : client === 'claude' ? chatToAnthropic(json) : chatCompletionToResponse(json, target.context)
     }
     catch (error) {
