@@ -14,7 +14,7 @@ Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)
 
-[English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top)
+[English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top) · [在线体验](https://modelscope.cn/studios/mayy101184/anna)
 
 <img src="docs/media/work.webp" alt="Anna 连接 DeepSeek 完成一个真实任务：回复、执行过的步骤和交付卡" width="880">
 
@@ -55,6 +55,11 @@ Anna 也是一个家的名字。她是第一位住进来的伙伴，另外还有
 </table>
 
 ## 安装
+
+> [!TIP]
+> 想先见见她再决定装不装？[魔搭创空间](https://modelscope.cn/studios/mayy101184/anna)上有完整的 Anna 在线版，用免费模型：不用安装，不用填 API Key，每位访客都有自己独立的沙箱会话。
+
+<p align="center"><img src="docs/media/online-demo.webp" alt="在线体验：Anna 跑测试，找到 planner.js 里少算一天的 bug，修好后交出交付卡" width="720"></p>
 
 下载安装包，双击安装：
 
