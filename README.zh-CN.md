@@ -52,7 +52,7 @@ Anna 也是一个家的名字。她是第一位住进来的伙伴，另外还有
 - 🛡️ **Claude Code 式权限模式**：规划、谨慎、协作、放手，每种模式有自己的 Live2D 站姿。规则沿用 Claude Code 的格式和匹配方式（`Bash(pnpm test *)`、`Edit(src/**)`），Anna 自己的密钥和数据永远碰不到。
 - 📦 **真正的系统沙箱**：终端命令通过 Anthropic 的 [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) 运行在 Seatbelt（macOS）或 bubblewrap（Linux）里。只能写工作区，每个新域名都要你同意才能联网。
 - ↩️ **改动可查看、可撤销**：每个任务结束都有交付卡，可以看 diff，也可以一键撤销。
-- 🔀 **内置 cc-switch**：每个 agent（Claude Code、Codex、Gemini CLI）都有服务商页：来自 cc-switch 的 289 个预设（可搜索）或自己填；统一服务商（一个网关给三个 agent 用）；多地址测速；余额和 Coding Plan 额度；导入链接（cc-switch 格式）和导出 / 导入。选好的服务商用于派活和当大脑的 Claude Code / Codex，也可以写进 agent 自己的配置（先备份，可一键恢复）；在面板、托盘里切，或者直接让伙伴帮你切。Codex 用第三方模型时会带上模型目录，也可以直接用 DeepSeek（原生支持 Responses API）；只支持 Chat Completions 的服务商经 Anna 的本地路由接给 Claude Code 和 Codex，在本机转换格式，真实密钥只留在 Anna 里。故障转移、全局路由、MCP 和 Skills 同步、用量统计在下一阶段。
+- 🔀 **内置 cc-switch**：每个 agent（Claude Code、Codex、Gemini CLI）都有服务商页：来自 cc-switch 的 289 个预设（可搜索）或自己填；统一服务商（一个网关给三个 agent 用）；多地址测速；余额和 Coding Plan 额度；导入链接（cc-switch 格式）和导出 / 导入。选好的服务商用于派活和当大脑的 Claude Code / Codex，也可以写进 agent 自己的配置（先备份，可一键恢复）；在面板、托盘里切，或者直接让伙伴帮你切。Codex 用第三方模型时会带上模型目录，也可以直接用 DeepSeek（原生支持 Responses API）；只支持 Chat Completions 的服务商经 Anna 的本地路由接给 Claude Code 和 Codex，在本机转换格式，真实密钥只留在 Anna 里。给 Claude Code 或 Codex 设上备用服务商，正在用的出错时会自动换下一家，每家服务商都有熔断保护。全局路由、MCP 和 Skills 同步、用量统计在下一阶段。
 - 💬 **微信远程派活**：通过微信 ClawBot 在手机上给 Anna 发任务，她会排队执行，做完后发回结果。授权仍然只在桌面端进行。
 
 <table>

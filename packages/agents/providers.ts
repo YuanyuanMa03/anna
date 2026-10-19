@@ -1,5 +1,5 @@
 import type { ChatReasoning } from '../routing/codex-chat'
-import type { ChatRoute } from '../routing/server'
+import type { ChatRoute, Upstream } from '../routing/server'
 import type { CatalogRow } from './codex-catalog'
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
@@ -67,6 +67,9 @@ export function providerEnv(preset: Preset): Record<string, string> {
   return Object.fromEntries(Object.entries(preset.env ?? {}).filter(([name, value]) => /^[A-Z_]\w*$/i.test(name) && !loaderEnv.test(name) && typeof value === 'string' && !/[\r\n\0]/.test(value)))
 }
 
+/** Claude Code reads the key from one of its own two variables, never from a name the provider data chose. */
+export const keyFieldOf = (preset: Preset) => preset.keyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN'
+
 /** Whether the agent reaches this provider through Anna's local routing rather than directly. */
 export const routedThroughAnna = (app: ProviderApp, preset: Preset) => (app === 'codex' || app === 'claude') && preset.apiFormat === 'openai_chat'
 
@@ -105,26 +108,40 @@ function catalogRowsOf(value: unknown): CatalogRow[] | undefined {
   return picked.length ? picked : undefined
 }
 
-/** What Anna's routing needs to reach the provider: the address, the real key, and how it takes reasoning. */
-export function chatRouteOf(app: 'codex' | 'claude', choice: ProviderChoice): ChatRoute {
+/** Whether Anna's routing can send to this provider: it has an address (an agent's own login has none). */
+export function canRoute(app: ProviderApp, preset: Preset) {
+  return app === 'claude' ? Boolean(preset.env?.ANTHROPIC_BASE_URL) : app === 'codex' ? Boolean(preset.baseUrl) : false
+}
+
+/**
+ * What Anna's routing needs to reach the provider: the address, the real key, its format (Chat Completions is
+ * converted, the agent's own passed through), and which models to ask for.
+ */
+export function upstreamOf(app: 'codex' | 'claude', choice: ProviderChoice): Upstream {
   const { preset, key, model } = choice
+  const chat = routedThroughAnna(app, preset)
+  const base = { id: preset.name, label: preset.name, format: chat ? 'chat' as const : 'native' as const, ...(key ? { key } : {}) }
   if (app === 'claude') {
     // Claude Code asks for its tiers by the names in these settings, or by Claude's own names when one is missing.
     const env = preset.env ?? {}
-    const models = { default: model ?? env.ANTHROPIC_MODEL, haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL, fable: env.ANTHROPIC_DEFAULT_FABLE_MODEL }
-    return { client: 'claude', label: preset.name, baseUrl: env.ANTHROPIC_BASE_URL ?? '', key, models: JSON.parse(JSON.stringify(models)) }
+    const models = JSON.parse(JSON.stringify({ default: model ?? env.ANTHROPIC_MODEL, haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL, fable: env.ANTHROPIC_DEFAULT_FABLE_MODEL }))
+    return { ...base, baseUrl: env.ANTHROPIC_BASE_URL ?? '', models, ...(chat ? {} : { keyHeader: keyFieldOf(preset) === 'ANTHROPIC_API_KEY' ? 'x-api-key' as const : 'authorization' as const }) }
   }
+  const chosen = model ?? preset.model
+  if (!chat)
+    return { ...base, baseUrl: preset.baseUrl!, ...(chosen ? { model: chosen } : {}), ...(rejectsWebSearch(preset.baseUrl!, chosen) ? { dropWebSearch: true } : {}) }
   const effortLevels = Object.fromEntries((preset.models ?? []).filter(row => row.reasoningLevels?.length).map(row => [row.model, row.reasoningLevels!]))
-  return { label: preset.name, baseUrl: preset.baseUrl!, key, reasoning: preset.chatReasoning, effortLevels }
+  return { ...base, baseUrl: preset.baseUrl!, ...(chosen ? { model: chosen } : {}), reasoning: preset.chatReasoning, effortLevels }
 }
 
-/** Claude Code reads the key from one of its own two variables, never from a name the provider data chose. */
-export const keyFieldOf = (preset: Preset) => preset.keyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN'
+/** A route for one provider of this agent. */
+export const chatRouteOf = (app: 'codex' | 'claude', choice: ProviderChoice): ChatRoute => ({ client: app, ...upstreamOf(app, choice) })
 
 /**
  * How to start an agent with this provider for one run: env vars and CLI arguments only, never a config file.
- * Keys only ever travel in env vars, so they do not show up in process listings. A provider routed through Anna
- * needs the run's `route`; the agent then gets the route's token, never the real key.
+ * Keys only ever travel in env vars, so they do not show up in process listings. With a `route` (always for a Chat
+ * provider, and for any provider with backups) the agent talks to Anna's routing with the route's token instead, and
+ * never sees the provider's address or key.
  */
 export function providerLaunch(app: ProviderApp, choice: ProviderChoice, route?: RouteAddress): Launch {
   const { preset, key, model } = choice
@@ -137,11 +154,11 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice, route?:
     const env = providerEnv(preset)
     if (model)
       env.ANTHROPIC_MODEL = model
-    if (routed) {
+    if (route) {
       // Claude Code talks to the route with its token; the provider's address and key stay with Anna.
-      env.ANTHROPIC_BASE_URL = route!.baseUrl
+      env.ANTHROPIC_BASE_URL = route.baseUrl
       delete env.ANTHROPIC_API_KEY
-      env.ANTHROPIC_AUTH_TOKEN = route!.token
+      env.ANTHROPIC_AUTH_TOKEN = route.token
     }
     else if (key) {
       env[keyFieldOf(preset)] = key
@@ -152,8 +169,8 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice, route?:
     const args = [
       'model_provider="anna"',
       `model_providers.anna.name=${toml(preset.name)}`,
-      `model_providers.anna.base_url=${toml(routed ? route!.baseUrl : preset.baseUrl!)}`,
-      `model_providers.anna.wire_api=${toml(routed ? 'responses' : preset.wireApi ?? 'responses')}`,
+      `model_providers.anna.base_url=${toml(route ? route.baseUrl : preset.baseUrl!)}`,
+      `model_providers.anna.wire_api=${toml(route ? 'responses' : preset.wireApi ?? 'responses')}`,
       'model_providers.anna.env_key="ANNA_PROVIDER_KEY"',
       ...(model ?? preset.model ? [`model=${toml((model ?? preset.model)!)}`] : []),
       ...(preset.reasoningEffort ? [`model_reasoning_effort=${toml(preset.reasoningEffort)}`] : []),
@@ -170,7 +187,7 @@ export function providerLaunch(app: ProviderApp, choice: ProviderChoice, route?:
     // The routing drops `web_search` for Chat providers itself (as cc-switch does), so Codex keeps its default.
     if (!routed && rejectsWebSearch(preset.baseUrl!, model ?? preset.model))
       args.push('web_search="disabled"')
-    const agentKey = routed ? route!.token : key
+    const agentKey = route ? route.token : key
     return { env: agentKey ? { ANNA_PROVIDER_KEY: agentKey } : {}, args: args.flatMap(value => ['-c', value]), files }
   }
   const env = providerEnv(preset)

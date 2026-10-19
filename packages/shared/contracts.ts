@@ -31,7 +31,8 @@ export interface Settings {
   workspace?: string
   workspaces: Record<string, WorkspaceSettings>
   /** Provider chosen for each external agent when Anna delegates to it (keys live in the encrypted store). */
-  agents?: Record<string, { provider?: string }>
+  /** Per agent: the provider in use, and the ones to fall back on when it fails (Claude Code and Codex). */
+  agents?: Record<string, { provider?: string, backups?: string[] }>
   /** Providers imported from cc-switch or added by hand (connection fields only, no keys). */
   providers?: CustomProvider[]
   universal?: UniversalProvider[]
@@ -67,6 +68,8 @@ export interface MyProvider {
   usage?: 'balance' | 'quota'
   /** The agent reaches it through Anna's local routing (Claude Code or Codex, and a Chat Completions provider). */
   routed?: boolean
+  /** Its circuit breaker: paused after repeated failures (`open`), or letting one try through (`half_open`). */
+  health?: 'open' | 'half_open'
 }
 export interface UsageReport {
   at: string
@@ -80,7 +83,7 @@ export interface UsageReport {
 export interface PresetSummary { name: string, category: string, official: boolean, apiKeyUrl?: string, website?: string, baseUrl?: string, model?: string, routed?: boolean }
 export interface AgentsSnapshot {
   detected: AgentStatus[]
-  providers: Record<string, { provider?: string, hasKey: boolean }>
+  providers: Record<string, { provider?: string, hasKey: boolean, backups?: string[] }>
   global: Record<string, { switched: boolean, provider?: string }>
   presets: Record<string, PresetSummary[]>
   mine: Record<string, MyProvider[]>
@@ -206,6 +209,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'review', enabled: boolean }
   | { type: 'agents-refresh' }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
+  /** The whole backup queue for Claude Code or Codex, in order. */
+  | { type: 'provider-backups', app: 'claude' | 'codex', names: string[] }
   | { type: 'provider-global', app: 'claude' | 'codex' | 'gemini', provider: string }
   | { type: 'provider-restore', app: 'claude' | 'codex' | 'gemini' }
   | ({ type: 'provider-save' } & ProviderDraft)

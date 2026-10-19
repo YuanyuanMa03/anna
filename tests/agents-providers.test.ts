@@ -106,7 +106,7 @@ describe('claude Code on a Chat Completions provider, through Anna\'s routing', 
   })
 
   it('route: the real address and key, and the model tiers Claude Code asks for', () => {
-    expect(chatRouteOf('claude', { preset: groq, key: 'gsk-real' })).toEqual({ client: 'claude', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', key: 'gsk-real', models: { default: groq.env!.ANTHROPIC_MODEL, haiku: groq.env!.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: groq.env!.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: groq.env!.ANTHROPIC_DEFAULT_OPUS_MODEL } })
+    expect(chatRouteOf('claude', { preset: groq, key: 'gsk-real' })).toEqual({ client: 'claude', id: 'Groq', label: 'Groq', format: 'chat', baseUrl: 'https://api.groq.com/openai/v1', key: 'gsk-real', models: { default: groq.env!.ANTHROPIC_MODEL, haiku: groq.env!.ANTHROPIC_DEFAULT_HAIKU_MODEL, sonnet: groq.env!.ANTHROPIC_DEFAULT_SONNET_MODEL, opus: groq.env!.ANTHROPIC_DEFAULT_OPUS_MODEL } })
     expect(chatRouteOf('claude', { preset: groq, model: 'my-model' }).models!.default).toBe('my-model')
   })
 

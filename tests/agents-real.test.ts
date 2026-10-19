@@ -473,3 +473,110 @@ describe.skipIf(!wanted.includes('claude'))('real Claude Code through Anna\'s lo
     }
   }, 180000)
 })
+
+/**
+ * Real agents failing over: the provider in use answers 503, and the backup is a provider in the agent's own format —
+ * a second Anna route in front of a scripted Chat upstream — so the run also goes through native passthrough.
+ */
+describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real agents failing over to a backup', () => {
+  async function upstreams(pick: (tools: string[]) => { name: string, input: object } | undefined, answer: string) {
+    const { createServer } = await import('node:http')
+    const hits: string[] = []
+    const server = createServer((request, response) => {
+      let text = ''
+      request.on('data', (part) => { text += part })
+      request.on('end', () => {
+        hits.push(request.url!)
+        if (request.url!.startsWith('/down/')) {
+          response.writeHead(503, { 'content-type': 'application/json' })
+          return response.end('{"error":{"message":"overloaded"}}')
+        }
+        const body = JSON.parse(text)
+        const tools: string[] = (body.tools ?? []).map((tool: any) => tool.function.name)
+        const answered = body.messages.some((message: any) => message.role === 'tool')
+        const call = answered ? undefined : pick(tools)
+        const chunk = (delta: object, finish?: string) => `data: ${JSON.stringify({ id: `c${hits.length}`, model: body.model, choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`
+        if (!body.stream) {
+          response.writeHead(200, { 'content-type': 'application/json' })
+          return response.end(JSON.stringify({ id: 'plain', model: body.model, choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }] }))
+        }
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        response.end(call
+          ? `${chunk({ tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: call.name, arguments: JSON.stringify(call.input) } }] })}${chunk({}, 'tool_calls')}data: [DONE]\n\n`
+          : `${chunk({ content: answered ? answer : 'ok' })}${chunk({}, 'stop')}data: [DONE]\n\n`)
+      })
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    return { hits, url: `http://127.0.0.1:${(server.address() as { port: number }).port}`, close: () => { server.closeAllConnections(); server.close() } }
+  }
+
+  it.skipIf(!wanted.includes('codex'))('codex: the 503 goes unseen, the backup edits the file, the stage line says what happened', async () => {
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { failoverLine, openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const { routing } = await import('../packages/routing/server')
+    const codex = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'codex')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-failover-codex-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    await mkdir(join(data, 'codex-home'))
+    const fake = await upstreams(tools => tools.includes('apply_patch') ? { name: 'apply_patch', input: { input: '*** Begin Patch\n*** Add File: anna.txt\n+OK\n*** End Patch\n' } } : undefined, 'Done: anna.txt says OK.')
+    const inner = (await routing()).open({ baseUrl: `${fake.url}/up/v1`, key: 'k' })
+    const lines: string[] = []
+    const down = { name: 'Down', official: false, category: 'custom', baseUrl: `${fake.url}/down/v1`, model: 'fake-chat-1', apiFormat: 'openai_chat' as const }
+    const native = { name: 'Native', official: false, category: 'custom', baseUrl: inner.baseUrl, model: 'fake-chat-1' }
+    const route = await openRoute('codex', { preset: down, key: 'sk-down' }, { backups: [{ preset: native, key: inner.token }], onFailover: event => lines.push(failoverLine(event)) })
+    try {
+      const launch = buildLaunch('codex', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK, then say so.', mode: 'edit', denyPaths: [], provider: { preset: down, key: 'sk-down' }, route })
+      launch.env.CODEX_HOME = join(data, 'codex-home')
+      const result = await runAgent({ agent: 'codex', command: codex.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      process.stdout.write(`codex failover: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 80)} lines: ${JSON.stringify([...new Set(lines)])}\n`)
+      expect(result.status).toBe('completed')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(lines).toContain('Down 返回了 503，换成 Native')
+      expect(fake.hits.some(hit => hit.startsWith('/up/'))).toBe(true)
+    }
+    finally {
+      route?.close()
+      inner.close()
+      fake.close()
+    }
+  }, 180000)
+
+  it.skipIf(!wanted.includes('claude'))('claude Code: the 503 goes unseen, the backup writes the file, the stage line says what happened', async () => {
+    const { mkdir, mkdtemp, readFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { buildLaunch } = await import('../packages/agents/launch')
+    const { failoverLine, openRoute } = await import('../packages/agents/route')
+    const { runAgent } = await import('../packages/agents/runner')
+    const { routing } = await import('../packages/routing/server')
+    const claude = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'claude')!
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-failover-claude-'))
+    const workspace = join(data, 'project')
+    await mkdir(workspace)
+    const fake = await upstreams(tools => tools.includes('Write') ? { name: 'Write', input: { file_path: join(workspace, 'anna.txt'), content: 'OK' } } : undefined, 'Done: anna.txt says OK.')
+    const inner = (await routing()).open({ client: 'claude', baseUrl: `${fake.url}/up`, key: 'k' })
+    const lines: string[] = []
+    const down = { name: 'Down', official: false, category: 'custom', apiFormat: 'openai_chat' as const, env: { ANTHROPIC_BASE_URL: `${fake.url}/down`, ANTHROPIC_MODEL: 'fake-chat-pro' } }
+    const native = { name: 'Native', official: false, category: 'custom', keyField: 'ANTHROPIC_AUTH_TOKEN', env: { ANTHROPIC_BASE_URL: inner.baseUrl, ANTHROPIC_MODEL: 'fake-native-pro' } }
+    const route = await openRoute('claude', { preset: down, key: 'sk-down' }, { backups: [{ preset: native, key: inner.token }], onFailover: event => lines.push(failoverLine(event)) })
+    try {
+      const launch = buildLaunch('claude', { cwd: workspace, prompt: 'Create a file named anna.txt containing exactly OK, then say so.', mode: 'edit', denyPaths: [], provider: { preset: down, key: 'sk-down' }, route })
+      launch.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
+      const result = await runAgent({ agent: 'claude', command: claude.path!, launch, cwd: workspace, gate: async () => ({ allow: true }), emit: () => {} })
+      process.stdout.write(`claude failover: ${result.status} ${result.error ?? ''} reply: ${result.text.slice(0, 80)} lines: ${JSON.stringify([...new Set(lines)])}\n`)
+      expect(result.status).toBe('completed')
+      expect((await readFile(join(workspace, 'anna.txt'), 'utf8')).trim()).toBe('OK')
+      expect(lines).toContain('Down 返回了 503，换成 Native')
+    }
+    finally {
+      route?.close()
+      inner.close()
+      fake.close()
+    }
+  }, 180000)
+})

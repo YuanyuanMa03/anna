@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { approvalStyle } from '../agents/adapters'
 import { catalog } from '../agents/catalog'
 import { buildLaunch } from '../agents/launch'
-import { openRoute } from '../agents/route'
+import { failoverLine, openRoute } from '../agents/route'
 import { runAgent } from '../agents/runner'
 import { workspaceFiles } from '../agents/snapshot'
 import { modes } from '../permissions/modes'
@@ -37,6 +37,8 @@ export interface DelegatorDeps {
   emit: (event: AnnaEvent) => void
   locate: (agent: DelegateAgent) => Promise<{ command: string, prefix?: string[] } | undefined>
   provider: (agent: DelegateAgent, name?: string) => Promise<ProviderChoice | undefined>
+  /** The providers to fall back on when the run's provider (`primary`) fails. */
+  backups?: (agent: DelegateAgent, primary?: string) => Promise<ProviderChoice[]>
   denyPaths: () => string[]
 }
 
@@ -88,10 +90,16 @@ export class Delegator {
     const before = await workspaceFiles(workspace)
     for (const path of before) await this.deps.checkpoints.capture(context.taskId, workspace, path).catch(() => {})
     const sessionId = (await this.sessions())[workspace]?.[agent]
-    const route = await openRoute(agent, provider)
+    const card = (state: 'running' | 'done' | 'failed', line: string, step: number) => this.deps.emit({ type: 'collaborator', agent, label, provider: providerName, state, line, step })
+    // With backups, a failing provider hands the run to the next one; the card says so and shows who works now.
+    const backups = provider ? await this.deps.backups?.(agent, provider.preset.name) ?? [] : []
+    const route = await openRoute(agent, provider, { backups, onFailover: (event) => {
+      if (event.to)
+        providerName = event.to
+      card('running', failoverLine(event), this.deps.steps() - startSteps)
+    } })
     const launch = buildLaunch(agent, { cwd: workspace, prompt: task, mode, sessionId, provider, denyPaths: this.deps.denyPaths(), route })
     this.abort = new AbortController()
-    const card = (state: 'running' | 'done' | 'failed', line: string, step: number) => this.deps.emit({ type: 'collaborator', agent, label, provider: providerName, state, line, step })
     card('running', '开始工作', 0)
     this.deps.supervise({ label, onStep: (line, step) => card('running', line, step - startSteps) })
     try {

@@ -16,9 +16,10 @@ import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
 import { GlobalSwitcher, routedOnlyInAnna } from '../agents/global'
 import { nodeEnvironment } from '../agents/node-environment'
-import { chatReasoningOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna } from '../agents/providers'
+import { canRoute, chatReasoningOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
 import { queryUsage, usageKind } from '../agents/usage'
+import { routingIfStarted } from '../routing/server'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -156,6 +157,52 @@ export class AgentsHub {
     return { preset, key: (await this.allKeys())[`${app}:${chosen}`] }
   }
 
+  /** The provider in use and its backups for one agent; the one in use is never its own backup. */
+  private setAgent(agent: string, next: { provider?: string, backups?: string[] }) {
+    const merged = { ...this.store.value.agents?.[agent], ...next }
+    const backups = [...new Set(merged.backups ?? [])].filter(name => name !== merged.provider)
+    this.store.value.agents = { ...this.store.value.agents, [agent]: { ...(merged.provider ? { provider: merged.provider } : {}), ...(backups.length ? { backups } : {}) } }
+  }
+
+  /** A provider renamed (or, without `to`, gone): in use and among the backups alike. */
+  private renameChosen(agent: string, from: string, to?: string) {
+    const current = this.store.value.agents?.[agent]
+    if (!current)
+      return
+    const swap = (value?: string) => value === from ? to : value
+    this.store.value.agents = { ...this.store.value.agents, [agent]: {} }
+    this.setAgent(agent, { provider: swap(current.provider), backups: (current.backups ?? []).map(swap).filter((name): name is string => Boolean(name)) })
+  }
+
+  /** Providers to fall back on, in order, for a run that uses `primary` (by default the one in use). */
+  async backups(agent: string, primary?: string): Promise<ProviderChoice[]> {
+    const app = providerAppOf(agent)
+    if (!app)
+      return []
+    const chosen = primary ?? this.store.value.agents?.[agent]?.provider
+    const keys = await this.allKeys()
+    return (this.store.value.agents?.[agent]?.backups ?? []).filter(name => name !== chosen).flatMap((name) => {
+      const preset = this.preset(app, name)
+      return preset ? [{ preset, key: keys[`${app}:${name}`] }] : []
+    })
+  }
+
+  /** The backup queue for Claude Code or Codex, in order. Their own login can't be a backup: Anna can't route it. */
+  async setBackups(agent: string, names: string[]) {
+    const app = providerAppOf(agent)
+    if (app !== 'claude' && app !== 'codex')
+      throw new Error('只有 Claude Code 和 Codex 能设置备用服务商')
+    for (const name of names) {
+      const preset = this.preset(app, name)
+      if (!preset)
+        throw new Error(`没有找到 ${name} 这个服务商`)
+      if (!canRoute(app, preset))
+        throw new Error(`${name} 用的是它自己的登录，不能当备用`)
+    }
+    this.setAgent(agent, { backups: names })
+    await this.store.save()
+  }
+
   async setProvider(agent: string, provider?: string, key?: string) {
     const app = providerAppOf(agent)
     if (!app)
@@ -164,7 +211,7 @@ export class AgentsHub {
       throw new Error(`没有找到 ${provider} 这个服务商`)
     if (provider && key)
       await this.saveKey(`${app}:${provider}`, key.trim())
-    this.store.value.agents = { ...this.store.value.agents, [agent]: { provider } }
+    this.setAgent(agent, { provider })
     await this.store.save()
   }
 
@@ -238,8 +285,8 @@ export class AgentsHub {
     }
     if (draft.key?.trim())
       await this.saveKey(`${app}:${name}`, draft.key.trim())
-    if (draft.previous && this.store.value.agents?.[app]?.provider === draft.previous)
-      this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
+    if (draft.previous && draft.previous !== name)
+      this.renameChosen(app, draft.previous, name)
     await this.store.save()
   }
 
@@ -281,9 +328,8 @@ export class AgentsHub {
     for (const app of apps) {
       if (old && keys[`${app}:${old.name}`])
         delete keys[`${app}:${old.name}`]
-      const chosen = this.store.value.agents?.[app]?.provider
-      if (old && chosen === old.name)
-        this.store.value.agents = { ...this.store.value.agents, [app]: universal.apps[app] ? { provider: name } : {} }
+      if (old)
+        this.renameChosen(app, old.name, universal.apps[app] ? name : undefined)
     }
     if (old)
       delete keys[`universal:${old.name}`]
@@ -366,7 +412,7 @@ export class AgentsHub {
         : { ...base, baseUrl: link.baseUrl, model: link.model, wireApi: 'responses', ...(link.apiFormat ? { apiFormat: link.apiFormat } : {}) }
     this.store.value.providers = [...(this.store.value.providers ?? []), { app, name, source: 'custom', preset } as CustomProvider]
     if (use)
-      this.store.value.agents = { ...this.store.value.agents, [app]: { provider: name } }
+      this.setAgent(app, { provider: name })
     await this.saveKey(`${app}:${name}`, link.key)
     await this.store.save()
     this.pending = undefined
@@ -433,8 +479,7 @@ export class AgentsHub {
     if (!app)
       throw new Error('这个 agent 不能设置服务商')
     this.store.value.providers = (this.store.value.providers ?? []).filter(item => !(item.app === app && item.name === name))
-    if (this.store.value.agents?.[app]?.provider === name)
-      this.store.value.agents = { ...this.store.value.agents, [app]: {} }
+    this.renameChosen(app, name)
     const keys = await this.allKeys()
     if (keys[`${app}:${name}`]) {
       delete keys[`${app}:${name}`]
@@ -484,14 +529,19 @@ export class AgentsHub {
     const detected: AgentStatus[] = this.detected.map(info => ({ ...info, ...(info.tier === 'delegate' ? { approvals: approvalStyle[info.id as DelegateAgent], verified: verified[info.id as DelegateAgent] } : {}) }))
     const providers: AgentsSnapshot['providers'] = {}
     for (const agent of ['claude', 'codex', 'gemini']) {
-      const provider = this.store.value.agents?.[agent]?.provider
-      providers[agent] = { provider, hasKey: Boolean(provider && keys[`${agent}:${provider}`]) }
+      const { provider, backups } = this.store.value.agents?.[agent] ?? {}
+      providers[agent] = { provider, hasKey: Boolean(provider && keys[`${agent}:${provider}`]), ...(backups?.length ? { backups } : {}) }
     }
     const presets: AgentsSnapshot['presets'] = {}
     const mine: AgentsSnapshot['mine'] = {}
     for (const app of apps) {
       presets[app] = presetsFor(app).map(preset => ({ name: preset.name, category: preset.category, official: preset.official, apiKeyUrl: preset.apiKeyUrl, website: preset.website, ...describe(app, preset), ...(routedThroughAnna(app, preset) ? { routed: true } : {}) }))
-      mine[app] = this.mine(app, keys)
+      // Health only once a run has started the routing service; until then every breaker is closed.
+      const health = routingIfStarted()?.health() ?? {}
+      mine[app] = this.mine(app, keys).map((item) => {
+        const state = app === 'gemini' ? undefined : health[`${app}:${item.name}`]?.state
+        return state && state !== 'closed' ? { ...item, health: state } : item
+      })
     }
     return {
       detected,

@@ -20,6 +20,24 @@ const who = computed(() => companion(props.snapshot.settings.characterId).name)
 const whoInline = computed(() => /^[\w .-]+$/.test(who.value) ? ` ${who.value} ` : who.value)
 const mine = computed(() => agents.value.mine[current.value] ?? [])
 const inUse = computed(() => agents.value.providers[current.value]?.provider)
+/** Providers to fall back on, in order (Claude Code and Codex: Anna's routing does the switching). */
+const backups = computed(() => agents.value.providers[current.value]?.backups ?? [])
+const canBackUp = computed(() => current.value !== 'gemini')
+function setBackups(names: string[]) {
+  if (current.value !== 'gemini')
+    emit('command', { type: 'provider-backups', app: current.value, names })
+}
+function moveBackup(name: string, by: number) {
+  const list = [...backups.value]
+  const from = list.indexOf(name)
+  const to = from + by
+  if (from < 0 || to < 0 || to >= list.length)
+    return
+  list.splice(to, 0, ...list.splice(from, 1))
+  setBackups(list)
+}
+const healthLabels = { open: '暂停中', half_open: '试探恢复中' }
+const healthTitles = { open: '连续出错，暂停使用一会儿，之后会自动试探', half_open: '暂停结束，正在用一个请求试探它恢复了没有' }
 const global = computed(() => agents.value.global[current.value])
 
 /** The add/edit form: `previous` is set while editing, `from` when starting from a preset. */
@@ -99,7 +117,7 @@ function speedtest(name: string) {
 
 <template>
   <div class="providers">
-    <p class="small muted">派活或把它当大脑时，Anna 只给那个 agent 的进程注入这里选的服务商，不改你的配置文件。“应用到全局”才会像 cc-switch 一样写入它的配置：只改连接相关的字段，首次写入前会备份，可以一键恢复。预设来自 cc-switch（MIT）。</p>
+    <p class="small muted">派活或把它当大脑时，Anna 只给那个 agent 的进程注入这里选的服务商，不改你的配置文件；给 Claude Code 或 Codex 设了备用服务商的话，正在用的出错时会按顺序换用。“应用到全局”才会像 cc-switch 一样写入它的配置：只改连接相关的字段，首次写入前会备份，可以一键恢复。预设来自 cc-switch（MIT）。</p>
     <div class="card-actions left provider-tools">
       <button :disabled="locked" @click="linkOpen = !linkOpen">从链接导入</button>
       <button :disabled="locked" @click="emit('command', { type: 'providers-import' })">导入文件</button>
@@ -135,7 +153,7 @@ function speedtest(name: string) {
     </div>
     <UniversalPanel v-if="app === 'universal'" :snapshot="snapshot" :locked="locked" @command="emit('command', $event)" />
     <template v-else>
-      <p class="small status-line" :data-app="current">{{ who }} 用：<strong>{{ inUse ?? '它自己的登录' }}</strong> · 全局：{{ global?.switched ? `已切换到 ${global.provider}` : '未修改' }}<button v-if="global?.switched" class="link" :disabled="locked" @click="emit('command', { type: 'provider-restore', app: current })">恢复原配置</button></p>
+      <p class="small status-line" :data-app="current">{{ who }} 用：<strong>{{ inUse ?? '它自己的登录' }}</strong><template v-if="backups.length"> · 出错时换用：{{ backups.join(' → ') }}</template> · 全局：{{ global?.switched ? `已切换到 ${global.provider}` : '未修改' }}<button v-if="global?.switched" class="link" :disabled="locked" @click="emit('command', { type: 'provider-restore', app: current })">恢复原配置</button></p>
 
       <ul v-if="!editor" class="provider-list" :aria-label="`${labels[current]} 的服务商`">
         <li :class="{ current: !inUse }" data-provider="">
@@ -151,6 +169,8 @@ function speedtest(name: string) {
             <span v-if="global?.switched && global.provider === provider.name" class="badge">全局</span>
             <span class="badge" :class="provider.hasKey ? 'ok' : 'warn'">{{ provider.hasKey ? '已存密钥' : '没有密钥' }}</span>
             <span v-if="provider.routed" class="badge" :title="`${labels[current]} 经 Anna 的本地路由连接它，真实密钥只留在 Anna 里`">经本地路由</span>
+            <span v-if="backups.includes(provider.name)" class="badge" :data-backup="backups.indexOf(provider.name) + 1">备用 {{ backups.indexOf(provider.name) + 1 }}</span>
+            <span v-if="provider.health" class="badge warn" :title="healthTitles[provider.health]">{{ healthLabels[provider.health] }}</span>
           </div>
           <p class="small muted">{{ host(provider.baseUrl) || '未设置地址' }}{{ provider.model ? ` · ${provider.model}` : '' }}</p>
           <div v-if="removing === provider.name" class="card approval-request" role="alert">
@@ -160,6 +180,14 @@ function speedtest(name: string) {
           </div>
           <div v-else class="card-actions left">
             <button v-if="inUse !== provider.name" :disabled="locked" @click="use(provider.name)">让{{ whoInline }}用它</button>
+            <template v-if="canBackUp && inUse !== provider.name">
+              <button v-if="!backups.includes(provider.name)" :disabled="locked" title="正在用的服务商出错时，Anna 按顺序换用备用服务商" @click="setBackups([...backups, provider.name])">设为备用</button>
+              <template v-else>
+                <button class="link" :disabled="locked || backups.indexOf(provider.name) === 0" aria-label="备用顺序上移" @click="moveBackup(provider.name, -1)">↑</button>
+                <button class="link" :disabled="locked || backups.indexOf(provider.name) === backups.length - 1" aria-label="备用顺序下移" @click="moveBackup(provider.name, 1)">↓</button>
+                <button class="link" :disabled="locked" @click="setBackups(backups.filter(name => name !== provider.name))">移出备用</button>
+              </template>
+            </template>
             <button :disabled="locked || !provider.hasKey || provider.routed" :title="provider.routed ? '经本地路由的服务商现在只能在 Anna 里用' : provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
             <button v-if="provider.usage" :disabled="locked || !provider.hasKey || checking === provider.name" :title="provider.hasKey ? '' : '先存一个密钥'" @click="checkUsage(provider.name)">{{ checking === provider.name ? '查询中…' : provider.usage === 'quota' ? '查额度' : '查余额' }}</button>
             <button :disabled="locked || testing === provider.name" @click="speedtest(provider.name)">{{ testing === provider.name ? '测速中…' : '测速' }}</button>
