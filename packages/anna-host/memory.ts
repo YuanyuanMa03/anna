@@ -45,7 +45,7 @@ export class MemoryStore {
   /** Instructions for the kernel: the memory every companion shares, and how to use the memory tool. */
   instructions() {
     const list = this.items.length ? this.items.map(item => `- ${item.text}（${item.by ? `${item.by} 记下` : '没记录是谁记的'}）`).join('\n') : '（暂无）'
-    return `## 关于用户的长期记忆\n这是伙伴们共用的一本日记，以下是用户允许大家记住的事（可能是别的伙伴记下的，也可能过时，与用户当前说法冲突时以当前为准）：\n${list}\n\n需要长期记住用户的偏好、习惯或约定时，调用 anna_memory 的 remember；用户要求忘记时调用 forget。不要把记忆写进工作区文件。不要记住密钥、密码或其他敏感信息。`
+    return `## 关于用户的长期记忆\n这是伙伴们共用的一本日记，以下是用户允许大家记住的事。每条后面的括号写着是谁记下的：提到时照实说出处，不是你记的就不要说成“我记下的”。记忆也可能过时，与用户当前说法冲突时以当前为准：\n${list}\n\n需要长期记住用户的偏好、习惯或约定时，调用 anna_memory 的 remember；用户要求忘记时调用 forget。不要把记忆写进工作区文件。不要记住密钥、密码或其他敏感信息。`
   }
 
   /** `writer`: who is on stage when a line is stored, so the diary can say whose it is. */
