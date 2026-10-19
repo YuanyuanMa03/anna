@@ -12,7 +12,6 @@ import ApprovalCard from './components/approval-card.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
-import SponsorSheet from './components/sponsor-sheet.vue'
 import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -26,7 +25,6 @@ const agentsOpen = ref(false)
 const collaborator = ref<{ agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }>()
 const update = ref<{ state: string, version?: string, notes?: string, message?: string, manual?: boolean }>()
 const weixinOpen = ref(false)
-const sponsorOpen = ref(false)
 const drawer = ref<'history' | 'work' | 'changes' | undefined>()
 const changes = ref<FileChange[]>([])
 const weixin = ref<WeixinState>({ phase: 'offline', message: '微信尚未连接' })
@@ -217,7 +215,7 @@ onMounted(async () => {
       case 'navigate':
         if (event.panel === 'providers')
           agentsOpen.value = true
-        else (event.panel === 'sponsor' ? sponsorOpen : settingsOpen).value = true
+        else settingsOpen.value = true
         break
       case 'snapshot': accept(event.snapshot); break
       case 'tool': tools.value.push(event); break
@@ -284,7 +282,6 @@ const web = Boolean(import.meta.env.VITE_ANNA_WEB)
         <button v-if="!web" @click="agentsOpen = true; run({ type: 'snapshot' })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
         <button @click="pluginsOpen = true">外观与能力</button>
         <button @click="settingsOpen = true">模型与设置</button>
-        <button class="sponsor" @click="sponsorOpen = true">♥ 赞助</button>
       </nav>
     </header>
 
@@ -392,7 +389,6 @@ const web = Boolean(import.meta.env.VITE_ANNA_WEB)
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
     <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
-    <SponsorSheet v-if="sponsorOpen" @close="sponsorOpen = false" />
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="pluginsOpen = false" @command="run" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>

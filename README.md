@@ -11,30 +11,14 @@ She never pretends to have done what she hasn't, and when a decision is yours, s
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-6cb38f)](LICENSE)
-[![Sponsor](https://img.shields.io/badge/%E2%99%A5%20sponsor-WeChat%20%C2%B7%20Alipay-e5739a)](#sponsor-anna)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)
 
-**English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top) · [**♥ Sponsor**](#sponsor-anna)
+**English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top)
 
 <img src="docs/media/work.webp" alt="Anna finishing a real task with DeepSeek: her reply, the steps she took and the delivery card" width="880">
 
 </div>
-
-## Sponsor Anna
-
-Anna is built by one person in their spare time. Model calls, test devices and the hours behind each release add up.
-If Anna keeps you company or saves you work, a sponsorship of any size keeps her growing. Thank you ♥
-
-<table>
-  <tr>
-    <td align="center"><img src="website/public/media/wechat.webp" alt="WeChat Pay QR code" width="200"><br><sub>WeChat Pay</sub></td>
-    <td align="center"><img src="website/public/media/alipay.webp" alt="Alipay QR code" width="200"><br><sub>Alipay</sub></td>
-  </tr>
-</table>
-
-Anna is free for personal and noncommercial use. Selling it or using it at work needs a
-[commercial license](COMMERCIAL.md).
 
 ## Meet Anna
 
@@ -284,6 +268,9 @@ Anna has changed brains three times, and she's still Anna.
 
 Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and report security issues
 privately as described in [SECURITY.md](SECURITY.md).
+
+Anna is made by one person. If she helps you and you would like to support her, the [website](https://anna.mayuanyuan.top)
+has a sponsor link.
 
 ## Acknowledgements
 
