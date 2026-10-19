@@ -37,7 +37,7 @@ export const copy = {
     meta: { title: 'Anna · 数字生命，你的真诚伙伴', lang: 'zh-CN' },
     nav: { meet: '认识她', demo: '一起干活', features: '能力', modes: '权限模式', download: '安装', coffee: '赞助', home: 'Anna 首页' },
     hero: {
-      eyebrow: '源码公开 · 个人免费 · v0.4 · macOS / Windows / Linux',
+      eyebrow: '源码公开 · 个人免费 · v0.5 · macOS / Windows / Linux',
       title: ['一个数字生命，', '你的真诚伙伴。'],
       desc: 'Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你聊天，也会认真帮你做事：读代码、改文件、跑测试，需要时请 Claude Code 或 Codex 来帮忙。她不会假装做过没做的事；需要你拍板时，她会转过来问你。',
       github: '在 GitHub 上查看',
@@ -158,7 +158,7 @@ export const copy = {
     meta: { title: 'Anna · A digital life, an honest companion', lang: 'en' },
     nav: { meet: 'Meet Anna', demo: 'Demo', features: 'Features', modes: 'Modes', download: 'Install', coffee: 'Sponsor', home: 'Anna home' },
     hero: {
-      eyebrow: 'Source available · free for personal use · v0.4 · macOS / Windows / Linux',
+      eyebrow: 'Source available · free for personal use · v0.5 · macOS / Windows / Linux',
       title: ['A digital life,', 'an honest companion.'],
       desc: 'Anna is more than an agent. She has her own face, personality and memory. She\'ll keep you company, and she\'ll get real work done: reading code, editing files, running tests, and calling in Claude Code or Codex when they fit better. She never pretends to have done what she hasn\'t, and when a decision is yours, she turns and asks.',
       github: 'View on GitHub',

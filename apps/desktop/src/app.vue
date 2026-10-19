@@ -271,7 +271,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
 <template>
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
     <header class="topbar">
-      <div class="brand">anna<span>v0.4</span></div>
+      <div class="brand">anna<span>v0.5</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <nav class="header-actions">
         <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
