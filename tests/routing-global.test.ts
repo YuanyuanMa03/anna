@@ -4,7 +4,8 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { RoutingTakeover } from '../packages/agents/takeover'
 import { Host } from '../packages/anna-host/host'
 import { scriptedBackend } from '../packages/kernels/pi/backend'
 import { createPiKernel } from '../packages/kernels/pi/kernel'
@@ -103,6 +104,33 @@ it('codex in a terminal goes through Anna: the config points at the route, follo
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
   expect(again.host.snapshot().agents.global.codex).not.toHaveProperty('routing')
   await again.host.shutdown()
+})
+
+it('switching routing off while another sync is under way gives the config back for good', async () => {
+  const { host, configs } = await setup()
+  const original = 'model = "gpt-6"\napproval_policy = "on-request"\n'
+  await writeFile(join(configs.codex, 'config.toml'), original)
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'Chat A', baseUrl: `${base}/a/v1`, model: 'model-a', key: 'sk-a', apiFormat: 'openai_chat' })
+  await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Chat A' })
+  await host.execute({ type: 'provider-routing', app: 'codex', on: true })
+  // A sync that read "on" holds before writing (like the one after agent detection at start, on a slow machine)
+  // until routing is off, or a moment has passed: once routing is off, it must not take the config over again.
+  let offDone!: () => void
+  const settled = new Promise<void>((done) => { offDone = done })
+  const apply = RoutingTakeover.prototype.apply
+  const held = vi.spyOn(RoutingTakeover.prototype, 'apply').mockImplementationOnce(async function (this: RoutingTakeover, spec) {
+    await Promise.race([settled, new Promise(done => setTimeout(done, 200))])
+    return apply.call(this, spec)
+  })
+  try {
+    const refresh = host.execute({ type: 'agents-refresh' })
+    await vi.waitFor(() => expect(held).toHaveBeenCalled())
+    const off = host.execute({ type: 'provider-routing', app: 'codex', on: false }).finally(offDone)
+    await Promise.all([refresh, off])
+  }
+  finally { held.mockRestore() }
+  expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(original)
+  await host.shutdown()
 })
 
 it('claude Code in a terminal: the route, a token, Claude tier names; after a crash the next start sorts it out', async () => {

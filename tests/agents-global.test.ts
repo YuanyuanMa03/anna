@@ -1,6 +1,10 @@
+import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { globalPlan } from '../packages/agents/global'
 import { findPreset } from '../packages/agents/providers'
+
+/** Windows keeps no Unix permission bits: a writable file always reports 0o666. */
+const unixModes = process.platform !== 'win32'
 
 const deepseek = { preset: findPreset('claude', 'DeepSeek')!, key: 'sk-ds' }
 
@@ -97,7 +101,7 @@ describe('globalSwitcher: first-write backup, verified writes, restore', () => {
     const switcher = new GlobalSwitcher(join(root, 'anna-data', 'agent-backups'), dirs)
     await switcher.apply('codex', { preset: findPreset('codex', 'MiniMax')!, key: 'k1' })
     await switcher.apply('claude', { preset: findPreset('claude', 'DeepSeek')!, key: 'k2' })
-    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(0o644)
+    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(unixModes ? 0o644 : 0o666)
     // Meanwhile: Codex trusts a folder and gets an MCP server, a ChatGPT login lands in auth.json, Claude Code adds a rule.
     await writeFile(join(dirs.codex, 'config.toml'), `${await readFile(join(dirs.codex, 'config.toml'), 'utf8')}\n[projects."/work"]\ntrust_level = "trusted"\n\n[mcp_servers.docs]\ncommand = "docs"\n`)
     await writeFile(join(dirs.codex, 'auth.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dirs.codex, 'auth.json'), 'utf8')), tokens: { id_token: 'login' } }))
@@ -110,7 +114,7 @@ describe('globalSwitcher: first-write backup, verified writes, restore', () => {
     expect(config).toContain('[projects."/work"]\ntrust_level = "trusted"')
     expect(config).toContain('[mcp_servers.docs]')
     expect(config).not.toMatch(/model_provider|minimax|web_search = "disabled"/i)
-    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(0o644)
+    expect((await stat(join(dirs.codex, 'config.toml'))).mode & 0o777).toBe(unixModes ? 0o644 : 0o666)
     expect(JSON.parse(await readFile(join(dirs.codex, 'auth.json'), 'utf8'))).toEqual({ OPENAI_API_KEY: 'sk-mine', tokens: { id_token: 'login' } })
     expect(JSON.parse(await readFile(join(dirs.claude, 'settings.json'), 'utf8'))).toEqual({ env: { ANTHROPIC_AUTH_TOKEN: 'sk-claude' }, permissions: { allow: ['Bash(ls)'] } })
   })
