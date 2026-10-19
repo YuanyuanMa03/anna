@@ -140,6 +140,8 @@ export class Host {
   private async refreshAgents(detect: boolean) {
     if (detect)
       await this.hub.refresh()
+    // Global routing follows provider changes; a failure shows on the agent's card instead of failing the command.
+    await this.hub.syncRouting().catch(() => {})
     this.agentsCache = await this.hub.snapshot()
     this.publish()
   }
@@ -510,6 +512,8 @@ export class Host {
   }
 
   async close() {
+    // The agents' own configs go back as they were; the next start takes them over again.
+    await this.hub.releaseRouting().catch(() => {})
     this.approvals.cancel()
     if (this.kernel)
       await this.kernel.close()
@@ -775,6 +779,14 @@ export class Host {
         return this.snapshot()
       case 'provider-backups':
         await this.hub.setBackups(command.app, command.names)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'provider-routing':
+        try { await this.hub.setGlobalRouting(command.app, command.on) }
+        finally { await this.refreshAgents(false) }
+        return this.snapshot()
+      case 'routing-policy':
+        await this.hub.setRoutingPolicy(command.app, command.policy)
         await this.refreshAgents(false)
         return this.snapshot()
       case 'provider-global':

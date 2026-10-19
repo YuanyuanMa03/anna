@@ -580,3 +580,94 @@ describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real a
     }
   }, 180000)
 })
+
+/**
+ * Global routing with the real CLIs, run the way a user runs them in a terminal: their own config folder, taken over by
+ * Anna, and nothing from Anna in their environment. Their requests reach a scripted Chat upstream through the route.
+ */
+describe.skipIf(!wanted.includes('codex') && !wanted.includes('claude'))('real CLIs in a terminal, through Anna\'s global routing', () => {
+  async function prepare() {
+    const { createServer } = await import('node:http')
+    const { mkdir, mkdtemp, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join, resolve } = await import('node:path')
+    const { Host } = await import('../packages/anna-host/host')
+    const hits: { path: string, authorization?: string, model?: string }[] = []
+    const upstream = createServer((request, response) => {
+      let text = ''
+      request.on('data', (part) => { text += part })
+      request.on('end', () => {
+        const body = JSON.parse(text)
+        hits.push({ path: request.url!, authorization: request.headers.authorization, model: body.model })
+        const chunk = (delta: object, finish?: string) => `data: ${JSON.stringify({ id: 'c', model: body.model, choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`
+        if (!body.stream) {
+          response.writeHead(200, { 'content-type': 'application/json' })
+          return response.end(JSON.stringify({ id: 'plain', model: body.model, choices: [{ message: { role: 'assistant', content: 'routed through Anna' }, finish_reason: 'stop' }] }))
+        }
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        response.end(`${chunk({ content: 'routed through Anna' })}${chunk({}, 'stop')}data: [DONE]\n\n`)
+      })
+    })
+    await new Promise<void>(done => upstream.listen(0, '127.0.0.1', done))
+    const url = `http://127.0.0.1:${(upstream.address() as { port: number }).port}`
+    const data = await mkdtemp(join(tmpdir(), 'anna-real-global-'))
+    const workspace = join(data, 'project')
+    const configs = { claude: join(data, 'home/.claude'), codex: join(data, 'home/.codex'), gemini: join(data, 'home/.gemini') }
+    for (const dir of [workspace, configs.claude, configs.codex]) await mkdir(dir, { recursive: true })
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    const secrets: Record<string, string> = {}
+    const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } }, agents: { configDirs: configs, routingPort: 0 } })
+    await host.initialize()
+    return { host, hits, url, workspace, configs, close: () => { upstream.closeAllConnections(); upstream.close() } }
+  }
+  /** The CLI's environment as a terminal has it: nothing of Anna's, no ANTHROPIC_* or OpenAI keys. */
+  async function terminal(command: string, args: string[], cwd: string, extra: Record<string, string>) {
+    const { execFile } = await import('node:child_process')
+    const env = Object.fromEntries(Object.entries(nodeEnvironment().env).filter(([key]) => !/^(?:ANTHROPIC_|OPENAI_|CLAUDE_CODE_|ANNA_)/.test(key)))
+    return new Promise<string>((done) => {
+      const child = execFile(command, args, { cwd, env: { ...env, ...extra }, timeout: 120_000 }, (error, stdout, stderr) => done(`${stdout}\n${stderr}${error ? `\n${error.message}` : ''}`))
+      // A terminal command with nothing piped in: stdin closed.
+      child.stdin?.end()
+    })
+  }
+
+  it.skipIf(!wanted.includes('codex'))('codex exec reads its taken-over config.toml and answers through the route', async () => {
+    const { join } = await import('node:path')
+    const codex = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'codex')!
+    const setup = await prepare()
+    try {
+      await setup.host.execute({ type: 'provider-save', app: 'codex', name: 'Fake Chat', baseUrl: `${setup.url}/v1`, model: 'fake-chat-1', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Fake Chat' })
+      await setup.host.execute({ type: 'provider-routing', app: 'codex', on: true })
+      const output = await terminal(codex.path!, ['exec', '--skip-git-repo-check', 'Say hello.'], setup.workspace, { CODEX_HOME: setup.configs.codex })
+      process.stdout.write(`terminal codex: ${output.trim().split('\n').slice(-3).join(' | ')} hits: ${JSON.stringify(setup.hits.map(hit => [hit.path, hit.model]))}\n`)
+      expect(output).toContain('routed through Anna')
+      expect(setup.hits.every(hit => hit.path === '/v1/chat/completions' && hit.authorization === 'Bearer sk-fake-real')).toBe(true)
+      expect(setup.hits.length).toBeGreaterThan(0)
+      await setup.host.close()
+      const { readFile } = await import('node:fs/promises')
+      expect(await readFile(join(setup.configs.codex, 'config.toml'), 'utf8').catch(() => 'gone')).toBe('gone')
+    }
+    finally {
+      setup.close()
+    }
+  }, 180000)
+
+  it.skipIf(!wanted.includes('claude'))('claude -p reads its taken-over settings.json and answers through the route', async () => {
+    const claude = (await detectAgents(nodeEnvironment())).find(agent => agent.id === 'claude')!
+    const setup = await prepare()
+    try {
+      await setup.host.execute({ type: 'provider-save', app: 'claude', name: 'Fake Chat', baseUrl: setup.url, model: 'fake-chat-pro', key: 'sk-fake-real', apiFormat: 'openai_chat' })
+      await setup.host.execute({ type: 'agent-provider', agent: 'claude', provider: 'Fake Chat' })
+      await setup.host.execute({ type: 'provider-routing', app: 'claude', on: true })
+      const output = await terminal(claude.path!, ['-p', 'Say hello.'], setup.workspace, { CLAUDE_CONFIG_DIR: setup.configs.claude })
+      process.stdout.write(`terminal claude: ${output.trim().split('\n').slice(-3).join(' | ')} hits: ${JSON.stringify(setup.hits.map(hit => [hit.path, hit.model]))}\n`)
+      expect(output).toContain('routed through Anna')
+      expect(setup.hits.every(hit => hit.path === '/v1/chat/completions' && hit.authorization === 'Bearer sk-fake-real' && hit.model === 'fake-chat-pro')).toBe(true)
+      await setup.host.close()
+    }
+    finally {
+      setup.close()
+    }
+  }, 180000)
+})

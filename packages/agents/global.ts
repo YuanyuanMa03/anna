@@ -13,7 +13,7 @@ import { keyFieldOf, providerEnv, routedThroughAnna, usesOwnLogin } from './prov
 export interface GlobalPlan { writes: Record<string, string> }
 
 /** Claude Code settings.json `env` keys that belong to the connection (cc-switch live/floor.rs). */
-function claudeConnectionKey(key: string) {
+export function claudeConnectionKey(key: string) {
   return key.startsWith('ANTHROPIC_') || key.startsWith('AWS_') || key.startsWith('VERTEX_REGION_') || key.startsWith('CLAUDE_CODE_USE_')
     || ['CLAUDE_CODE_SUBAGENT_MODEL', 'CLOUD_ML_REGION', 'GOOGLE_APPLICATION_CREDENTIALS', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_OAUTH_REFRESH_TOKEN', 'CLAUDE_CODE_OAUTH_SCOPES', 'CLAUDE_CODE_API_KEY_HELPER_TTL_MS'].includes(key)
     || (key.startsWith('CLAUDE_CODE_SKIP_') && key.endsWith('_AUTH'))
@@ -25,9 +25,9 @@ function geminiConnectionKey(key: string) {
 /** Codex config.toml top-level keys that belong to the connection. */
 const codexTopKeys = ['model_provider', 'openai_base_url', 'model', 'model_reasoning_effort', 'experimental_bearer_token', 'base_url', 'wire_api', 'model_catalog_json']
 /** The model catalog Anna writes next to config.toml. */
-const codexCatalogFile = 'anna-model-catalog.json'
+export const codexCatalogFile = 'anna-model-catalog.json'
 
-function parseJson(name: string, text: string | undefined): Record<string, any> {
+export function parseJson(name: string, text: string | undefined): Record<string, any> {
   if (text === undefined || !text.trim())
     return {}
   // Comments or trailing commas mean JSONC: rewriting would drop them, so refuse like cc-switch does.
@@ -44,7 +44,7 @@ function parseJson(name: string, text: string | undefined): Record<string, any> 
 function indentOf(text: string | undefined) {
   return /\n([ \t]+)"/.exec(text ?? '')?.[1] ?? '  '
 }
-const json = (value: unknown, like?: string) => `${JSON.stringify(value, null, indentOf(like))}\n`
+export const json = (value: unknown, like?: string) => `${JSON.stringify(value, null, indentOf(like))}\n`
 
 function claudePlan(files: Record<string, string | undefined>, choice: ProviderChoice): GlobalPlan {
   const original = files['settings.json']
@@ -60,25 +60,43 @@ function claudePlan(files: Record<string, string | undefined>, choice: ProviderC
   return { writes: { 'settings.json': json({ ...settings, env }, original) } }
 }
 
-const tomlString = (value: string) => JSON.stringify(value)
-/** A provider behind Anna's routing has no address the CLI could use on its own (until global routing, P2d). */
-export const routedOnlyInAnna = (name: string) => `${name} 要经过 Anna 的本地路由，现在只能在 Anna 里使用，还不能设为全局服务商`
+export const tomlString = (value: string) => JSON.stringify(value)
+/** A provider behind Anna's routing has no address the CLI could use on its own; global routing is the way. */
+export const routedOnlyInAnna = (name: string) => `${name} 要经过 Anna 的本地路由，不能直接写进配置；要在终端里用它，打开“终端也走 Anna 的路由”`
 
-/** Edit config.toml line by line: top-level connection keys and the [model_providers.custom] table only. */
-function codexPlan(files: Record<string, string | undefined>, choice: ProviderChoice, dir: string): GlobalPlan {
-  const original = files['config.toml'] ?? ''
+/**
+ * config.toml in the parts Anna owns and the rest: the top-level connection lines, the [model_providers.custom] table
+ * (header to next header), and everything else, untouched.
+ */
+export function codexSections(original: string) {
   if (/^\s*model_providers\s*=|^\s*model_providers\.custom\./m.test(original))
     throw new Error('config.toml 用内联或点号写法定义了 model_providers，无法安全解析，未做修改')
   const lines = original.split('\n')
   const firstTable = lines.findIndex(line => /^\s*\[/.test(line))
-  const top = (firstTable === -1 ? lines : lines.slice(0, firstTable)).filter(line => !codexTopKeys.some(key => new RegExp(`^\\s*${key}\\s*=`).test(line)))
+  const head = firstTable === -1 ? lines : lines.slice(0, firstTable)
+  const isConnection = (line: string) => codexTopKeys.some(key => new RegExp(`^\\s*${key}\\s*=`).test(line))
   let rest = firstTable === -1 ? [] : lines.slice(firstTable)
-  // Drop the existing [model_providers.custom] table (header to next header).
+  let custom: string[] | undefined
   const start = rest.findIndex(line => /^\s*\[model_providers\.custom\]\s*$/.test(line))
   if (start !== -1) {
     const end = rest.findIndex((line, index) => index > start && /^\s*\[/.test(line))
+    custom = rest.slice(start, end === -1 ? undefined : end)
     rest = [...rest.slice(0, start), ...(end === -1 ? [] : rest.slice(end))]
   }
+  return { top: head.filter(line => !isConnection(line)), connection: head.filter(isConnection), rest, custom }
+}
+
+/** config.toml again: the kept top, Anna's top-level lines, the rest, then the provider table (if any). */
+export function codexCompose(top: string[], head: string[], rest: string[], table: string[]) {
+  const trimmedTop = top.join('\n').replace(/\n+$/, '')
+  const trimmedRest = rest.join('\n').replace(/^\n+|\n+$/g, '')
+  const body = `${[trimmedTop, head.join('\n')].filter(Boolean).join('\n')}\n\n${trimmedRest ? `${trimmedRest}\n\n` : ''}`
+  return table.length ? `${body}${table.join('\n').replace(/\n+$/, '')}\n` : `${body.replace(/\n+$/, '')}\n`
+}
+
+/** Edit config.toml line by line: top-level connection keys and the [model_providers.custom] table only. */
+function codexPlan(files: Record<string, string | undefined>, choice: ProviderChoice, dir: string): GlobalPlan {
+  const { top, rest } = codexSections(files['config.toml'] ?? '')
   const writes: Record<string, string> = {}
   if (usesOwnLogin('codex', choice.preset)) {
     writes['config.toml'] = [...top, ...rest].join('\n')
@@ -94,9 +112,7 @@ function codexPlan(files: Record<string, string | undefined>, choice: ProviderCh
   if (noSearch)
     top.splice(0, top.length, ...top.filter(line => !/^\s*web_search\s*=/.test(line)))
   const table = ['[model_providers.custom]', `name = ${tomlString(choice.preset.name)}`, `base_url = ${tomlString(choice.preset.baseUrl!)}`, `wire_api = ${tomlString(choice.preset.wireApi ?? 'responses')}`, 'requires_openai_auth = true']
-  const trimmedTop = top.join('\n').replace(/\n+$/, '')
-  const trimmedRest = rest.join('\n').replace(/^\n+|\n+$/g, '')
-  writes['config.toml'] = `${[trimmedTop, head.join('\n')].filter(Boolean).join('\n')}\n\n${trimmedRest ? `${trimmedRest}\n\n` : ''}${table.join('\n')}\n`
+  writes['config.toml'] = codexCompose(top, head, rest, table)
   if (choice.key)
     writes['auth.json'] = json({ OPENAI_API_KEY: choice.key }, files['auth.json'])
   return { writes }

@@ -20,6 +20,7 @@ const who = computed(() => companion(props.snapshot.settings.characterId).name)
 const whoInline = computed(() => /^[\w .-]+$/.test(who.value) ? ` ${who.value} ` : who.value)
 const mine = computed(() => agents.value.mine[current.value] ?? [])
 const inUse = computed(() => agents.value.providers[current.value]?.provider)
+const global = computed(() => agents.value.global[current.value])
 /** Providers to fall back on, in order (Claude Code and Codex: Anna's routing does the switching). */
 const backups = computed(() => agents.value.providers[current.value]?.backups ?? [])
 const canBackUp = computed(() => current.value !== 'gemini')
@@ -37,8 +38,29 @@ function moveBackup(name: string, by: number) {
   setBackups(list)
 }
 const healthLabels = { open: '暂停中', half_open: '试探恢复中' }
+/** Global routing: the CLI's own config points at Anna (its address), or why it couldn't. Present while switched on. */
+const routing = computed(() => current.value === 'gemini' ? undefined : global.value?.routing)
+const routingOn = computed(() => Boolean(routing.value))
+function toggleRouting(on: boolean) {
+  if (current.value !== 'gemini')
+    emit('command', { type: 'provider-routing', app: current.value, on })
+}
+/** The failover settings being edited (seconds), started from the ones in force. */
+const policyFields: { key: 'maxRetries' | 'firstByteTimeout' | 'idleTimeout' | 'failureThreshold' | 'openSeconds', label: string, unit: string }[] = [
+  { key: 'maxRetries', label: '最多再试几家', unit: '家' },
+  { key: 'firstByteTimeout', label: '等第一个字', unit: '秒' },
+  { key: 'idleTimeout', label: '输出中断多久算失败', unit: '秒' },
+  { key: 'failureThreshold', label: '连续失败几次就暂停', unit: '次' },
+  { key: 'openSeconds', label: '暂停多久再试探', unit: '秒' },
+]
+const policy = computed(() => current.value === 'gemini' ? undefined : agents.value.routingPolicies?.[current.value])
+const policyDraft = ref<Record<string, number>>({})
+watch(policy, (value) => { policyDraft.value = { ...value } }, { immediate: true })
+function savePolicy(reset = false) {
+  if (current.value !== 'gemini')
+    emit('command', { type: 'routing-policy', app: current.value, policy: reset ? {} : { ...policyDraft.value } })
+}
 const healthTitles = { open: '连续出错，暂停使用一会儿，之后会自动试探', half_open: '暂停结束，正在用一个请求试探它恢复了没有' }
-const global = computed(() => agents.value.global[current.value])
 
 /** The add/edit form: `previous` is set while editing, `from` when starting from a preset. */
 type ApiFormat = 'anthropic' | 'openai_responses' | 'openai_chat'
@@ -153,7 +175,21 @@ function speedtest(name: string) {
     </div>
     <UniversalPanel v-if="app === 'universal'" :snapshot="snapshot" :locked="locked" @command="emit('command', $event)" />
     <template v-else>
-      <p class="small status-line" :data-app="current">{{ who }} 用：<strong>{{ inUse ?? '它自己的登录' }}</strong><template v-if="backups.length"> · 出错时换用：{{ backups.join(' → ') }}</template> · 全局：{{ global?.switched ? `已切换到 ${global.provider}` : '未修改' }}<button v-if="global?.switched" class="link" :disabled="locked" @click="emit('command', { type: 'provider-restore', app: current })">恢复原配置</button></p>
+      <p class="small status-line" :data-app="current">{{ who }} 用：<strong>{{ inUse ?? '它自己的登录' }}</strong><template v-if="backups.length"> · 出错时换用：{{ backups.join(' → ') }}</template> · 全局：{{ routing?.url ? '终端经过 Anna 的路由' : global?.switched ? `已切换到 ${global.provider}` : '未修改' }}<button v-if="global?.switched" class="link" :disabled="locked" @click="emit('command', { type: 'provider-restore', app: current })">恢复原配置</button></p>
+
+      <section v-if="current !== 'gemini' && !editor" class="routing-global" :data-app="current" aria-label="终端也走 Anna 的路由">
+        <label class="check"><input type="checkbox" :checked="routingOn" :disabled="locked" aria-label="终端也走 Anna 的路由" @change="toggleRouting(($event.target as HTMLInputElement).checked)">终端里的 {{ labels[current] }} 也走 Anna 的路由</label>
+        <p class="small muted">开启后，你在终端里直接运行的 {{ labels[current] }} 也经过 Anna：用这里选的服务商和备用，出错时自动换，Chat 格式的服务商也能用。只改它配置里连接相关的字段，Anna 退出时恢复；Anna 没开时它用原来的配置。</p>
+        <p v-if="routing?.url" class="small" data-routing="on">已接管，地址 {{ routing.url.replace(/^https?:\/\//, '') }}</p>
+        <p v-else-if="routing?.error" class="small warn" data-routing="error">没能接管：{{ routing.error }}</p>
+        <details v-if="policy" class="routing-policy">
+          <summary class="small">换用备用的超时与暂停</summary>
+          <div class="policy-grid">
+            <label v-for="field in policyFields" :key="field.key" class="small">{{ field.label }}<span><input v-model.number="policyDraft[field.key]" type="number" min="0" :aria-label="field.label">{{ field.unit }}</span></label>
+          </div>
+          <div class="card-actions left"><button :disabled="locked" @click="savePolicy()">保存</button><button class="link" :disabled="locked" @click="savePolicy(true)">恢复默认</button></div>
+        </details>
+      </section>
 
       <ul v-if="!editor" class="provider-list" :aria-label="`${labels[current]} 的服务商`">
         <li :class="{ current: !inUse }" data-provider="">
@@ -188,7 +224,7 @@ function speedtest(name: string) {
                 <button class="link" :disabled="locked" @click="setBackups(backups.filter(name => name !== provider.name))">移出备用</button>
               </template>
             </template>
-            <button :disabled="locked || !provider.hasKey || provider.routed" :title="provider.routed ? '经本地路由的服务商现在只能在 Anna 里用' : provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
+            <button :disabled="locked || !provider.hasKey || provider.routed || routingOn" :title="routingOn ? '终端正经过 Anna 的路由，先关掉它' : provider.routed ? '要在终端里用它，打开“终端也走 Anna 的路由”' : provider.hasKey ? '' : '先存一个密钥'" @click="emit('command', { type: 'provider-global', app: current, provider: provider.name })">应用到全局</button>
             <button v-if="provider.usage" :disabled="locked || !provider.hasKey || checking === provider.name" :title="provider.hasKey ? '' : '先存一个密钥'" @click="checkUsage(provider.name)">{{ checking === provider.name ? '查询中…' : provider.usage === 'quota' ? '查额度' : '查余额' }}</button>
             <button :disabled="locked || testing === provider.name" @click="speedtest(provider.name)">{{ testing === provider.name ? '测速中…' : '测速' }}</button>
             <template v-if="provider.source !== 'universal'">
@@ -238,7 +274,7 @@ function speedtest(name: string) {
         <label>模型<input v-model="editor.model" :required="current === 'codex' && !editor.from && !editor.previous" aria-label="模型" placeholder="留空用预设的默认模型"></label>
         <label>API Key<input v-model="editor.key" type="password" autocomplete="off" aria-label="API Key" :placeholder="editor.previous && mine.find(item => item.name === editor!.previous)?.hasKey ? '已保存，留空保持' : '输入服务商密钥'"></label>
         <a v-if="editor.apiKeyUrl" class="link small" :href="editor.apiKeyUrl" target="_blank" rel="noreferrer">去获取密钥 ↗</a>
-        <p v-if="current !== 'gemini' && editor.apiFormat === 'openai_chat'" class="small muted">{{ labels[current] }} 只说 {{ nativeLabel[current] }} 接口，Anna 在本机替它转换成 Chat Completions。真实密钥只留在 Anna 里，{{ labels[current] }} 每次只拿到一个用完即废的令牌。这类服务商暂时只能在 Anna 里用，不能应用到全局。</p>
+        <p v-if="current !== 'gemini' && editor.apiFormat === 'openai_chat'" class="small muted">{{ labels[current] }} 只说 {{ nativeLabel[current] }} 接口，Anna 在本机替它转换成 Chat Completions。真实密钥只留在 Anna 里，{{ labels[current] }} 每次只拿到一个用完即废的令牌。要在终端里用它，打开“终端也走 Anna 的路由”。</p>
         <div class="card-actions"><button type="submit" class="primary" :disabled="locked">保存</button></div>
       </form>
     </template>

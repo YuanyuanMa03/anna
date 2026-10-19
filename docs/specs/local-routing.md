@@ -1,7 +1,7 @@
 # Spec: local routing (cc-switch in Anna, phase 2)
 
-> Status: agreed 2026-10-18; P2a (Codex → Chat Completions), P2b (Claude Code → Chat Completions) and P2c
-> (failover) built, for Anna's own runs. This document is the source of truth; change it before changing the
+> Status: agreed 2026-10-18; P2a (Codex → Chat Completions), P2b (Claude Code → Chat Completions), P2c (failover)
+> and P2d (global routing) built. This document is the source of truth; change it before changing the
 > behavior. Built after cc-switch's local routing (https://github.com/farion1231/cc-switch, MIT), whose conversion code
 > and test cases are ported.
 
@@ -18,6 +18,32 @@ provider, converts the format, and can move a request to another provider when o
 - **Global routing (P2d, opt-in per agent).** Like cc-switch, the agent's own config points at Anna, so the CLIs the
   user runs in a terminal are routed too. Needs Anna running; the original config is written back on quit and repaired
   on the next start after a crash.
+
+### P2d as built
+
+- **The switch.** "终端里的 X 也走 Anna 的路由" on the Claude Code and Codex provider tabs (settings
+  `routing.global`). The terminal's agent then uses the provider in use in Anna and its backups — one choice for Anna's
+  runs and the terminal — and follows every change at once: the route is updated in place, and the config is
+  rewritten only when what the agent sees changes (Codex's model and catalog, Claude Code's model names).
+- **What goes into the agent's config** (`packages/agents/takeover.ts`), only connection fields:
+  - Claude Code `settings.json` `env`: `ANTHROPIC_BASE_URL` (the route on 127.0.0.1:15722), `ANTHROPIC_AUTH_TOKEN`
+    (the route's token), and per tier `ANTHROPIC_DEFAULT_*_MODEL` = cc-switch's current Claude aliases
+    (`claude-sonnet-5`…, `[1M]` kept) with `*_MODEL_NAME` = the provider's model. The routing maps the aliases back.
+    Every other connection key (`claudeConnectionKey`) is set aside, and so is a top-level `apiKeyHelper`, whose key
+    Claude Code would send instead of the route's token.
+  - Codex `config.toml`: `model_provider = "custom"`, the provider's `model`, Anna's model catalog, and a
+    `[model_providers.custom]` table with the route and its token as `experimental_bearer_token` — `auth.json` and the
+    ChatGPT login in it are not touched.
+- **Giving it back.** On quit, when switched off, and when it can't be kept up (no provider chosen, the port taken):
+  a file untouched since Anna wrote it goes back byte for byte (or away, if there was none); one changed meanwhile —
+  by the user, or by the agent itself, e.g. a permission rule — gets only its connection fields back, the rest stays.
+  The replaced fields and the original file are saved before the first write, so after a crash the next start renews
+  the takeover (still switched on) or gives the config back (switched off).
+- **The token** is one per agent, kept with the keys in the encrypted store, so the config stays valid across
+  restarts. Global routing and the direct "应用到全局" exclude each other.
+- **Failover settings** (P2c's numbers) can be changed per agent under "换用备用的超时与暂停": retries, first-byte
+  and idle timeouts, failures before a pause, and the pause; "恢复默认" goes back to cc-switch's defaults.
+- Tests and Anna's scripted desktop run use config folders inside their data folder and a random port, never `~`.
 
 ## 3. The routing service
 
@@ -122,8 +148,7 @@ provider, converts the format, and can move a request to another provider when o
   | Codex | 3 | 60 s | 120 s | 4 failures | 60 s | 2 successes | 60 % (10) |
 
   A malformed request (the statuses above) counts neither way. Cards show "暂停中" (open) and "试探恢复中"
-  (half-open); `anna_providers` list says the same. The numbers are fixed for now; settings for them come with the
-  routing page in P2d.
+  (half-open); `anna_providers` list says the same. The numbers can be changed per agent (see P2d).
 - **On stage.** A delegation's card line says "DeepSeek 返回了 503，换成 Kimi" and names the provider now working; with
   the brain, the companion's line says it in the retry pose.
 - **Known limit.** Codex's model catalog follows the provider in use, so a native Responses backup behind a Chat
@@ -144,7 +169,9 @@ routing, where the user picks models in the agent itself; Anna's runs already pi
   calling `anna_memory`). P2b: `ANNA_REAL_AGENTS=claude … -t "real Claude Code through"` (Claude Code 2.1.302: its
   `Write` tool, and Claude Code as Anna's brain calling `anna_memory`). P2c: `ANNA_REAL_AGENTS=codex,claude … -t
   "failing over"`: the provider in use answers 503, the backup is a provider in the agent's own format (a second Anna
-  route in front of the scripted upstream), and both agents finish the edit without seeing the 503.
+  route in front of the scripted upstream), and both agents finish the edit without seeing the 503. P2d:
+  `… -t "global routing"`: the real `codex exec` and `claude -p`, run with their own (taken-over) config folder and no
+  Anna variables in the environment, answer through the route.
 - With a key the user provides: one real provider per conversion. P2a: DeepSeek's Chat API (`deepseek-flash`) with
   `ANNA_REAL_CHAT_KEY` (`-t "real Chat provider"`): a delegated file edit over six turns, all 200, prompt cache hits
   from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`. P2b, the same key and model with
