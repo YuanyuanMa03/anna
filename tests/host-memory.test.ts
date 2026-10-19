@@ -76,3 +76,11 @@ it('an edition\'s notes reach the brain with the rest of the instructions', asyn
   expect(log.contexts.at(-1)!.instructions.join('\n')).toContain('## 在线体验版\n这里没有微信。')
   await host.close()
 })
+
+it('the brain is told today\'s date and weekday, so it never guesses which day a date falls on', async () => {
+  const { host, log } = await setup()
+  await host.execute({ type: 'send', text: '这周三是几号？' })
+  const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
+  expect(log.notes.join('\n')).toContain(`今天是 ${today}`)
+  await host.close()
+})

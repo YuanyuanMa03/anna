@@ -72,6 +72,8 @@ export class Host {
   private current?: Task
   private sessionRules: string[] = []
   private notedMode?: PermissionMode
+  /** The day the brain was last told ("今天是 …"): it has no clock of its own. */
+  private notedDay?: string
   private result?: TaskResult
   private delegator: Delegator
   private hub: AgentsHub
@@ -504,6 +506,7 @@ export class Host {
       await kernel.start()
       this.kernel = kernel
       this.notedMode = undefined
+      this.notedDay = undefined
       const brief = kernel.restored ? '' : this.journal.brief(this.workspacePath)
       if (brief)
         kernel.note(brief)
@@ -577,6 +580,11 @@ export class Host {
       if (mode !== this.notedMode) {
         kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modes[mode].description}）`)
         this.notedMode = mode
+      }
+      const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
+      if (today !== this.notedDay) {
+        kernel.note(`[Anna 系统提示] 今天是 ${today}。说到日期和星期几时以此为准，不要凭记忆推算。`)
+        this.notedDay = today
       }
       // An explicit "记住：…" is kept by Anna herself, so it never depends on the brain remembering to call the tool.
       const fact = !task.delegate && this.store.value.memoryEnabled ? explicitMemory(task.text) : undefined
