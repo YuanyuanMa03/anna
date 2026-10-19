@@ -14,7 +14,7 @@ She never pretends to have done what she hasn't, and when a decision is yours, s
 ![Platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-c49a5a)
 [![Stars](https://img.shields.io/github/stars/YuanyuanMa03/anna?style=social)](https://github.com/YuanyuanMa03/anna/stargazers)
 
-**English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top)
+**English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top) · [Try it online](https://modelscope.cn/studios/mayy101184/anna)
 
 <img src="docs/media/work.webp" alt="Anna finishing a real task with DeepSeek: her reply, the steps she took and the delivery card" width="880">
 
@@ -87,6 +87,13 @@ credit.
 </table>
 
 ## Install
+
+> [!TIP]
+> Want to meet her before installing? The whole Anna runs in the browser on
+> [ModelScope Studio](https://modelscope.cn/studios/mayy101184/anna), on free models: no install, no API key, and each visitor gets their own sandboxed
+> session. The page is in Chinese, like the app.
+
+<p align="center"><img src="docs/media/online-demo.webp" alt="The online demo: Anna runs the tests, finds the off-by-one in planner.js, fixes it and hands over a delivery card" width="720"></p>
 
 Download an installer and double-click it:
 

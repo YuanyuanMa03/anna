@@ -23,7 +23,7 @@ import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
 import { delegateAgents, Delegator, labelOf, parseMention } from './delegator'
 import { TaskJournal } from './journal'
-import { MemoryStore } from './memory'
+import { explicitMemory, looksLikeSecret, MemoryStore } from './memory'
 import { describeModelError } from './model-errors'
 import { Presence } from './presence'
 import { SettingsStore, validateModel } from './settings'
@@ -41,6 +41,8 @@ export interface HostOptions {
   secrets?: SecretVault
   /** How the OS stores secrets on this machine. */
   secretsMode?: () => Promise<'system' | 'file'>
+  /** A section for this edition's brain (the online demo says what it lacks), after the persona and the rest. */
+  notes?: string
 }
 
 /**
@@ -334,7 +336,7 @@ export class Host {
     if (this.store.value.statusEnabled)
       tools.push(this.statusTool())
     if (this.store.value.memoryEnabled)
-      tools.push(this.memory.tool(() => this.publish()))
+      tools.push(this.memory.tool(() => this.publish(), () => this.memoryWriter))
     tools.push(this.delegateTool())
     tools.push(this.providersTool())
     return tools
@@ -446,6 +448,11 @@ export class Host {
 
   /** The companion on stage: "Anna" names the app, the active companion names whoever is talking. */
   private get companionName() { return companion(this.store.value.characterId).name }
+  /** Who signs a memory line: the companion on stage, with the brain when it isn't pi ("千岁（Claude Code）"). */
+  private get memoryWriter() {
+    const kernel = this.store.value.kernel
+    return kernel === 'pi' ? this.companionName : `${this.companionName}（${kernels[kernel].label}）`
+  }
 
   private async instructions() {
     const persona = await readFile(join(this.root, 'plugins/anna-persona/persona.md'), 'utf8')
@@ -454,7 +461,7 @@ export class Host {
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
     const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
-    return [persona, card, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : [])]
+    return [persona, card, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : []), ...(this.options.notes ? [this.options.notes] : [])]
   }
 
   /** pi needs a model key; an external brain (Claude Code, Codex) uses its own login. */
@@ -570,6 +577,13 @@ export class Host {
       if (mode !== this.notedMode) {
         kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modes[mode].description}）`)
         this.notedMode = mode
+      }
+      // An explicit "记住：…" is kept by Anna herself, so it never depends on the brain remembering to call the tool.
+      const fact = !task.delegate && this.store.value.memoryEnabled ? explicitMemory(task.text) : undefined
+      if (fact && !looksLikeSecret(fact)) {
+        const writer = this.memoryWriter
+        await this.memory.remember(fact, writer)
+        kernel.note(`[Anna 系统提示] 用户这条消息要记住的内容，已经记进共同记忆（${writer} 记下）：「${fact.slice(0, 300)}」。不用再调用 anna_memory 记一次，直接向用户确认即可。`)
       }
       this.state = 'running'
       this.error = undefined

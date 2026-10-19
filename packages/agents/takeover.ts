@@ -71,6 +71,17 @@ export function claudeRelease(text: string | undefined, originals: ClaudeOrigina
   return json(settings, text)
 }
 
+/**
+ * The originals with any `apiKeyHelper` or `modelPicker` set since Anna last wrote the file (by the user, or by Claude
+ * Code): that newer value is the user's own now, so it is the one set aside and put back.
+ */
+function claudeLatest(current: string | undefined, written: string | undefined, originals: ClaudeOriginals): ClaudeOriginals {
+  const now = parseJson('settings.json', current)
+  const ours = parseJson('settings.json', written)
+  const changed = claudeTopKeys.filter(key => key in now && JSON.stringify(now[key]) !== JSON.stringify(ours[key]))
+  return changed.length ? { ...originals, top: { ...originals.top, ...Object.fromEntries(changed.map(key => [key, now[key]])) } } : originals
+}
+
 export interface CodexOriginals { top: string[], table?: string[] }
 
 /**
@@ -140,11 +151,15 @@ export class RoutingTakeover {
       const path = join(dir, spec.app === 'claude' ? 'settings.json' : 'config.toml')
       const catalogPath = join(dir, codexCatalogFile)
       const current = await this.read(path)
+      const kept = state.active && spec.app === 'claude' ? claudeLatest(current, state.written, state.originals as ClaudeOriginals) : state.originals
       const plan = spec.app === 'claude'
-        ? claudeTakeover(current, spec.target, state.active ? state.originals as ClaudeOriginals : undefined)
-        : codexTakeover(current, { ...spec.target, ...(spec.catalog ? { catalogPath } : {}) }, state.active ? state.originals as CodexOriginals : undefined)
+        ? claudeTakeover(current, spec.target, state.active ? kept as ClaudeOriginals : undefined)
+        : codexTakeover(current, { ...spec.target, ...(spec.catalog ? { catalogPath } : {}) }, state.active ? kept as CodexOriginals : undefined)
+      // Changed since Anna last wrote it: the whole file can no longer go back as it was, only the connection fields.
+      const { original: _, ...rest } = state
+      const renewed = current === state.written ? { ...state, originals: plan.originals } : { ...rest, originals: plan.originals }
       // Intent first: after a crash between here and the write, the next start still knows what to put back.
-      const next: State = state.active ? { ...state, written: plan.text } : { active: true, originals: plan.originals, original: current ?? null, written: plan.text, ...(spec.app === 'codex' ? { catalog: (await this.read(catalogPath)) ?? null } : {}) }
+      const next: State = state.active ? { ...renewed, written: plan.text } : { active: true, originals: plan.originals, original: current ?? null, written: plan.text, ...(spec.app === 'codex' ? { catalog: (await this.read(catalogPath)) ?? null } : {}) }
       await this.save(spec.app, next)
       let changed = false
       if (spec.app === 'codex' && spec.catalog && (await this.read(catalogPath)) !== spec.catalog) {
@@ -175,7 +190,7 @@ export class RoutingTakeover {
         else await this.write(path, state.original)
       }
       else if (app === 'claude') {
-        await this.write(path, claudeRelease(current, (state.originals ?? { env: {} }) as ClaudeOriginals))
+        await this.write(path, claudeRelease(current, claudeLatest(current, state.written, (state.originals ?? { env: {} }) as ClaudeOriginals)))
       }
       else {
         await this.write(path, codexRelease(current, (state.originals ?? { top: [] }) as CodexOriginals))

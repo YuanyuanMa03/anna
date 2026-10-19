@@ -7,6 +7,7 @@ import { characters } from '../../packages/character/manifest'
 import { copy, modeOrder, modes } from './copy'
 
 const repo = 'https://github.com/YuanyuanMa03/anna'
+const studio = 'https://modelscope.cn/studios/mayy101184/anna'
 
 function initialLang(): Lang {
   try {
@@ -211,7 +212,7 @@ const year = new Date().getFullYear()
 
 <template>
   <header class="nav">
-    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.4</span></a>
+    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.5</span></a>
     <nav :aria-label="t.nav.home">
       <a href="#meet">{{ t.nav.meet }}</a>
       <a href="#demo">{{ t.nav.demo }}</a>
@@ -234,6 +235,7 @@ const year = new Date().getFullYear()
         <p class="lede">{{ t.hero.desc }}</p>
         <div class="actions">
           <a class="button primary" :href="installers[os]">{{ t.download.button(osNames[os]) }} <span>↓</span></a>
+          <a class="button" :href="studio" target="_blank" rel="noopener">{{ t.hero.online }} <span>↗</span></a>
           <a class="button" href="#download">{{ t.hero.others }}</a>
           <a class="button" :href="repo" target="_blank" rel="noopener">{{ t.hero.github }} <span>↗</span></a>
         </div>
@@ -321,6 +323,7 @@ const year = new Date().getFullYear()
             <button class="button primary" :disabled="running" @click="start">{{ running ? t.demo.busy : finished ? t.demo.again : t.demo.start }} <span>↗</span></button>
           </div>
           <p class="fine">{{ t.demo.disclosure }}</p>
+          <p class="fine">{{ t.demo.online.text }} <a :href="studio" target="_blank" rel="noopener">{{ t.demo.online.link }} ↗</a></p>
         </div>
       </div>
     </section>

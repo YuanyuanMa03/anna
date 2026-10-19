@@ -137,7 +137,8 @@ export interface WeixinState { phase: 'offline' | 'loading' | 'waiting' | 'scann
 /** An external agent's turn, shown as a collapsible block in the conversation. */
 export interface Delegation { agent: string, label: string, provider?: string, status: 'completed' | 'failed' | 'aborted', steps: number, task: string }
 export interface Message { role: 'user' | 'assistant', text: string, origin?: Origin, /** System note such as an interruption. */ note?: boolean, delegation?: Delegation }
-export interface MemoryItem { id: string, text: string, createdAt: string }
+/** `by`: the companion who wrote it (with the brain when it isn't pi); missing on items from before it was kept. */
+export interface MemoryItem { id: string, text: string, createdAt: string, by?: string }
 export interface FileChange { path: string, status: 'added' | 'modified' | 'deleted', added: number, removed: number, patch: string }
 
 /** What the stage performs. Derived from real runtime events only; the model never sets it. */
