@@ -80,7 +80,34 @@ it('an edition\'s notes reach the brain with the rest of the instructions', asyn
 it('the brain is told today\'s date and weekday, so it never guesses which day a date falls on', async () => {
   const { host, log } = await setup()
   await host.execute({ type: 'send', text: '这周三是几号？' })
-  const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
-  expect(log.notes.join('\n')).toContain(`今天是 ${today}`)
+  const now = new Date()
+  const weekday = '日一二三四五六'[now.getDay()]
+  expect(log.notes.join('\n')).toContain(`今天是 ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日星期${weekday}`)
+  await host.close()
+})
+
+it('a credential in "记住：…" is not kept, and the brain is told so instead of left to claim it', async () => {
+  const { host, log } = await setup()
+  await host.execute({ type: 'send', text: '记住：我的密码是 hunter2' })
+  expect(host.snapshot().memories).toEqual([])
+  expect(log.notes.join('\n')).toContain('没有记进共同记忆')
+  await host.close()
+})
+
+it('with memory switched off, "记住：…" stores nothing', async () => {
+  const { host } = await setup()
+  await host.execute({ type: 'memory', enabled: false })
+  await host.execute({ type: 'send', text: '记住：周五不复习' })
+  expect(host.snapshot().memories).toEqual([])
+  await host.close()
+})
+
+it('repeating a line already in the diary names whoever first wrote it', async () => {
+  const { host, log } = await setup()
+  await host.execute({ type: 'send', text: '记住：周五不复习' })
+  await host.execute({ type: 'character', id: 'mao' })
+  await host.execute({ type: 'send', text: '记住：周五不复习' })
+  expect(host.snapshot().memories.map(item => item.by)).toEqual(['Anna'])
+  expect(log.notes.at(-1)).toContain('Anna 记下')
   await host.close()
 })
