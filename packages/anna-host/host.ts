@@ -588,10 +588,13 @@ export class Host {
       }
       // An explicit "记住：…" is kept by Anna herself, so it never depends on the brain remembering to call the tool.
       const fact = !task.delegate && this.store.value.memoryEnabled ? explicitMemory(task.text) : undefined
-      if (fact && !looksLikeSecret(fact)) {
-        const writer = this.memoryWriter
-        await this.memory.remember(fact, writer)
-        kernel.note(`[Anna 系统提示] 用户这条消息要记住的内容，已经记进共同记忆（${writer} 记下）：「${fact.slice(0, 300)}」。不用再调用 anna_memory 记一次，直接向用户确认即可。`)
+      if (fact && looksLikeSecret(fact)) {
+        kernel.note('[Anna 系统提示] 用户这条消息要记住的内容看起来含有密码或密钥，没有记进共同记忆。如实告诉用户没有记，并说明原因；不要说已经记住。')
+      }
+      else if (fact) {
+        // A line already in the diary keeps its first writer.
+        const item = await this.memory.remember(fact, this.memoryWriter)
+        kernel.note(`[Anna 系统提示] 用户这条消息要记住的内容，已经记进共同记忆（${item.by ? `${item.by} 记下` : '没记录是谁记的'}）：「${item.text}」。不用再调用 anna_memory 记一次，直接向用户确认即可。`)
       }
       this.state = 'running'
       this.error = undefined
