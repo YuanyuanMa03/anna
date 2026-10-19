@@ -15,6 +15,9 @@ export function explicitMemory(text: string) {
   return lead ? text.slice(lead[0].length).trim() || undefined : undefined
 }
 
+/** Who wrote a line, as the diary says it: "Anna 记下", or that nobody recorded it. */
+export function signature(item: MemoryItem) { return item.by ? `${item.by} 记下` : '没记录是谁记的' }
+
 /** Long-term memory about the user, kept by Anna (not in any workspace) and visible/deletable in the UI. */
 export class MemoryStore {
   items: MemoryItem[] = []
@@ -24,10 +27,13 @@ export class MemoryStore {
   async load() { this.items = await readJson(this.file, this.items) }
   private async save() { await writeJson(this.file, this.items) }
 
-  async remember(text: string, by?: string) {
+  /** The stored line (an existing one keeps its first writer), or undefined for a line that looks like a credential. */
+  async remember(text: string, by?: string): Promise<MemoryItem | undefined> {
     const body = text.trim().slice(0, 300)
     if (!body)
       throw new Error('记忆内容为空')
+    if (looksLikeSecret(body))
+      return undefined
     const existing = this.items.find(item => item.text === body)
     if (existing)
       return existing
@@ -44,7 +50,7 @@ export class MemoryStore {
 
   /** Instructions for the kernel: the memory every companion shares, and how to use the memory tool. */
   instructions() {
-    const list = this.items.length ? this.items.map(item => `- ${item.text}（${item.by ? `${item.by} 记下` : '没记录是谁记的'}）`).join('\n') : '（暂无）'
+    const list = this.items.length ? this.items.map(item => `- ${item.text}（${signature(item)}）`).join('\n') : '（暂无）'
     return `## 关于用户的长期记忆\n这是伙伴们共用的一本日记，以下是用户允许大家记住的事。每条后面的括号写着是谁记下的：提到时照实说出处，不是你记的就不要说成“我记下的”。记忆也可能过时，与用户当前说法冲突时以当前为准：\n${list}\n\n需要长期记住用户的偏好、习惯或约定时，调用 anna_memory 的 remember；用户要求忘记时调用 forget。不要把记忆写进工作区文件。不要记住密钥、密码或其他敏感信息。`
   }
 
@@ -59,9 +65,8 @@ export class MemoryStore {
         const action = String(args.action)
         const text = String(args.text ?? '')
         if (action === 'remember') {
-          if (looksLikeSecret(text))
+          if (!(await this.remember(text, writer())))
             return '这条看起来包含凭据，没有记录。'
-          await this.remember(text, writer())
           onChange()
           return `已记住：${text}`
         }
