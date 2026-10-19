@@ -317,7 +317,7 @@ if (web) {
         <div v-if="web && !messages.length && !running" class="card tour-card">
           <span class="eyebrow">Anna 不只是会聊天</span>
           <dl><template v-for="item in tour.online" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
-          <span class="eyebrow">桌面版还能</span>
+          <span class="eyebrow">桌面版还能做</span>
           <dl class="desktop-only"><template v-for="item in tour.desktop" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
           <a class="link" href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>
         </div>

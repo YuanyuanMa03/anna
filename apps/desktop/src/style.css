@@ -185,7 +185,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
   .bubble { max-height: none }
   .props { position: static; width: auto; max-height: none; overflow: visible; padding: 0 }
   .stage-overlay { display: none }
-  .dock { position: sticky; bottom: 0; padding: 8px 12px 12px; background: linear-gradient(transparent, var(--bg) 18px) }
+  .dock { position: sticky; bottom: 0; padding: 14px 12px 12px; background: linear-gradient(#f8f5fa00, var(--bg) 10px) }
   .composer-actions { flex-wrap: wrap; row-gap: 6px }
   .mode-switch { order: -1; flex-basis: 100%; justify-content: space-between }
   .mode-switch button { padding: 5px 8px }
