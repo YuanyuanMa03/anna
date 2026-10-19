@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { expect, it } from 'vitest'
 import { Checkpoints } from '../packages/anna-host/checkpoints'
 
@@ -22,7 +22,7 @@ it('a whole-workspace snapshot keeps only what the task changed once it is seale
   const changes = await checkpoints.seal('1-aaaa')
   expect(changes.map(change => [change.path, change.status])).toEqual([['b.txt', 'modified'], ['new.txt', 'added']])
   const manifest = JSON.parse(await readFile(join(root, 'checkpoints/1-aaaa/manifest.json'), 'utf8'))
-  expect(manifest.entries.map((entry: { path: string }) => entry.path.split('/').at(-1))).toEqual(['b.txt', 'new.txt'])
+  expect(manifest.entries.map((entry: { path: string }) => basename(entry.path))).toEqual(['b.txt', 'new.txt'])
   expect(await readdir(join(root, 'checkpoints/1-aaaa/blobs'))).toHaveLength(1)
   const { restored } = await checkpoints.undo('1-aaaa')
   expect(restored.sort()).toEqual(['b.txt', 'new.txt'])
