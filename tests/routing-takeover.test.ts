@@ -37,6 +37,17 @@ describe('claude Code\'s settings.json', () => {
     expect(JSON.parse(claudeRelease(text, originals)).apiKeyHelper).toBe('~/bin/key.sh')
   })
 
+  it('the listed providers\' models go into /model; the user\'s own picker is set aside and comes back', () => {
+    const picker = [{ model: 'anna-claude-glm--glm-5', label: 'glm-5（GLM）', description: 'd', behavesAs: 'claude-sonnet-5' }]
+    const mine = JSON.stringify({ modelPicker: { options: [{ model: 'opus' }] }, env: {} })
+    const { text, originals } = claudeTakeover(mine, { ...target, models: {}, picker })
+    expect(JSON.parse(text).modelPicker).toEqual({ options: picker })
+    expect(JSON.parse(claudeRelease(text, originals)).modelPicker).toEqual({ options: [{ model: 'opus' }] })
+    const none = claudeTakeover('{}', { ...target, models: {}, picker })
+    expect(JSON.parse(claudeRelease(none.text, none.originals))).not.toHaveProperty('modelPicker')
+    expect(JSON.parse(claudeTakeover(mine, { ...target, models: {} }).text)).not.toHaveProperty('modelPicker')
+  })
+
   it('giving it back restores those fields and keeps what changed meanwhile', () => {
     const { text, originals } = claudeTakeover(original, { ...target, models: { default: 'x' } })
     const meanwhile = JSON.parse(text)

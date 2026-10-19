@@ -53,6 +53,11 @@ export interface ChatRoute extends Upstream {
   /** Timeouts and retries for this route, over the agent's defaults. */
   failover?: Partial<FailoverPolicy>
   onFailover?: (event: FailoverEvent) => void
+  /**
+   * Providers listed in the agent's own model list (global routing), by key: a request for
+   * `aggregateId(client, key, model)` goes to that provider alone.
+   */
+  aggregate?: Record<string, Upstream>
 }
 
 export interface RouteHandle {
@@ -100,6 +105,31 @@ const maxBody = 100 * 1024 * 1024
 const codexPath = '/codex/v1'
 const claudePath = '/claude'
 const keptRecords = 500
+
+/** Aggregated model ids (after cc-switch's Stack mode): `anna-claude-<key>--<model>` and `anna-<key>/<model>`. */
+const aggregatePrefix: Record<Client, string> = { claude: 'anna-claude-', codex: 'anna-' }
+const aggregateSeparator: Record<Client, string> = { claude: '--', codex: '/' }
+
+/** The id a listed provider's model has in the agent's model list. Keys never contain `--` or `/`. */
+export const aggregateId = (client: Client, key: string, model: string) => `${aggregatePrefix[client]}${key}${aggregateSeparator[client]}${model}`
+
+/**
+ * An aggregated id taken apart at its first separator (the model may contain more). Undefined for a plain model name;
+ * null for one with the prefix that can't be read.
+ */
+export function parseAggregateId(client: Client, id: string): { key: string, model: string } | null | undefined {
+  if (!id.startsWith(aggregatePrefix[client]))
+    return undefined
+  const rest = id.slice(aggregatePrefix[client].length)
+  const separator = aggregateSeparator[client]
+  // Codex: a model that merely starts with `anna-` is a plain name.
+  if (client === 'codex' && !rest.includes(separator))
+    return undefined
+  const at = rest.indexOf(separator)
+  const key = rest.slice(0, at)
+  const model = rest.slice(at + separator.length)
+  return at > 0 && model.trim() ? { key, model } : null
+}
 
 const hashOf = (token: string) => createHash('sha256').update(token).digest('hex')
 const nameOf = (upstream: Upstream) => upstream.label ?? upstream.id ?? upstream.baseUrl
@@ -509,12 +539,27 @@ async function attempt(target: Plan, policy: FailoverPolicy | undefined, agentGo
 }
 
 /**
+ * A request for a listed provider's model (an aggregated id) goes to that provider alone, as picked: no backups and no
+ * breaker. One that no longer resolves is refused rather than answered by the provider in use, with another model.
+ */
+async function forward(route: ChatRoute, client: Client, body: Json, agent: { query?: string, headers: IncomingHttpHeaders }, service: Service, response: ServerResponse) {
+  const requested = typeof body.model === 'string' ? body.model : ''
+  const aggregated = parseAggregateId(client, requested)
+  if (aggregated === undefined)
+    return send(route, client, body, agent, service, response)
+  const member = aggregated && route.aggregate?.[aggregated.key]
+  if (!member)
+    return sendError(response, client, 400, `The model ${requested} is not in Anna's model list any more (its provider was taken off the list or deleted); pick another model`, 'invalid_request_error')
+  return send({ ...member, client, model: aggregated.model, models: undefined }, client, { ...body, model: aggregated.model }, agent, service, response)
+}
+
+/**
  * Send the request to the route's providers in order until one answers. Without backups there is one try, with no
  * timeouts and no breaker, exactly as before. With backups, a provider whose breaker is open is skipped, and a
  * failure before the agent got anything (unreachable, a timeout, an empty stream, 401/403/404/408/429/5xx…) moves
  * on; once the agent has bytes, an error is the agent's to handle, and two providers' output is never spliced.
  */
-async function forward(route: ChatRoute, client: Client, body: Json, agent: { query?: string, headers: IncomingHttpHeaders }, service: Service, response: ServerResponse) {
+async function send(route: ChatRoute, client: Client, body: Json, agent: { query?: string, headers: IncomingHttpHeaders }, service: Service, response: ServerResponse) {
   const upstreams = [route, ...(route.backups ?? [])]
   const failover = upstreams.length > 1
   const policy = failover ? { ...service.policy(client), ...route.failover } : undefined

@@ -191,3 +191,43 @@ it('everyday changes (companion, conversation, plugins) keep the terminal routed
   await host.shutdown()
   expect(await readFile(join(configs.codex, 'config.toml'), 'utf8').catch(() => 'gone')).toBe('gone')
 })
+
+it('aggregated: listed providers join the terminal agents\' model lists, keep their ids through a rename, and fail once gone', async () => {
+  const { host, configs } = await setup()
+  for (const name of ['Chat A', 'Kimi K']) {
+    await host.execute({ type: 'provider-save', app: 'codex', name, baseUrl: `${base}/${name.split(' ')[1]!.toLowerCase()}/v1`, model: `model-${name.at(-1)!.toLowerCase()}`, key: `sk-${name.at(-1)}`, apiFormat: 'openai_chat' })
+    await host.execute({ type: 'provider-save', app: 'claude', name, baseUrl: `${base}/${name.split(' ')[1]!.toLowerCase()}`, model: `model-${name.at(-1)!.toLowerCase()}`, key: `sk-${name.at(-1)}`, apiFormat: 'openai_chat' })
+  }
+  for (const app of ['codex', 'claude'] as const) {
+    await host.execute({ type: 'agent-provider', agent: app, provider: 'Chat A' })
+    await host.execute({ type: 'provider-routing', app, on: true })
+    await host.execute({ type: 'provider-aggregate', app, names: ['Kimi K', 'Chat A'] })
+  }
+  expect(host.snapshot().agents.providers.codex?.aggregate).toEqual(['Kimi K', 'Chat A'])
+  // Codex: the catalog lists Kimi's model under its key; the provider in use isn't listed twice.
+  const catalog = JSON.parse(await readFile(join(configs.codex, 'anna-model-catalog.json'), 'utf8'))
+  expect(catalog.models.map((entry: { slug: string }) => entry.slug)).toEqual(['model-a', 'anna-kimi-k/model-k'])
+  const config = await readFile(join(configs.codex, 'config.toml'), 'utf8')
+  const url = toml(config, 'base_url')!
+  const token = toml(config, 'experimental_bearer_token')!
+  const ask = async (model: string) => fetch(`${url}/responses`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ model, input: 'hi', stream: true }) })
+  expect(await (await ask('anna-kimi-k/model-k')).text()).toContain('from k')
+  expect(hits.at(-1)).toMatchObject({ name: 'k', authorization: 'Bearer sk-K', model: 'model-k' })
+  // Claude Code: /model rows for Kimi.
+  const settings = JSON.parse(await readFile(join(configs.claude, 'settings.json'), 'utf8'))
+  expect(settings.modelPicker.options.map((row: { model: string }) => row.model)).toEqual(['anna-claude-kimi-k--model-k'])
+  // A rename keeps the key, so the id the agent remembers still works.
+  await host.execute({ type: 'provider-save', app: 'codex', previous: 'Kimi K', name: 'Moonshot', baseUrl: `${base}/k/v1`, model: 'model-k', apiFormat: 'openai_chat' })
+  expect(await (await ask('anna-kimi-k/model-k')).text()).toContain('from k')
+  expect(host.snapshot().agents.providers.codex?.aggregate).toEqual(['Moonshot', 'Chat A'])
+  // Deleted: refused, not answered by the provider in use; a new provider of the old name gets a new key.
+  await host.execute({ type: 'provider-delete', app: 'codex', name: 'Moonshot' })
+  expect((await ask('anna-kimi-k/model-k')).status).toBe(400)
+  await host.execute({ type: 'provider-save', app: 'codex', name: 'Kimi K', baseUrl: `${base}/k2/v1`, model: 'model-k', key: 'sk-2', apiFormat: 'openai_chat' })
+  await host.execute({ type: 'provider-aggregate', app: 'codex', names: ['Kimi K'] })
+  expect((await ask('anna-kimi-k/model-k')).status).toBe(400)
+  expect(await (await ask('anna-kimi-k-2/model-k')).text()).toContain('from k2')
+  // Quit: the picker goes with the takeover.
+  await host.shutdown()
+  expect(await readFile(join(configs.claude, 'settings.json'), 'utf8').catch(() => 'gone')).toBe('gone')
+})

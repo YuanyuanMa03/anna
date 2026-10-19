@@ -797,6 +797,10 @@ export class Host {
         try { await this.hub.setGlobalRouting(command.app, command.on) }
         finally { await this.refreshAgents(false) }
         return this.snapshot()
+      case 'provider-aggregate':
+        await this.hub.setAggregate(command.app, command.names)
+        await this.refreshAgents(false)
+        return this.snapshot()
       case 'routing-policy':
         await this.hub.setRoutingPolicy(command.app, command.policy)
         await this.refreshAgents(false)

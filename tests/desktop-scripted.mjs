@@ -220,6 +220,13 @@ try {
   assert.match(takenOver, /base_url = "http:\/\/127\.0\.0\.1:\d+\/codex\/v1"/)
   assert.match(takenOver, /experimental_bearer_token = "anna-route-/)
   await page.locator('.routing-global [data-routing="on"]').waitFor()
+  // Aggregation: Kimi's models join the terminal Codex's model list under its key.
+  await page.getByRole('checkbox', { name: '列进模型列表：Kimi', exact: true }).check()
+  await until(page, s => s.agents.providers.codex?.aggregate?.[0] === 'Kimi', 'Kimi listed in the model list')
+  await page.locator('.provider-list li[data-provider="Kimi"] [data-aggregated]').waitFor()
+  const aggregated = JSON.parse(await readFile(join(data, 'test-home/.codex/anna-model-catalog.json'), 'utf8'))
+  assert.ok(aggregated.models.some(entry => entry.slug.startsWith('anna-kimi/')), 'Kimi\'s models are in the catalog under anna-kimi/')
+  evidence.checks.push('Aggregation: a provider ticked under global routing has its models in Codex\'s catalog as anna-kimi/<model>')
   await page.locator('.routing-policy summary').click()
   await page.screenshot({ path: 'artifacts/scripted-provider-routing.png' })
   await page.getByRole('checkbox', { name: '终端也走 Anna 的路由', exact: true }).uncheck()

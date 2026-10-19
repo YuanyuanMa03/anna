@@ -1,7 +1,7 @@
 # Spec: local routing (cc-switch in Anna, phase 2)
 
-> Status: agreed 2026-10-18; P2a (Codex → Chat Completions), P2b (Claude Code → Chat Completions), P2c (failover)
-> and P2d (global routing) built. This document is the source of truth; change it before changing the
+> Status: agreed 2026-10-18; P2a (Codex → Chat Completions), P2b (Claude Code → Chat Completions), P2c (failover),
+> P2d (global routing) and P2e (aggregation) built. This document is the source of truth; change it before changing the
 > behavior. Built after cc-switch's local routing (https://github.com/farion1231/cc-switch, MIT), whose conversion code
 > and test cases are ported.
 
@@ -160,6 +160,36 @@ Several providers' models in one model list, requests routed by model name (pref
 routing, where the user picks models in the agent itself; Anna's runs already pick a provider per run
 (`@codex/Kimi`).
 
+### P2e as built
+
+After cc-switch's Stack mode (`mode/stack.rs`).
+
+- **The list.** With global routing on, "终端的模型列表里也列出" under the switch lists the agent's other providers
+  that Anna can route (settings `routing.aggregate`). Their models join the agent's own model list (`/model` in both
+  CLIs); picking one sends the requests straight to that provider. Every other model name goes to the provider in use
+  and its backups, as before. The provider in use isn't listed a second time while it is in use (its models are the
+  agent's default ones); it stays on the list for when it no longer is.
+- **Model ids.** Claude Code `anna-claude-<key>--<model>` (with `[1M]` when the provider's setting has it), Codex
+  `anna-<key>/<model>`. `<key>` comes from the provider's name (lowercase letters, digits and single dashes, at most 24;
+  `p` and a hash for a name with none of those; `-2`, `-3`… when taken), is given once and kept for good (settings
+  `routing.keys`): a renamed provider keeps its key, a deleted one keeps it reserved, so an id an agent still remembers
+  never reaches another provider.
+- **Where they show up.**
+  - Claude Code: `settings.json` `modelPicker.options`, after the built-in rows (which are the provider in use's
+    tiers): one row per model in the provider's model settings (`ANTHROPIC_MODEL` and the tiers, deduplicated), label
+    `<model>（<provider>）`, and `behavesAs: claude-sonnet-5`, so Claude Code handles a model it doesn't know like a
+    known one instead of guessing its context window. Claude Code reads `modelPicker` from user settings (verified on
+    2.1.302). The takeover sets a user's own `modelPicker` aside, like `apiKeyHelper`, and puts it back on release.
+  - Codex: Anna's model catalog — the provider in use's rows as before, then each listed provider's rows from its own
+    catalog (a Chat provider's from the classic tool template, a native one's from its vendor's or the neutral one)
+    with the prefixed slug, display name `<name>（<provider>）`, and the following priorities.
+- **Routing.** A request for a prefixed id goes to that provider alone, with the model part as its model: no backups,
+  no breaker (cc-switch's rule — another provider would answer with another model, on another bill, and the user
+  couldn't tell). An id that no longer resolves (a provider taken off the list or deleted, an unknown key, a malformed
+  id) gets a 400 in the agent's format saying to pick a model again; it never falls back to the provider in use.
+- **Not ported**: cc-switch's merging of members' Claude Code compatibility switches and context-window keys into the
+  one `settings.json`, its Claude Desktop ids, and Codex's `multi_agent_version` override.
+
 ## 7. Verification
 
 - Unit: request and stream conversion against the ported fixtures; token checks; failover and breaker states.
@@ -171,7 +201,9 @@ routing, where the user picks models in the agent itself; Anna's runs already pi
   "failing over"`: the provider in use answers 503, the backup is a provider in the agent's own format (a second Anna
   route in front of the scripted upstream), and both agents finish the edit without seeing the 503. P2d:
   `… -t "global routing"`: the real `codex exec` and `claude -p`, run with their own (taken-over) config folder and no
-  Anna variables in the environment, answer through the route.
+  Anna variables in the environment, answer through the route. P2e: `… -t "aggregated"`: the same CLIs asked for a
+  listed provider's model by its prefixed id (`-m` / `--model`) answer from that provider, and an unknown id fails
+  with the message to pick again.
 - With a key the user provides: one real provider per conversion. P2a: DeepSeek's Chat API (`deepseek-flash`) with
   `ANNA_REAL_CHAT_KEY` (`-t "real Chat provider"`): a delegated file edit over six turns, all 200, prompt cache hits
   from the second turn; and Codex as Anna's brain saving a memory with `anna_memory`. P2b, the same key and model with

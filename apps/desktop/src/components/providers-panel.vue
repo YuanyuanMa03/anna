@@ -45,6 +45,16 @@ function toggleRouting(on: boolean) {
   if (current.value !== 'gemini')
     emit('command', { type: 'provider-routing', app: current.value, on })
 }
+/** Other providers whose models join the terminal agent's own model list (global routing). */
+const aggregate = computed(() => agents.value.providers[current.value]?.aggregate ?? [])
+/** The ones that can be listed: Anna can route them (they have an address), and they aren't the one in use. */
+const listable = computed(() => mine.value.filter(provider => provider.baseUrl && provider.name !== inUse.value))
+function toggleAggregate(name: string, on: boolean) {
+  if (current.value === 'gemini')
+    return
+  const others = aggregate.value.filter(item => item !== name)
+  emit('command', { type: 'provider-aggregate', app: current.value, names: on ? [...others, name] : others })
+}
 /** The failover settings being edited (seconds), started from the ones in force. */
 const policyFields: { key: 'maxRetries' | 'firstByteTimeout' | 'idleTimeout' | 'failureThreshold' | 'openSeconds', label: string, unit: string }[] = [
   { key: 'maxRetries', label: '最多再试几家', unit: '家' },
@@ -182,6 +192,13 @@ function speedtest(name: string) {
         <p class="small muted">开启后，你在终端里直接运行的 {{ labels[current] }} 也经过 Anna：用这里选的服务商和备用，出错时自动换，Chat 格式的服务商也能用。只改它配置里连接相关的字段，Anna 退出时恢复；Anna 没开时它用原来的配置。</p>
         <p v-if="routing?.url" class="small" data-routing="on">已接管，地址 {{ routing.url.replace(/^https?:\/\//, '') }}</p>
         <p v-else-if="routing?.error" class="small warn" data-routing="error">没能接管：{{ routing.error }}</p>
+        <div v-if="routingOn && listable.length" class="routing-aggregate">
+          <p class="small">终端的模型列表里也列出：</p>
+          <div class="aggregate-list">
+            <label v-for="provider in listable" :key="provider.name" class="check small" :data-aggregate="provider.name"><input type="checkbox" :checked="aggregate.includes(provider.name)" :disabled="locked" :aria-label="`列进模型列表：${provider.name}`" @change="toggleAggregate(provider.name, ($event.target as HTMLInputElement).checked)">{{ provider.name }}</label>
+          </div>
+          <p class="small muted">在终端的 {{ labels[current] }} 里用 /model 选它们的模型（名字后面带着服务商）。选了的请求直接发给那一家，不换备用。</p>
+        </div>
         <details v-if="policy" class="routing-policy">
           <summary class="small">换用备用的超时与暂停</summary>
           <div class="policy-grid">
@@ -206,6 +223,7 @@ function speedtest(name: string) {
             <span class="badge" :class="provider.hasKey ? 'ok' : 'warn'">{{ provider.hasKey ? '已存密钥' : '没有密钥' }}</span>
             <span v-if="provider.routed" class="badge" :title="`${labels[current]} 经 Anna 的本地路由连接它，真实密钥只留在 Anna 里`">经本地路由</span>
             <span v-if="backups.includes(provider.name)" class="badge" :data-backup="backups.indexOf(provider.name) + 1">备用 {{ backups.indexOf(provider.name) + 1 }}</span>
+            <span v-if="routingOn && aggregate.includes(provider.name) && inUse !== provider.name" class="badge" data-aggregated title="在终端的模型列表里">模型列表</span>
             <span v-if="provider.health" class="badge warn" :title="healthTitles[provider.health]">{{ healthLabels[provider.health] }}</span>
           </div>
           <p class="small muted">{{ host(provider.baseUrl) || '未设置地址' }}{{ provider.model ? ` · ${provider.model}` : '' }}</p>
