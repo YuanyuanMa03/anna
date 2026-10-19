@@ -6,7 +6,7 @@ Thanks for helping! Anna is young, so issues that describe what you tried and wh
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm assets            # Live2D models, not in Git
+GH_TOKEN=$(gh auth token) pnpm assets   # Live2D models, not in Git; the repository is private, so this needs a token
 pnpm dev:desktop
 ```
 

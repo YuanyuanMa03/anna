@@ -52,6 +52,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Download the Live2D character assets
+        env:
+          # The repository is private, so its release assets need a token. Only this step gets it.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm assets
       - name: Import the Anna signing identity (macOS)
         if: runner.os == 'macOS' && env.HAS_SIGNING == 'true'

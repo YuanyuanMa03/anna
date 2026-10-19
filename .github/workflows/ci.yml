@@ -29,6 +29,9 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
       - name: Download the Live2D character assets
+        env:
+          # The repository is private, so its release assets need a token. Only this step gets it.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm assets
       - run: pnpm lint
       - run: pnpm typecheck
@@ -63,6 +66,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
       - name: Download the Live2D character assets
+        env:
+          # The repository is private, so its release assets need a token. Only this step gets it.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm assets
       - run: pnpm package:linux
       - run: sysctl kernel.apparmor_restrict_unprivileged_userns

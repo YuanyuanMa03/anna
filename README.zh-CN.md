@@ -139,9 +139,12 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每�
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm assets          # 下载 Live2D 模型（不在 Git 里，见 NOTICE.md）
+GH_TOKEN=$(gh auth token) pnpm assets   # 下载 Live2D 模型（不在 Git 里，见 NOTICE.md）
 pnpm dev:desktop
 ```
+
+`pnpm assets`（以及会先运行它的 `pnpm build`）从本仓库的 Release 下载模型。仓库是私有的，所以需要在 `GH_TOKEN` 或
+`GITHUB_TOKEN` 里提供一个能读取本仓库的 GitHub token，`gh auth token` 可以打印你的 token。设置 `ANNA_ASSETS_BASE` 可改从镜像下载。
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # 单元测试、真实 pi 工具循环（faux 模型）、真实沙箱

@@ -228,9 +228,13 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm assets          # download the Live2D models (not in Git, see NOTICE.md)
+GH_TOKEN=$(gh auth token) pnpm assets   # download the Live2D models (not in Git, see NOTICE.md)
 pnpm dev:desktop
 ```
+
+`pnpm assets` (and `pnpm build`, which runs it first) downloads the models from this repository's releases. The
+repository is private, so it needs a GitHub token with read access to it, in `GH_TOKEN` or `GITHUB_TOKEN`;
+`gh auth token` prints yours. Set `ANNA_ASSETS_BASE` to download from a mirror instead.
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
