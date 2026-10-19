@@ -12,14 +12,15 @@ export async function installWebBridge() {
   token = (await check.json()).session
   sessionStorage.setItem('anna.web.session', token)
 
-  // The visitor's workspace, learned from the first snapshot: shown as `workspace` rather than the server's path.
+  // The visitor's workspace, from the first snapshot: shown as 〈工作区〉 rather than the server's path.
   let root = ''
-  const learn = (value: { snapshot?: { workspace?: { path?: string } } }) => { root ||= value.snapshot?.workspace?.path ?? '' }
+  interface WithSnapshot { snapshot?: { workspace?: { path?: string } } }
+  const rememberRoot = (value: WithSnapshot) => { root ||= value.snapshot?.workspace?.path ?? '' }
   const bridge: AnnaBridge = {
     async invoke(command: Command): Promise<Reply> {
       const response = await fetch('./api/command', { method: 'POST', headers: headers(), body: JSON.stringify(command) })
       const reply = await response.json() as Reply
-      learn(reply as never)
+      rememberRoot(reply as WithSnapshot)
       return shortPaths(reply, root)
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener) } },
@@ -50,7 +51,7 @@ export async function installWebBridge() {
           pending = pending.slice(end + 2)
           if (frame.startsWith('data: ')) {
             const event = JSON.parse(frame.slice(6)) as AnnaEvent
-            learn(event as never)
+            rememberRoot(event as WithSnapshot)
             for (const listener of listeners) listener(shortPaths(event, root))
           }
         }
