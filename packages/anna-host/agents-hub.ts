@@ -122,6 +122,8 @@ export class AgentsHub {
   /** Global routing's open routes, one per agent, and how each one stands. */
   private globalRoutes: Partial<Record<'claude' | 'codex', RouteHandle>> = {}
   private routingStatus: Partial<Record<'claude' | 'codex', { url?: string, error?: string }>> = {}
+  /** Syncs and releases run one at a time, each on the settings as they are when it starts. */
+  private routingChain: Promise<unknown> = Promise.resolve()
   constructor(private data: string, private store: SettingsStore, private secrets: SecretVault, private options: AgentsOptions = {}) {
     const home = homedir()
     const dirs = options.configDirs ?? { claude: join(home, '.claude'), codex: join(home, '.codex'), gemini: join(home, '.gemini') }
@@ -180,9 +182,19 @@ export class AgentsHub {
   /**
    * Bring global routing in line with the settings and the providers chosen now: the route follows the provider in
    * use and its backups, and the agent's config is (re)written when its view changes. Also run at start, which
-   * renews a takeover left by a crash, or gives the config back when routing was switched off.
+   * renews a takeover left by a crash, or gives the config back when routing was switched off. Serialized: a sync
+   * still under way (the one after agent detection at start, say) would otherwise take the config over again right
+   * after a later one, with routing switched off, gave it back.
    */
-  async syncRouting() {
+  syncRouting() { return this.serializeRouting(() => this.syncRoutingNow()) }
+
+  private serializeRouting<T>(work: () => Promise<T>) {
+    const run = this.routingChain.then(work, work)
+    this.routingChain = run.catch(() => {})
+    return run
+  }
+
+  private async syncRoutingNow() {
     const enabled = this.store.value.routing?.global ?? {}
     const server = enabled.claude || enabled.codex ? await routing() : routingIfStarted()
     for (const app of routedApps) server?.configure(app, this.store.value.routing?.policies?.[app] ?? {})
@@ -230,12 +242,14 @@ export class AgentsHub {
   }
 
   /** On quit: every config Anna holds goes back as it was; the settings stay, so the next start takes over again. */
-  async releaseRouting() {
-    for (const app of routedApps) {
-      this.globalRoutes[app]?.close()
-      delete this.globalRoutes[app]
-      await this.takeover.release(app)
-    }
+  releaseRouting() {
+    return this.serializeRouting(async () => {
+      for (const app of routedApps) {
+        this.globalRoutes[app]?.close()
+        delete this.globalRoutes[app]
+        await this.takeover.release(app)
+      }
+    })
   }
 
   private get ccSwitchDb() { return this.options.ccSwitchDb ?? join(homedir(), '.cc-switch', 'cc-switch.db') }
