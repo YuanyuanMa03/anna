@@ -328,3 +328,5 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .link-confirm dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 }
 .link-confirm dt { color: #8a769b }
 .link-confirm dd { margin: 0; overflow-wrap: anywhere }
+
+.web-notice { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: #706778; }

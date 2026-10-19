@@ -239,7 +239,8 @@ onMounted(async () => {
   await run({ type: 'snapshot' })
   if (snapshot.value)
     anna.value = snapshot.value.anna
-  await run({ type: 'weixin-status' })
+  if (!import.meta.env.VITE_ANNA_WEB)
+    await run({ type: 'weixin-status' })
   if (canChat.value)
     await run({ type: 'connect' })
   else
@@ -268,6 +269,7 @@ watch(() => character.value.id, (_, previous) => {
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
 onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
+const web = Boolean(import.meta.env.VITE_ANNA_WEB)
 </script>
 
 <template>
@@ -278,8 +280,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       <nav class="header-actions">
         <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
         <button :aria-pressed="drawer === 'work'" @click="drawer = drawer === 'work' ? undefined : 'work'">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
-        <button @click="weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
-        <button @click="agentsOpen = true; run({ type: 'snapshot' })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
+        <button v-if="!web" @click="weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+        <button v-if="!web" @click="agentsOpen = true; run({ type: 'snapshot' })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
         <button @click="pluginsOpen = true">外观与能力</button>
         <button @click="settingsOpen = true">模型与设置</button>
         <button class="sponsor" @click="sponsorOpen = true">♥ 赞助</button>
@@ -344,12 +346,13 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <svg class="stage-overlay" aria-hidden="true"><path v-if="tail" class="speech-tail" :d="tail" /><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
+      <p v-if="web" class="web-notice">在线体验 · 真实模型对话、角色、记忆与独立文件工作区。终端、微信和外部 agent 请使用桌面版。闲置 2 小时后会话自动清理，请勿输入敏感信息。</p>
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
-        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `把要做的事交给${character.name}…（@claude、@codex 可以直接派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
+        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : web ? `和${character.name}聊聊，或让她写一份计划…` : `把要做的事交给${character.name}…（@claude、@codex 可以直接派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
           <label><input v-model="autoSpeak" type="checkbox">朗读</label>
