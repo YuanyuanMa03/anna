@@ -29,29 +29,35 @@ sets Anna apart was there but hidden, or broken:
    content is stored by the host before the turn, attributed to the companion on stage, and the turn's instructions
    say it is already stored (so the brain neither stores it twice nor claims something else). Questions such as
    "记住了吗？" are not stored. Credentials are refused as the tool refuses them.
-3. **Edition notes.** `HostOptions.notes` adds a section to the instructions. The online demo uses it to say what this
+3. **The brain knows today.** The first turn of a kernel, and the first turn of each new day, note "今天是 …（星期几）";
+   no brain has a clock of its own (Anna once called 21 October 2026, a Wednesday, a Monday).
+4. **Refusals are said.** A "记住：…" that looks like a credential is not stored, and the brain is told so, so it can't
+   claim to remember it. `MemoryStore.remember` itself refuses such lines, whoever calls it.
+5. **Edition notes.** `HostOptions.notes` adds a section to the instructions. The online demo uses it to say what this
    edition lacks (WeChat, choosing folders, own providers) and not to volunteer paths or sample model names.
 
 ## Online demo (deploy/modelscope-full)
 
-4. **A tour instead of coding suggestions.** Before the first message the stage offers prompts that show Anna's
+6. **A tour instead of coding suggestions.** Before the first message the stage offers prompts that show Anna's
    strengths: delegation with review on a daily task ("@claude 把这周的复习安排排进 plan.md"), shared memory across
    companions and brains ("记住：我每周三下午有实验课"), and a bug fix as one item, not the lead. A short line says
    that Claude Code and Codex here run on ModelScope Qwen through Anna's local routing.
-5. **"桌面版还能做" card**: WeChat ClawBot remote tasks, cc-switch provider presets and switching, global routing for
+7. **"桌面版还能做" card**: WeChat ClawBot remote tasks, cc-switch provider presets and switching, global routing for
    the agents' own CLIs, each one line, linking to the website. No claim that any of them works online.
-6. **Short workspace paths in the UI.** In the online demo the visitor's absolute workspace path is shown as
-   `workspace` in approval cards, activity rows and replies; the command that runs is unchanged.
-7. **Phone layout.** At 600 px and below the top bar scrolls sideways instead of wrapping, the cards sit below the
+8. **Short workspace paths in the UI.** In the online demo the visitor's absolute workspace path is shown as
+   〈工作区〉 in approval cards, activity rows and replies, a token no real folder name can be mistaken for (so
+   "rm -rf <workspace>" never reads like "rm -rf workspace"). Permission rules keep their exact text, since removing
+   one names it. The command that runs is unchanged.
+9. **Phone layout.** At 600 px and below the top bar scrolls sideways instead of wrapping, the cards sit below the
    character instead of over it, and the bubble never overlaps the notice. No horizontal page scroll.
 
 ## Test seams
 
 - `MemoryStore` (remember with a writer, `instructions()`, the `anna_memory` tool): items 1 and 2's storage.
-- `Host.execute({ type: 'send' })` with a fake kernel factory that records the instructions it gets: items 1–3.
+- `Host.execute({ type: 'send' })` with a fake kernel factory that records the instructions it gets: items 1–5.
 - A pure renderer module for the online demo (`apps/desktop/src/online.ts`): the tour prompts and `shortPaths()`:
-  item 6.
-- Items 4, 5 and 7 are checked in a real browser at 1366 px and 390 px (screenshots), not by unit tests.
+  item 8.
+- Items 6, 7 and 9 are checked in a real browser at 1366 px and 390 px (screenshots), not by unit tests.
 
 ## Out of scope
 

@@ -183,4 +183,38 @@ describe('the takeover on disk', () => {
     expect(back.apiKeyHelper).toBe('~/bin/new.sh')
     expect(back.modelPicker).toEqual({ options: [{ model: 'sonnet' }] })
   })
+
+  it('a Codex model or effort the user sets while Anna holds config.toml is the one that comes back', async () => {
+    const d = await dirs()
+    const { mkdir } = await import('node:fs/promises')
+    const config = join(d.codex, 'config.toml')
+    await mkdir(d.codex, { recursive: true })
+    await writeFile(config, 'model = "gpt-6"\nmodel_reasoning_effort = "low"\n')
+    const takeover = new RoutingTakeover(d.state, d)
+    await takeover.apply({ app: 'codex', target: { url: 'u', token: 't', model: 'm1' } })
+    const held = await readFile(config, 'utf8')
+    await writeFile(config, held.replace('model = "m1"', 'model = "gpt-7"\nmodel_reasoning_effort = "high"'))
+    await takeover.apply({ app: 'codex', target: { url: 'u', token: 't', model: 'm2' } })
+    await takeover.release('codex')
+    const back = await readFile(config, 'utf8')
+    expect(back).toContain('model = "gpt-7"')
+    expect(back).toContain('model_reasoning_effort = "high"')
+    expect(back).not.toMatch(/model = "gpt-6"|"low"|model_provider =|experimental_bearer_token/)
+  })
+
+  it('a picker Claude Code merely reordered is still Anna’s, not the user’s', async () => {
+    const d = await dirs()
+    const { mkdir } = await import('node:fs/promises')
+    const settings = join(d.claude, 'settings.json')
+    await mkdir(d.claude, { recursive: true })
+    await writeFile(settings, JSON.stringify({ env: {} }))
+    const picker = [{ model: 'anna-claude-glm--glm-5', label: 'glm-5', description: 'd', behavesAs: 'claude-sonnet-5' }]
+    const takeover = new RoutingTakeover(d.state, d)
+    await takeover.apply({ app: 'claude', target: { ...target, models: { default: 'm' }, picker } })
+    const held = JSON.parse(await readFile(settings, 'utf8'))
+    const reordered = { ...held, modelPicker: { options: held.modelPicker.options.map((row: Record<string, string>) => Object.fromEntries(Object.entries(row).reverse())) } }
+    await writeFile(settings, JSON.stringify(reordered))
+    await takeover.release('claude')
+    expect(JSON.parse(await readFile(settings, 'utf8'))).not.toHaveProperty('modelPicker')
+  })
 })

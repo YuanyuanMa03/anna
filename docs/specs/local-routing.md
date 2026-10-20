@@ -40,7 +40,10 @@ provider, converts the format, and can move a request to another provider when o
   Renewing the takeover (a provider, backup or key change) keeps that distinction: once the file changed since Anna
   last wrote it, the byte-for-byte copy is dropped for good, so a later release can't undo those changes. An
   `apiKeyHelper` or `modelPicker` set while Anna holds the file is the user's own now: it is the one set aside and put
-  back, not the value from before the takeover.
+  back, not the value from before the takeover. Codex's connection lines (`model`, `model_reasoning_effort`…) work the
+  same way: one the user changed or added while Anna holds config.toml is the one put back. Keys are compared
+  regardless of order, since Claude Code may rewrite settings.json in another order. A key the user deleted while held
+  (Anna had already set it aside) still comes back on release: there is no way to tell that deletion from Anna's own.
   The replaced fields and the original file are saved before the first write, so after a crash the next start renews
   the takeover (still switched on) or gives the config back (switched off).
 - **The token** is one per agent, kept with the keys in the encrypted store, so the config stays valid across
