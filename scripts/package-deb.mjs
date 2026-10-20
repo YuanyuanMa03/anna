@@ -14,7 +14,7 @@ const arch = { x64: 'amd64', arm64: 'arm64' }[process.arch]
 
 const desktop = `[Desktop Entry]
 Name=Anna
-Comment=A digital life on your desktop, and an honest companion
+Comment=She wakes on your desktop
 Exec=/opt/Anna/anna %U
 Icon=anna
 Type=Application
@@ -96,7 +96,7 @@ async function main() {
     'Depends: libgtk-3-0 | libgtk-3-0t64, libnss3, libasound2 | libasound2t64, libsecret-1-0, libnotify4, xdg-utils',
     // Anna runs terminal commands in a bubblewrap sandbox, which needs these.
     'Recommends: bubblewrap, socat, ripgrep',
-    'Description: A digital life on your desktop, and an honest companion',
+    'Description: Live2D desktop companion who codes alongside you',
     ' Anna is a Live2D companion who chats with you and gets real work done:',
     ' reading code, editing files and running tests, with Claude Code-style',
     ' permission modes and a system sandbox.',

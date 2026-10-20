@@ -2,11 +2,11 @@
 
 # Anna
 
-**A digital life on your desktop, and an honest companion.**
+**She wakes on your desktop.**
 
-Anna is more than an agent. She has her own face, personality and memory. She keeps you company, and she gets real<br>
-work done: reading your code, editing files, running tests, and calling in Claude Code or Codex when they fit better.<br>
-She never pretends to have done what she hasn't, and when a decision is yours, she turns and asks.
+She keeps you company, does the work, and never lies to you.<br>
+A Live2D character with a face, a temper and a memory of her own, who reads your code, edits files, runs tests,<br>
+and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
@@ -260,6 +260,12 @@ Anna has changed brains three times, and she's still Anna.
 3. **v0.3 · pi.** DSH couldn't carry her through real coding tasks, so the brain was rebuilt on the pi coding agent SDK.
 4. **v0.4 · any brain.** A kernel seam, Claude Code-style permissions, an OS sandbox, and delegation to whatever coding
    agents you already use.
+
+## Among her peers
+
+Anna sits where three kinds of projects meet: AI companions like Project AIRI, desktop pets that watch your coding
+agents like Clawd on Desk, and desktop shells for coding agents like cc-switch and AionUi. What she does better, where
+she still falls short, and which projects she learned from are in [docs/comparison.md](docs/comparison.md).
 
 ## Roadmap
 

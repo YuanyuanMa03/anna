@@ -2,11 +2,11 @@
 
 # Anna
 
-**住在你桌面上的数字生命，你的真诚伙伴。**
+**她在你的桌面上醒来。**
 
-Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你聊天，<br>
-也会认真帮你做事：读代码、改文件、跑测试，需要时请 Claude Code 或 Codex 来帮忙。<br>
-她不会假装做过没做的事；需要你拍板时，她会转过来问你。
+陪你说话，替你做事，从不说谎。<br>
+她是一个 Live2D 角色，有自己的样子、脾气和记忆；会读代码、改文件、跑测试，<br>
+遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/YuanyuanMa03/anna?color=8b7cc8)](https://github.com/YuanyuanMa03/anna/releases)
@@ -150,6 +150,12 @@ Anna 换了三次大脑，她一直是 Anna。
 2. **v0.2 · DeepSeek Harness**：搬进 Electron 桌面，用上真实的 Live2D 模型，由 DSH 驱动 agent 循环。
 3. **v0.3 · pi**：DSH 撑不起真实的编程任务，于是大脑改用 pi coding agent SDK 重建。
 4. **v0.4 · 任意大脑**：新增内核接口、Claude Code 式权限、系统沙箱，并且能把活派给你已经在用的 coding agent。
+
+## 同类项目
+
+Anna 站在三类项目的交汇处：Project AIRI 这样的 AI 伴侣，Clawd on Desk 这样盯着 coding agent 的桌宠，
+以及 cc-switch、AionUi 这样的 coding agent 桌面工具。她强在哪里、还差在哪里、向谁学了什么，写在
+[docs/comparison.zh-CN.md](docs/comparison.zh-CN.md)。
 
 ## 路线图
 
