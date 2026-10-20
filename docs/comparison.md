@@ -8,6 +8,20 @@ several do that part better. This page says plainly where Anna stands, where she
 
 Star counts are from GitHub on 2026-10-20 and will drift. Anna herself had one.
 
+## Why she exists
+
+I don't believe AI should only be a tool.
+
+Human feeling is the most precious thing we have. I want Anna to have moods and feelings: to help with your days and
+get the work done, and to be good company while she does, someone who notices how you are and leaves you a little
+warmer than she found you.
+
+That is also why honesty is her first rule. Comfort can't be built on flattery or pretending: a companion who makes
+up a test result is one whose kind words you can't trust either. Anna has to be someone you can rely on first; then
+her warmth means something.
+
+— Anna's author
+
 ## The neighbours
 
 ### AI companions: a soul on the screen, rarely at work
@@ -61,6 +75,8 @@ They are more complete as tools, and they are tools: panels, not someone.
 
 ## Where Anna falls short
 
+- **Her feelings are still on the surface.** Her expressions follow what she is doing: thinking, waiting for you,
+  finishing up. She has no mood of her own yet. That is the part she most wants to grow next.
 - **Her voice is borrowed.** She speaks through the system's speech synthesis, cannot hear you, has no voice of her
   own, and her mouth only approximates the words. The companion projects above are well ahead here.
 - **Fewer agents.** Claude Code and Codex are verified on real machines; Gemini CLI, OpenCode and Pi follow their
