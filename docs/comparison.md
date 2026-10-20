@@ -26,7 +26,7 @@ permission modes, no sandbox, no diff to read, nothing to undo.
 
 | Project | Stars | What it is |
 |---|---:|---|
-| [Clawd on Desk](https://github.com/rullerzhou-afk/clawd-on-desk) | 6.5k | A pixel pet that reacts to 20+ coding agents in real time, with approval bubbles, a session dashboard and approvals from Telegram or Feishu. |
+| [Clawd on Desk](https://github.com/rullerzhou-afk/clawd-on-desk) | 6.5k | A pixel crab that reacts to 20+ coding agents in real time, with approval bubbles, a session dashboard and approvals from Telegram or Feishu. |
 | [OpenPets](https://github.com/OpenPetsHQ/openpets) | 1.3k | A desktop pet platform with a sandboxed plugin SDK; coding-agent reactions are one optional layer. |
 
 These are Anna's closest neighbours, and Clawd on Desk shares almost all of her audience. The difference is who does

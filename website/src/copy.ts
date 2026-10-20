@@ -160,7 +160,7 @@ export const copy = {
     hero: {
       eyebrow: 'Source available · free for personal use · v0.5 · macOS / Windows / Linux',
       title: ['She wakes', 'on your desktop.'],
-      desc: 'She keeps you company, does the work, and never lies to you. A face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
+      desc: 'She keeps you company, does the work, and never lies to you. She has a face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
       github: 'View on GitHub',
       online: 'Try it online',
       sponsor: { text: 'Anna is made by one person and free for personal use. If she helps you, a sponsorship keeps her growing.', button: 'Sponsor Anna' },

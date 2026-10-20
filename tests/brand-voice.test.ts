@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { copy } from '../website/src/copy'
 
@@ -38,11 +38,15 @@ describe('brand voice', () => {
     expect(deb).toContain('Description: Live2D desktop companion who codes alongside you')
   })
 
-  it('leaves the old slogan behind everywhere it was shown', () => {
-    const surfaces = ['README.md', 'README.zh-CN.md', 'website/index.html', 'website/src/copy.ts', 'scripts/package-deb.mjs']
+  it('names the app window plainly', () => {
+    expect(read('apps/desktop/index.html')).toContain('<title>Anna</title>')
+  })
+
+  it('leaves the old slogans behind everywhere they were shown', () => {
+    const surfaces = ['README.md', 'README.zh-CN.md', 'website/index.html', 'website/src/copy.ts', 'scripts/package-deb.mjs', 'apps/desktop/index.html']
     for (const path of surfaces) {
       const text = read(path)
-      expect(text, path).not.toMatch(/honest companion|真诚伙伴/)
+      expect(text, path).not.toMatch(/honest companion|真诚伙伴|Composable Digital Life/)
     }
   })
 
@@ -51,5 +55,14 @@ describe('brand voice', () => {
     expect(read('README.zh-CN.md')).toContain('](docs/comparison.zh-CN.md)')
     expect(read('docs/comparison.md')).toContain('](comparison.zh-CN.md)')
     expect(read('docs/comparison.zh-CN.md')).toContain('](comparison.md)')
+  })
+
+  it('points every relative link in the comparison at a file that exists', () => {
+    for (const doc of ['docs/comparison.md', 'docs/comparison.zh-CN.md']) {
+      const links = [...read(doc).matchAll(/\]\((?!https?:)([^)#]+)/g)].map(match => match[1])
+      expect(links.length, doc).toBeGreaterThan(0)
+      for (const link of links)
+        expect(existsSync(join(root, dirname(doc), link)), `${doc} → ${link}`).toBe(true)
+    }
   })
 })
