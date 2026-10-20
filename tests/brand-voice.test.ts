@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { copy } from '../website/src/copy'
 
 const root = join(import.meta.dirname, '..')
-const read = (path: string) => readFileSync(join(root, path), 'utf8')
+// Windows checkouts get CRLF line endings.
+const read = (path: string) => readFileSync(join(root, path), 'utf8').replaceAll('\r\n', '\n')
 
 const slogan = { zh: '她在你的桌面上醒来。', en: 'She wakes on your desktop.' }
 const subline = { zh: '陪你说话，替你做事，从不说谎。', en: 'She keeps you company, does the work, and never lies to you.' }
