@@ -84,8 +84,9 @@ export const ps = (value: string) => `'${value.replace(/'/g, `''`)}'`
 /**
  * A detached script that finishes an update after Anna quits: wait for the old process, move the old app aside,
  * move the verified staged app into place, clear quarantine on macOS, then relaunch. On failure the old app is put back.
+ * `work`: the download's own temporary folder (the archive, this script), removed at the end whether or not the
+ * relaunch worked.
  */
-/** `work`: the download's own temporary folder (the archive, this script), removed once the new version is in place. */
 export function swapScript(platform: NodeJS.Platform, options: { pid: number, current: string, staged: string, relaunch: string, work?: string }) {
   const { pid, current, staged, relaunch, work } = options
   if (platform === 'win32') {
@@ -96,8 +97,7 @@ export function swapScript(platform: NodeJS.Platform, options: { pid: number, cu
       `if (Test-Path $old) { Remove-Item -Recurse -Force $old }`,
       `Move-Item $current $old`,
       `try { Move-Item $staged $current; Remove-Item -Recurse -Force $old } catch { if (Test-Path $old) { Move-Item $old $current } }`,
-      relaunch,
-      ...(work ? [`Remove-Item -Recurse -Force ${ps(work)} -ErrorAction SilentlyContinue`] : []),
+      ...(work ? [`try { ${relaunch} } finally { Remove-Item -Recurse -Force ${ps(work)} -ErrorAction SilentlyContinue }`] : [relaunch]),
     ].join('\r\n')
   }
   return [

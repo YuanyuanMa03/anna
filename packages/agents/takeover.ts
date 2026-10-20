@@ -78,11 +78,34 @@ export function claudeRelease(text: string | undefined, originals: ClaudeOrigina
 function claudeLatest(current: string | undefined, written: string | undefined, originals: ClaudeOriginals): ClaudeOriginals {
   const now = parseJson('settings.json', current)
   const ours = parseJson('settings.json', written)
-  const changed = claudeTopKeys.filter(key => key in now && JSON.stringify(now[key]) !== JSON.stringify(ours[key]))
+  const changed = claudeTopKeys.filter(key => key in now && stable(now[key]) !== stable(ours[key]))
   return changed.length ? { ...originals, top: { ...originals.top, ...Object.fromEntries(changed.map(key => [key, now[key]])) } } : originals
 }
 
+/** JSON with object keys sorted: Claude Code may rewrite settings.json in another key order. */
+function stable(value: unknown): string {
+  if (Array.isArray(value))
+    return `[${value.map(stable).join(',')}]`
+  if (value && typeof value === 'object')
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stable((value as Record<string, unknown>)[key])}`).join(',')}}`
+  return JSON.stringify(value)
+}
+
 export interface CodexOriginals { top: string[], table?: string[] }
+
+/**
+ * The originals with any connection line (`model`, `model_reasoning_effort`…) the user changed or added since Anna last
+ * wrote config.toml: that line is the user's own now, so it is the one set aside and put back.
+ */
+function codexLatest(current: string | undefined, written: string | undefined, originals: CodexOriginals): CodexOriginals {
+  const keyOf = (line: string) => line.split('=')[0]!.trim()
+  const ours = new Map(codexSections(written ?? '').connection.map(line => [keyOf(line), line.trim()]))
+  const changed = codexSections(current ?? '').connection.filter(line => ours.get(keyOf(line)) !== line.trim())
+  if (!changed.length)
+    return originals
+  const keys = new Set(changed.map(keyOf))
+  return { ...originals, top: [...originals.top.filter(line => !keys.has(keyOf(line))), ...changed] }
+}
 
 /**
  * config.toml with Codex pointed at the route: a [model_providers.custom] table with the route's token as
@@ -151,7 +174,7 @@ export class RoutingTakeover {
       const path = join(dir, spec.app === 'claude' ? 'settings.json' : 'config.toml')
       const catalogPath = join(dir, codexCatalogFile)
       const current = await this.read(path)
-      const kept = state.active && spec.app === 'claude' ? claudeLatest(current, state.written, state.originals as ClaudeOriginals) : state.originals
+      const kept = !state.active ? undefined : spec.app === 'claude' ? claudeLatest(current, state.written, state.originals as ClaudeOriginals) : codexLatest(current, state.written, state.originals as CodexOriginals)
       const plan = spec.app === 'claude'
         ? claudeTakeover(current, spec.target, state.active ? kept as ClaudeOriginals : undefined)
         : codexTakeover(current, { ...spec.target, ...(spec.catalog ? { catalogPath } : {}) }, state.active ? kept as CodexOriginals : undefined)
@@ -193,7 +216,7 @@ export class RoutingTakeover {
         await this.write(path, claudeRelease(current, claudeLatest(current, state.written, (state.originals ?? { env: {} }) as ClaudeOriginals)))
       }
       else {
-        await this.write(path, codexRelease(current, (state.originals ?? { top: [] }) as CodexOriginals))
+        await this.write(path, codexRelease(current, codexLatest(current, state.written, (state.originals ?? { top: [] }) as CodexOriginals)))
       }
       if (app === 'codex') {
         const catalogPath = join(dir, codexCatalogFile)

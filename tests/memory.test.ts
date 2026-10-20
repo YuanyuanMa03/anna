@@ -34,4 +34,12 @@ describe('the shared diary', () => {
     await tool.execute({ action: 'remember', text: '早上八点前别打扰' })
     expect(store.items.map(item => [item.text, item.by])).toEqual([['周五晚上不安排复习', 'Mao'], ['早上八点前别打扰', '马克君（Codex）']])
   })
+
+  it('a line that looks like a credential is never stored, whoever asks', async () => {
+    const store = new MemoryStore(await mkdtemp(join(tmpdir(), 'anna-memory-')))
+    await store.load()
+    expect(await store.remember('我的密码是 hunter2', 'Anna')).toBeUndefined()
+    expect(await store.remember('key: sk-abcdef', 'Anna')).toBeUndefined()
+    expect(store.items).toEqual([])
+  })
 })
