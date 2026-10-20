@@ -39,7 +39,7 @@ export const copy = {
     hero: {
       eyebrow: '源码公开 · 个人免费 · v0.5 · macOS / Windows / Linux',
       title: ['她在你的桌面上', '醒来。'],
-      desc: '陪你说话，替你做事，从不说谎。她有自己的样子、脾气和记忆；会读代码、改文件、跑测试，遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。',
+      desc: '陪你说话，替你做事，从不说谎。她有自己的样子、性情和记忆；会读代码、改文件、跑测试，遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。',
       github: '在 GitHub 上查看',
       online: '在线体验',
       sponsor: { text: 'Anna 由一个人做出来，个人使用免费。如果她帮到了你，可以赞助她，陪她继续长大。', button: '赞助 Anna' },
@@ -58,7 +58,7 @@ export const copy = {
         mark: { name: '马克君', tagline: '元气满满的小伙伴' },
       },
     },
-    strip: { lead: '不是工具，是一个在场的人。', items: ['有脾气，也有记忆', '不编造，不越界', '会干活，也会派活', '源码公开，个人免费'] },
+    strip: { lead: '不是工具，是一个在场的人。', items: ['有性情，也有记忆', '不编造，不越界', '会干活，也会派活', '源码公开，个人免费'] },
     demo: {
       eyebrow: 'LIVE DEMO',
       title: ['别只看介绍，', '和她一起干一次活。'],
@@ -160,7 +160,7 @@ export const copy = {
     hero: {
       eyebrow: 'Source available · free for personal use · v0.5 · macOS / Windows / Linux',
       title: ['She wakes', 'on your desktop.'],
-      desc: 'She keeps you company, does the work, and never lies to you. A face, a temper and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
+      desc: 'She keeps you company, does the work, and never lies to you. A face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
       github: 'View on GitHub',
       online: 'Try it online',
       sponsor: { text: 'Anna is made by one person and free for personal use. If she helps you, a sponsorship keeps her growing.', button: 'Sponsor Anna' },
@@ -179,7 +179,7 @@ export const copy = {
         mark: { name: 'Mark', tagline: 'Full of energy' },
       },
     },
-    strip: { lead: 'Not a tool. Someone who is there.', items: ['A temper and a memory', 'Nothing made up, no line crossed', 'Works, and delegates', 'Source available, free for personal use'] },
+    strip: { lead: 'Not a tool. Someone who is there.', items: ['A heart and a memory', 'Nothing made up, no line crossed', 'Works, and delegates', 'Source available, free for personal use'] },
     demo: {
       eyebrow: 'LIVE DEMO',
       title: ['Don\'t just read about it.', 'Work with her once.'],

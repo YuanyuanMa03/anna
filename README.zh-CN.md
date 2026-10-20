@@ -5,7 +5,7 @@
 **她在你的桌面上醒来。**
 
 陪你说话，替你做事，从不说谎。<br>
-她是一个 Live2D 角色，有自己的样子、脾气和记忆；会读代码、改文件、跑测试，<br>
+她是一个 Live2D 角色，有自己的样子、性情和记忆；会读代码、改文件、跑测试，<br>
 遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)

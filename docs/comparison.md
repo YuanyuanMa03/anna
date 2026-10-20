@@ -48,7 +48,7 @@ They are more complete as tools, and they are tools: panels, not someone.
 
 ## Where Anna is strong
 
-- **She is one person across every brain.** The face, the temper and the shared diary stay the same whether pi,
+- **She is one person across every brain.** Her face, her heart and the shared diary stay the same whether pi,
   Claude Code or Codex is thinking. Switch companions or brains and the conversation carries on.
 - **She does the work herself, and supervises when she doesn't.** Delegated jobs come back to her; she reads the
   changes, runs the quick tests, and tells you whether to rely on them.

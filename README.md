@@ -5,7 +5,7 @@
 **She wakes on your desktop.**
 
 She keeps you company, does the work, and never lies to you.<br>
-A Live2D character with a face, a temper and a memory of her own, who reads your code, edits files, runs tests,<br>
+A Live2D character with a face, a heart and a memory of her own, who reads your code, edits files, runs tests,<br>
 and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
