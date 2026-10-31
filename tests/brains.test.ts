@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { brainChoices, recommendedBrain } from '../packages/agents/brains'
+import { autoInstallable, catalog } from '../packages/agents/catalog'
+
+describe('install commands', () => {
+  it('runs only plain global npm installs itself, and every agent she can delegate to has one', () => {
+    expect(autoInstallable('npm i -g @deepseek-ai/dsh@latest --engine-strict')).toBe(true)
+    expect(autoInstallable('curl -fsSL https://antigravity.google/cli/install.sh | bash')).toBe(false)
+    expect(autoInstallable('bun install -g @oh-my-pi/pi-coding-agent@latest')).toBe(false)
+    expect(autoInstallable('npm i -g x; rm -rf ~')).toBe(false)
+    for (const agent of catalog.filter(item => item.tier === 'delegate'))
+      expect(autoInstallable(agent.install!), agent.id).toBe(true)
+  })
+})
 
 const claude = { id: 'claude', installed: true, version: '2.1.302', loggedIn: true }
 const codex = { id: 'codex', installed: true, version: '0.160.0', loggedIn: false }

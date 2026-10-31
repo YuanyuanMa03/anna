@@ -254,12 +254,18 @@ function openFromMenu(action: () => void) {
 /** A brain that can think takes over now; pi without a model opens its settings; a missing agent opens the sheet to install it. */
 function pickBrain(choice: BrainChoice) {
   brainOpen.value = false
-  if (choice.state === 'needs-key')
+  if (choice.state === 'needs-key') {
+    // pi's model form only shows while pi is her brain.
+    if (!choice.current)
+      void run({ type: 'kernel', id: choice.id })
     settingsOpen.value = true
-  else if (choice.state === 'missing')
+  }
+  else if (choice.state === 'missing') {
     void run({ type: 'snapshot' }).then(() => { agentsOpen.value = true })
-  else if (!choice.current)
+  }
+  else if (!choice.current) {
     void run({ type: 'kernel', id: choice.id })
+  }
 }
 const decide = (id: string, allow: boolean, scope: ApprovalScope) => run({ type: 'approval', id, allow, scope })
 async function showChanges() {
@@ -440,7 +446,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
-      <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。<template v-if="recommended">这台电脑上的 {{ recommended.label }} 已经登录，可以直接用它思考。</template></span><button v-if="recommended" class="primary" @click="pickBrain(recommended)">用 {{ recommended.label }} 思考</button><button @click="settingsOpen = true">配置模型</button></div>
+      <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。<template v-if="recommended">这台电脑上的 {{ recommended.label }} 已经登录，可以直接用它思考。</template></span><button v-if="recommended" class="primary" :disabled="configuring" @click="pickBrain(recommended)">用 {{ recommended.label }} 思考</button><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么，或交给 ${character.name} 一件事…（@claude、@codex 可以派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">

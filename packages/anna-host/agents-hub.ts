@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { claudePickerRows, codexAggregateCatalog, modelKeyFor } from '../agents/aggregate'
-import { catalog } from '../agents/catalog'
+import { autoInstallable, catalog } from '../agents/catalog'
 import { codexCatalog } from '../agents/codex-catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
 import { detectAgents } from '../agents/detect'
@@ -714,6 +714,8 @@ export class AgentsHub {
     const entry = catalog.find(item => item.id === agent)
     if (!entry?.install)
       throw new Error('这个 agent 没有可自动执行的安装命令')
+    if (!autoInstallable(entry.install))
+      throw new Error(`请在终端里运行：${entry.install}`)
     const [command, ...args] = entry.install.split(' ')
     return new Promise<string>((resolve, reject) => execFile(process.platform === 'win32' ? `${command}.cmd` : command!, args, { timeout: 10 * 60 * 1000, shell: process.platform === 'win32' }, (error, stdout, stderr) => error ? reject(new Error(`${stderr || error.message}`.slice(-600))) : resolve(stdout.slice(-600))))
   }
