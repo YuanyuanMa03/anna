@@ -18,10 +18,16 @@ export default defineConfig(({ command }) => {
       name: 'anna-body-stays-home',
       configResolved(config) { outDir = resolve(config.root, config.build.outDir) },
       // The runtime unpacks her archive into blob: URLs and fetches them; without her body the policy stays as it was.
-      transformIndexHtml: html => body ? html.replace('connect-src \'self\'', 'connect-src \'self\' blob:') : html,
+      transformIndexHtml(html) {
+        if (!body)
+          return html
+        if (!html.includes('connect-src \'self\''))
+          throw new Error('index.html has no connect-src \'self\' to extend with blob: for Anna\'s body')
+        return html.replace('connect-src \'self\'', 'connect-src \'self\' blob:')
+      },
       // publicDir copies all of assets/; take her body out again wherever this build writes (desktop, web, --outDir).
       closeBundle() {
-        if (!body && outDir)
+        if (command === 'build' && !body)
           rmSync(resolve(outDir, 'anna-body'), { recursive: true, force: true })
       },
     }],

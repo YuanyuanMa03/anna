@@ -19,8 +19,11 @@ npm run pack-avatar -- projects/anna --no-source -o <anna>/assets/anna-body/anna
 
 The dev server (`pnpm dev:desktop`) uses it when it is in place. A build carries it only when asked to:
 `ANNA_WITH_BODY=1 pnpm build`, for the owner's own machine. Never publish such a build or package: the archive holds
-her art. Any other build, whatever its output folder, drops the archive again, and the packaging scripts refuse a build
-that carries it unless `ANNA_PACKAGE_BODY=1` says the package stays private. Without it the app shows the anime form, never tries to load the body and does not offer the choice.
+her art. Any other build, whatever its output folder, drops the archive again. The desktop packaging scripts refuse a
+build that carries it unless `ANNA_PACKAGE_BODY=1` says the package stays private; any other script that packages a
+build (such as a web deploy) must call `assertNoBody(<its build folder>)` from `scripts/body-guard.mjs` the same way.
+
+A build without the archive shows the anime form, never tries to load the body and does not offer the choice.
 The manifest's `body.crop` (the figure's bounds) and `body.hands` (where she holds things) are in image pixels: update
 them when the art changes. Face, mouth and head come from the archive's rig.
 

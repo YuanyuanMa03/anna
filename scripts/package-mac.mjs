@@ -16,7 +16,7 @@ async function main() {
   const stage = resolve('.data/macos-stage')
   const icon = resolve('.data/Anna.iconset')
   execFileSync('pnpm', ['build'], { stdio: 'inherit' })
-  assertNoBody(root)
+  assertNoBody()
   await mkdir(output, { recursive: true })
   await rm(stage, { recursive: true, force: true })
   execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', stage], { stdio: 'inherit' })
