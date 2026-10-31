@@ -70,9 +70,8 @@ export class AcpKernel implements AgentKernel {
       this.toolServer = await serveTools(this.context.tools)
       this.tools = this.context.tools.map(tool => tool.name)
     }
-    // The wrapped line runs under the platform shell: /bin/sh quotes with '…', cmd.exe with "…" (reached only by tests
-    // with a stand-in sandbox, since Windows has no sandbox and no ACP brain there).
-    const quote = (part: string) => process.platform === 'win32' ? `"${part.replace(/"/g, '\\"')}"` : `'${part.replace(/'/g, `'\\''`)}'`
+    // The wrapped line runs under /bin/sh: there is no sandbox on Windows, so no ACP brain runs there.
+    const quote = (part: string) => `'${part.replace(/'/g, `'\\''`)}'`
     const line = [located.command, ...(located.prefix ?? []), ...this.args].map(quote).join(' ')
     this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: true, detached: true })
     this.child.stderr?.setEncoding('utf8').on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-400) })
