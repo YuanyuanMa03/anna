@@ -5,13 +5,14 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { AcpKernel } from '../packages/kernels/acp/kernel'
-import { permissionOutcome, toolName } from '../packages/kernels/acp/protocol'
+import { permissionOutcome, toolInput, toolName } from '../packages/kernels/acp/protocol'
 
 const fixture = resolve('tests/fixtures/fake-acp-agent.mjs')
 
 async function context(overrides: Partial<KernelContext> = {}) {
   const events: KernelEvent[] = []
   const gated: { tool: string, input: Record<string, unknown> }[] = []
+  const wrapped: string[] = []
   const data = await mkdtemp(join(tmpdir(), 'anna-acp-'))
   const value: KernelContext = {
     root: process.cwd(),
@@ -28,9 +29,14 @@ async function context(overrides: Partial<KernelContext> = {}) {
     tools: [],
     emit: event => events.push(event),
     locate: async () => ({ command: process.execPath, prefix: [fixture] }),
+    // The real sandbox (Seatbelt, bubblewrap) is the host's; here it records the command it would wrap and runs it as is.
+    sandbox: { wrap: async (command) => {
+      wrapped.push(command)
+      return command
+    } },
     ...overrides,
   }
-  return { value, events, gated }
+  return { value, events, gated, wrapped }
 }
 
 describe('acp protocol', () => {
@@ -43,6 +49,11 @@ describe('acp protocol', () => {
     expect(toolName('search')).toBe('grep')
     expect(toolName('fetch')).toBe('fetch')
     expect(toolName(undefined)).toBe('other')
+  })
+  it('treats a file call whose path it cannot tell as outside the workspace', () => {
+    expect(toolInput({ toolCallId: 'x', kind: 'edit', rawInput: { content: 'x' } })).toEqual({ content: 'x', path: '/' })
+    expect(toolInput({ toolCallId: 'x', kind: 'edit', locations: [{ path: 'a.md' }] })).toEqual({ path: 'a.md' })
+    expect(toolInput({ toolCallId: 'x', kind: 'execute', rawInput: { command: 'ls' } })).toEqual({ command: 'ls' })
   })
   it('answers a permission request with the agent\'s own allow-once or reject-once option', () => {
     const options = [{ optionId: 'a', kind: 'allow_always' }, { optionId: 'b', kind: 'allow_once' }, { optionId: 'c', kind: 'reject_once' }]
@@ -127,6 +138,34 @@ describe('acp kernel', () => {
     expect(again.restored).toBe(true)
     expect((await again.prompt('我喜欢什么颜色', { origin: 'desktop' })).text).toContain('记住我喜欢紫色')
     await again.close()
+  })
+  it('runs the agent inside Anna\'s sandbox, and refuses to run it without one', async () => {
+    const { value, wrapped } = await context()
+    const kernel = new AcpKernel(value, 'gemini')
+    await kernel.start()
+    expect(wrapped).toHaveLength(1)
+    expect(wrapped[0]).toContain(fixture)
+    expect(wrapped[0]).toContain('--acp')
+    await kernel.close()
+    const bare = await context({ sandbox: undefined })
+    await expect(new AcpKernel(bare.value, 'gemini').start()).rejects.toThrow('沙箱')
+  })
+  it('stops the turn when the agent changes something without asking her first', async () => {
+    const { value } = await context({ instructions: [] })
+    const kernel = new AcpKernel(value, 'gemini')
+    await kernel.start()
+    const outcome = await kernel.prompt('sneaky edit', { origin: 'desktop' })
+    expect(outcome.status).toBe('failed')
+    expect(outcome.error).toContain('没有先征得同意')
+    await kernel.close()
+  })
+  it('still passes a read the agent did not ask about through her gate', async () => {
+    const { value, gated } = await context({ instructions: [] })
+    const kernel = new AcpKernel(value, 'gemini')
+    await kernel.start()
+    expect((await kernel.prompt('peek', { origin: 'desktop' })).status).toBe('completed')
+    expect(gated).toEqual([{ tool: 'read', input: { path: 'notes.md' } }])
+    await kernel.close()
   })
   it('refuses to start an agent that is not installed or does not speak ACP', async () => {
     const missing = await context({ locate: async () => undefined })

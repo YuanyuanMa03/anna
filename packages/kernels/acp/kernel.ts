@@ -31,8 +31,11 @@ export class AcpKernel implements AgentKernel {
   private session = ''
   private introduced = false
   private toolServer?: ToolServer
-  private turn?: { text: string, tools: Map<string, string> }
+  /** The turn in progress: her words so far, each tool call (and whether her gate saw it), and why it must stop. */
+  private turn?: { text: string, calls: Map<string, { name: string, kind?: string, input: Record<string, unknown>, gated: boolean }>, violation?: string, cancelling?: boolean }
   private args: string[]
+  /** The end of what the agent wrote to stderr, shown when it fails to start or dies. */
+  private stderr = ''
   restored = false
   plugins: string[]
   tools: string[] = []
@@ -52,6 +55,10 @@ export class AcpKernel implements AgentKernel {
 
   async start() {
     const label = this.capabilities.label
+    // The agent acts with its own tools, and not every call is put to Anna's gate first. Running the whole agent in her
+    // sandbox keeps her own data unreadable and limits writes to the workspace, temp and caches whatever it does.
+    if (!this.context.sandbox)
+      throw new Error(`为了保护 Anna 的数据，${label} 只在命令沙箱里当大脑，而这台电脑上没有可用的沙箱。`)
     const located = await this.context.locate?.(this.agent)
     if (!located)
       throw new Error(`没有在这台电脑上找到 ${label}，请先在“外部 agent”里安装。`)
@@ -63,10 +70,10 @@ export class AcpKernel implements AgentKernel {
       this.toolServer = await serveTools(this.context.tools)
       this.tools = this.context.tools.map(tool => tool.name)
     }
-    // Windows starts npm's .cmd shims through a shell, so every part is quoted (paths under C:\Program Files).
-    const windows = process.platform === 'win32'
-    const quote = (part: string) => windows && /[\s"]/.test(part) ? `"${part.replace(/"/g, '\\"')}"` : part
-    this.child = spawn(quote(located.command), [...(located.prefix ?? []), ...this.args].map(quote), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'ignore'], shell: windows })
+    const quote = (part: string) => `'${part.replace(/'/g, `'\\''`)}'`
+    const line = [located.command, ...(located.prefix ?? []), ...this.args].map(quote).join(' ')
+    this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: true })
+    this.child.stderr?.setEncoding('utf8').on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-400) })
     this.connection = new Connection(this.child, { request: (method, params) => this.answer(method, params), notify: (method, params) => this.hear(method, params) })
     try {
       const init = await this.connection.request('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } })
@@ -84,16 +91,48 @@ export class AcpKernel implements AgentKernel {
   private explain(error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     const login = error instanceof AcpError && error.code === -32000
-    return `${this.capabilities.label}：${message}${login ? '（请先在终端里登录它）' : ''}`
+    const stderr = this.stderr.trim() ? `\n${this.stderr.trim()}` : ''
+    return `${this.capabilities.label}：${message}${login ? '（请先在终端里登录它）' : ''}${stderr}`
   }
 
   /** Requests from the agent: permission questions go to Anna's gate; she offers no file system or terminal of her own. */
   private async answer(method: string, params: { toolCall: AcpToolCall, options: PermissionOption[] }) {
     if (method !== 'session/request_permission')
       throw new Error(`Anna does not provide ${method}`)
-    const name = toolName(params.toolCall.kind)
-    const verdict = await this.context.gate(name, toolInput(params.toolCall), params.toolCall.toolCallId)
-    return { outcome: permissionOutcome(verdict, params.options) }
+    // The permission request may leave out the kind; the tool call announced earlier has it.
+    const known = this.turn?.calls.get(params.toolCall.toolCallId)
+    const call = { ...params.toolCall, kind: params.toolCall.kind ?? known?.kind }
+    if (known)
+      known.gated = true
+    else this.turn?.calls.set(call.toolCallId, { name: toolName(call.kind), kind: call.kind, input: toolInput(call), gated: true })
+    if (this.turn?.cancelling)
+      return { outcome: { outcome: 'cancelled' } }
+    const verdict = await this.context.gate(toolName(call.kind), toolInput(call), call.toolCallId)
+    return { outcome: this.turn?.cancelling ? { outcome: 'cancelled' } : permissionOutcome(verdict, params.options) }
+  }
+
+  /**
+   * A tool call that started without asking her. A change (edit, shell, anything unknown) never may: the turn stops.
+   * A read, search or fetch still goes through her gate, and stops the turn if the gate says no.
+   */
+  private async unasked(id: string) {
+    const call = this.turn?.calls.get(id)
+    if (!this.turn || !call || call.gated)
+      return
+    call.gated = true
+    const turn = this.turn
+    const label = this.capabilities.label
+    if (!['read', 'grep', 'fetch', 'think'].includes(call.name))
+      return this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，这一轮已停止。请在它自己的设置里把审批改为每次询问。`)
+    const verdict = await this.context.gate(call.name, call.input, id)
+    if (!verdict.allow)
+      this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，Anna 不同意（${verdict.reason}），这一轮已停止。`)
+  }
+
+  private stop(turn: NonNullable<AcpKernel['turn']>, violation: string) {
+    turn.violation ??= violation
+    turn.cancelling = true
+    this.connection?.notify('session/cancel', { sessionId: this.session })
   }
 
   /** Session updates: her words as they stream, thoughts, and tool calls as they start and finish. */
@@ -111,13 +150,18 @@ export class AcpKernel implements AgentKernel {
         break
       case 'tool_call': {
         const name = toolName(update.kind)
-        this.turn.tools.set(update.toolCallId, name)
-        this.context.emit({ type: 'tool-start', id: update.toolCallId, name, input: toolInput(update as AcpToolCall) })
+        const input = toolInput(update as AcpToolCall)
+        this.turn.calls.set(update.toolCallId, { name, kind: update.kind, input, gated: false })
+        this.context.emit({ type: 'tool-start', id: update.toolCallId, name, input })
+        if (update.status === 'in_progress' || update.status === 'completed')
+          void this.unasked(update.toolCallId)
         break
       }
       case 'tool_call_update':
+        if (update.status === 'in_progress' || update.status === 'completed')
+          void this.unasked(update.toolCallId)
         if (update.status === 'completed' || update.status === 'failed')
-          this.context.emit({ type: 'tool-end', id: update.toolCallId, name: this.turn.tools.get(update.toolCallId) ?? toolName(update.kind), output: toolOutput(update.content), isError: update.status === 'failed' })
+          this.context.emit({ type: 'tool-end', id: update.toolCallId, name: this.turn.calls.get(update.toolCallId)?.name ?? toolName(update.kind), output: toolOutput(update.content), isError: update.status === 'failed' })
         break
     }
   }
@@ -158,15 +202,20 @@ export class AcpKernel implements AgentKernel {
     this.introduced = true
     const body = [...intro, ...this.notes.splice(0), text].filter(Boolean).join('\n\n')
     this.entries.push({ kind: 'user', text, origin: meta.origin })
-    this.turn = { text: '', tools: new Map() }
+    const turn: NonNullable<AcpKernel['turn']> = { text: '', calls: new Map() }
+    this.turn = turn
     this.context.emit({ type: 'thinking' })
     let outcome: TurnOutcome
     try {
       const result = await this.connection.request('session/prompt', { sessionId: this.session, prompt: [{ type: 'text', text: body }] })
-      outcome = { status: result?.stopReason === 'cancelled' ? 'aborted' : 'completed', text: this.turn.text }
+      if (turn.violation)
+        outcome = { status: 'failed', text: turn.text, error: turn.violation }
+      else if (result?.stopReason === 'refusal')
+        outcome = { status: 'failed', text: turn.text, error: `${this.capabilities.label} 拒绝了这次请求` }
+      else outcome = { status: result?.stopReason === 'cancelled' ? 'aborted' : 'completed', text: turn.text }
     }
     catch (error) {
-      outcome = { status: 'failed', text: this.turn.text, error: this.explain(error) }
+      outcome = { status: 'failed', text: turn.text, error: turn.violation ?? this.explain(error) }
     }
     this.turn = undefined
     this.entries.push(outcome.status === 'aborted' ? { kind: 'aborted', data: {} } : { kind: 'assistant', text: outcome.text, origin: meta.origin })
@@ -182,8 +231,11 @@ export class AcpKernel implements AgentKernel {
   }
 
   async abort() {
-    if (this.turn)
-      this.connection?.notify('session/cancel', { sessionId: this.session })
+    if (!this.turn)
+      return
+    // A permission question still open is answered "cancelled" from now on, as the protocol asks.
+    this.turn.cancelling = true
+    this.connection?.notify('session/cancel', { sessionId: this.session })
   }
 
   async close() {

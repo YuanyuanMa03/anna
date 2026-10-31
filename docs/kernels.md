@@ -79,11 +79,23 @@ implements `AgentKernel`:
 - `session/update` streams her words (`agent_message_chunk`), thoughts and tool calls; ACP tool kinds map onto Anna's
   tool names (`execute` → `bash`, `edit`/`delete`/`move` → `edit`, `search` → `grep`).
 - Every `session/request_permission` goes to Anna's gate, which picks the agent's allow-once or reject-once option.
-  "Always" options are never picked, so each later call is asked again.
-- Anna offers no file system or terminal of her own (`clientCapabilities` false), so the agent uses its own tools,
-  which ask permission.
-- Abort sends `session/cancel`. An error answering the first prompt usually means the agent is not logged in; the
-  message says so.
+  "Always" options are never picked, so each later call is asked again. A file call whose path is unknown is judged as
+  outside the workspace.
+- Anna offers no file system or terminal of her own (`clientCapabilities` false), so the agent uses its own tools. ACP
+  does not make an agent ask before every call, and its own settings (auto-accept, yolo) can skip asking. So:
+  - The whole agent process runs inside Anna's sandbox (`context.sandbox.wrap`): her data stays unreadable and
+    unwritable, writes are limited to the workspace, temp and package caches, and every network host goes through her
+    network approval. Without a sandbox (Windows today) no ACP brain is offered or started.
+  - A tool call that starts without having asked is checked when it shows up: a change (edit, shell, anything unknown)
+    stops the turn at once with a message to switch the agent's own approvals to asking; a read, search or fetch goes
+    through her gate and stops the turn if the gate says no. A change caught this way may already have happened; the
+    workspace checkpoint can undo it.
+- Abort sends `session/cancel`, and an open permission question is answered `cancelled`. An error answering the first
+  prompt usually means the agent is not logged in; the message says so, with the end of the agent's stderr.
+
+Known limits: agents that keep their own state outside the workspace and caches may fail to write it inside the
+sandbox; in Plan mode the sandbox refuses network unless a `Network(host)` rule allows the agent's model host; Anna's
+own tools reach only agents that accept HTTP MCP servers.
 
 Verified with a protocol-faithful fake (`tests/fixtures/fake-acp-agent.mjs`, unit tests and the desktop acceptance).
 None of the real agents has been run as her brain on a real machine yet; each needs that before it is called verified.

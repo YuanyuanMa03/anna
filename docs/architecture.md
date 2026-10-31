@@ -33,7 +33,7 @@
 2. Emit normalized events: `thinking`, `text`, `tool-start`, `tool-end`, `compacting`, `retrying`.
 
 Permissions, the stage, delivery stats, checkpoints and channels live in the Host and don't depend on the kernel. See
-[kernels.md](kernels.md) for the pi, Claude Code and Codex kernels.
+[kernels.md](kernels.md) for the pi, Claude Code, Codex and ACP kernels.
 
 The pi kernel (`kernels/pi/kernel.ts`) works like this:
 
@@ -57,7 +57,7 @@ Delegation and brain-swapping share the same adapters:
 - `adapters` decode the output stream.
 - `runner` manages the process and forwards approvals.
 
-When Claude Code or Codex is Anna's brain, the kernel also serves Anna's own tools (memory, status, delegation) to it
+When Claude Code, Codex or an ACP agent is Anna's brain, the kernel also serves Anna's own tools (memory, status, delegation) to it
 as a local MCP server (`kernels/external/mcp.ts`, see [kernels.md](kernels.md#annas-own-tools-on-an-external-brain)).
 
 Approval requests from an external agent go through Anna's own `gate`, so modes, rules, approval cards and checkpoints
@@ -137,7 +137,7 @@ asserts that Chromium's sandbox is on.
 | `settings.json` | v2: character, model, kernel, per-workspace `{ trusted, mode, rules }`, agents and providers. Migrated from v1 automatically |
 | `credential.bin`, `weixin-credential.bin`, `providers.bin` | encrypted by the OS keychain (Linux without a keyring: 0600 file, flagged in the UI) |
 | `pi-sessions/` | kernel sessions, the single source of the transcript |
-| `external-sessions/` | transcripts when Claude Code or Codex is the brain |
+| `external-sessions/` | transcripts when Claude Code, Codex or an ACP agent is the brain |
 | `delegations.json` | session ids for continuing delegations |
 | `checkpoints/<taskId>/` | file snapshots taken before edits, for undo |
 | `memory.json` | long-term memory, viewable and deletable in the UI |
