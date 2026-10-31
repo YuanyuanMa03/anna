@@ -72,7 +72,7 @@ export class AcpKernel implements AgentKernel {
     }
     const quote = (part: string) => `'${part.replace(/'/g, `'\\''`)}'`
     const line = [located.command, ...(located.prefix ?? []), ...this.args].map(quote).join(' ')
-    this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: true })
+    this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: true, detached: true })
     this.child.stderr?.setEncoding('utf8').on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-400) })
     this.connection = new Connection(this.child, { request: (method, params) => this.answer(method, params), notify: (method, params) => this.hear(method, params) })
     try {
@@ -154,12 +154,15 @@ export class AcpKernel implements AgentKernel {
         this.turn.calls.set(update.toolCallId, { name, kind: update.kind, input, gated: false })
         this.context.emit({ type: 'tool-start', id: update.toolCallId, name, input })
         if (update.status === 'in_progress' || update.status === 'completed')
-          void this.unasked(update.toolCallId)
+          this.unasked(update.toolCallId).catch(() => {})
         break
       }
       case 'tool_call_update':
+        // An update for a call never announced counts as unannounced and unasked: it is registered first, then checked.
+        if (!this.turn.calls.has(update.toolCallId))
+          this.turn.calls.set(update.toolCallId, { name: toolName(update.kind), kind: update.kind, input: toolInput(update as AcpToolCall), gated: false })
         if (update.status === 'in_progress' || update.status === 'completed')
-          void this.unasked(update.toolCallId)
+          this.unasked(update.toolCallId).catch(() => {})
         if (update.status === 'completed' || update.status === 'failed')
           this.context.emit({ type: 'tool-end', id: update.toolCallId, name: this.turn.calls.get(update.toolCallId)?.name ?? toolName(update.kind), output: toolOutput(update.content), isError: update.status === 'failed' })
         break
@@ -240,7 +243,12 @@ export class AcpKernel implements AgentKernel {
 
   async close() {
     await this.abort()
-    this.child?.kill()
+    // The agent runs under a shell and the sandbox's own helpers: end the whole process group, not just the shell.
+    if (this.child?.pid) {
+      this.child.stdin?.end()
+      try { process.kill(-this.child.pid, 'SIGTERM') }
+      catch { this.child.kill() }
+    }
     this.child = undefined
     this.connection = undefined
     await this.toolServer?.close()
