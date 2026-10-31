@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CaptionPlace } from '../../../packages/character/layout'
 import type { CompanionForm, MotionCue } from '../../../packages/character/manifest'
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
@@ -74,7 +75,9 @@ function chooseForm(next: CompanionForm) {
 /** The person is typing to her: she looks down at what is being written. */
 const typedAt = ref(0)
 const listening = computed(() => Boolean(input.value.trim()) && now.value - typedAt.value < 3000)
-const suggestions = computed(() => ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', `${character.value.name}，你好，介绍一下你自己。`])
+/** What a newcomer can say to her: greet her first, then ask, then hand her something to do. */
+const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
+const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
@@ -101,6 +104,10 @@ const subtitle = computed(() => {
     return snapshot.value.credential === 'rejected' ? '我连不上模型：密钥被服务商拒绝了。到“模型与设置”里换一个吧。' : '这一轮没有成功，原因写在下面。'
   return lastReply.value || (canChat.value ? character.value.greeting : '先给我接上一个模型，我们就能开始了。')
 })
+/** Her words fade once she has said them and the moment has passed; hovering or anything new brings them back. */
+const subtitleAt = ref(Date.now())
+watch(subtitle, () => { subtitleAt.value = Date.now() })
+const quiet = computed(() => !running.value && !speaking.value && now.value - subtitleAt.value > 15_000 && Boolean(messages.value.length))
 /** Mouth moves while text streams in, while reading aloud, or while greeting a mode change. */
 const mouth = computed(() => speaking.value || (anna.value.phase === 'responding' && now.value - streamingAt.value < 400) || Boolean(modeLine.value && now.value - modeLine.value.at < 1600))
 const callTools = computed(() => tools.value.filter(tool => tool.phase === 'call'))
@@ -138,7 +145,7 @@ const anchors = ref<Anchors>({})
 const cue = ref<{ kind: MotionCue, at: number }>()
 const tethers = ref<{ d: string, kind: 'approval' | 'review' }[]>([])
 const propsColumn = ref<HTMLElement>()
-const place = ref<ReturnType<typeof captionPlace>>()
+const place = ref<CaptionPlace>()
 /** Your words, drifting up toward her after you send them, then gone. */
 const drifts = ref<{ id: number, text: string }[]>([])
 let driftId = 0
@@ -148,7 +155,7 @@ const menuList = ref<HTMLElement>()
 function play(kind: MotionCue) { cue.value = { kind, at: Date.now() } }
 function drift(text: string) {
   const id = ++driftId
-  drifts.value = [...drifts.value, { id, text: text.length > 80 ? `${text.slice(0, 80)}…` : text }]
+  drifts.value = [...drifts.value, { id, text }]
   const timer = window.setTimeout(() => {
     timers.delete(timer)
     drifts.value = drifts.value.filter(item => item.id !== id)
@@ -159,7 +166,8 @@ function placeCaption() {
   const box = bubble.value?.parentElement?.getBoundingClientRect()
   if (!box)
     return
-  const next = captionPlace({ mouth: anchors.value.mouth, clearance: anchors.value.reach, viewport: { width: window.innerWidth, height: window.innerHeight }, size: { width: Math.min(380, window.innerWidth * 0.34), height: box.height } })
+  // The width she would like matches .speech's initial width in style.css.
+  const next = captionPlace({ mouth: anchors.value.mouth, clearance: anchors.value.clearance, viewport: { width: window.innerWidth, height: window.innerHeight }, size: { width: Math.min(380, window.innerWidth * 0.34), height: box.height } })
   // Anchors arrive several times a second; only a real move (more than a couple of pixels) re-places her words.
   const moved = !place.value || place.value.side !== next.side || Math.abs(place.value.left - next.left) + Math.abs(place.value.top - next.top) + Math.abs(place.value.width - next.width) > 2
   if (moved)
@@ -232,7 +240,7 @@ function send(text = input.value) {
   void run({ type: 'send', text: body })
 }
 /** Opens one of the places behind the corner menu and closes the menu. */
-function open(action: () => void) {
+function openFromMenu(action: () => void) {
   menuOpen.value = false
   action()
 }
@@ -329,15 +337,15 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div class="corner-actions">
         <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" @click="settingsOpen = true"><i />大脑 · {{ snapshot.kernel.label }}</button>
         <div class="menu">
-          <button class="menu-button" aria-label="更多" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯<small v-if="callTools.length">{{ callTools.length }}</small></button>
+          <button class="menu-button" aria-label="更多" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">更多<small v-if="callTools.length">{{ callTools.length }}</small></button>
           <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
           <nav v-if="menuOpen" ref="menuList" class="menu-list" aria-label="更多">
-            <button @click="open(() => drawer = 'history')">对话记录</button>
-            <button @click="open(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
-            <button @click="open(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
-            <button @click="open(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
-            <button @click="open(() => pluginsOpen = true)">外观与能力</button>
-            <button @click="open(() => settingsOpen = true)">模型与设置</button>
+            <button @click="openFromMenu(() => drawer = 'history')">对话记录</button>
+            <button @click="openFromMenu(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
+            <button @click="openFromMenu(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+            <button @click="openFromMenu(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="delegates">{{ delegates }}</small></button>
+            <button @click="openFromMenu(() => pluginsOpen = true)">外观与能力</button>
+            <button @click="openFromMenu(() => settingsOpen = true)">模型与设置</button>
           </nav>
         </div>
       </div>
@@ -352,7 +360,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       </div>
 
       <!-- Her words float beside her face; older lines fade out above. -->
-      <div class="speech" :class="[place?.side ?? 'left', { live: running }]" :style="place && { left: `${place.left}px`, top: `${place.top}px`, width: `${place.width}px` }">
+      <div class="speech" :class="[place?.side ?? 'left', { live: running, quiet }]" :style="place && { left: `${place.left}px`, top: `${place.top}px`, width: `${place.width}px` }">
         <span class="speaker">{{ character.name }}</span>
         <div ref="bubble" class="bubble" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
         <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><span>你可以对 {{ character.name }} 说</span><button v-for="item in suggestions" :key="item" @click="send(item)">「{{ item }}」</button></div>

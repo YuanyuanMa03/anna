@@ -30,3 +30,5 @@ export function captionPlace(input: { mouth?: { x: number, y: number }, clearanc
   // Too narrow on both sides: the left edge, where at least the cards at her right hand are not covered.
   return { left: margin, top: y, width: narrowest, side: 'left' as const }
 }
+
+export type CaptionPlace = ReturnType<typeof captionPlace>

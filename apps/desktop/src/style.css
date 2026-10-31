@@ -79,7 +79,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 @keyframes pulse { 50% { opacity: .3; transform: scale(.75) } }
 
 /* Her words: no box, just text in the air beside her face, the older lines fading out at the top. */
-.speech { position: fixed; left: 6vw; top: 18vh; width: min(380px, 34vw); z-index: 2; display: flex; flex-direction: column; gap: 6px; transition: left .5s ease, top .5s ease; pointer-events: none }
+.speech { position: fixed; left: 6vw; top: 18vh; width: min(380px, 34vw); z-index: 2; display: flex; flex-direction: column; gap: 6px; pointer-events: none }
 /* Only the words and the things to say take the pointer; the air around them belongs to her stage. */
 .speech .bubble, .speech .suggestions button { pointer-events: auto }
 .speech.left { text-align: right; align-items: flex-end }
@@ -96,6 +96,9 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .rich pre { white-space: pre-wrap; font: 11.5px/1.6 ui-monospace, Menlo, monospace; background: #f5f0f9; border-radius: 10px; padding: 8px 10px; margin: 6px 0 }
 .rich code { margin: 0 2px }
 .speech.live .bubble .rich { color: #3f3352 }
+.speech { transition: left .5s ease, top .5s ease, opacity 1.6s ease }
+.speech.quiet { opacity: .28 }
+.speech.quiet:hover { opacity: 1; transition-duration: .3s }
 .typing { display: flex; gap: 5px; padding: 6px 0 }
 .typing i { width: 7px; height: 7px; border-radius: 50%; background: #c4b2d6; animation: pulse 1s infinite }
 .typing i:nth-child(2) { animation-delay: .15s }
@@ -108,6 +111,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 
 /* Your words drift up from the whisper line toward her and fade. */
 .drifts { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 2; pointer-events: none }
+/* 2.6s here and in drift() in app.vue: the element is removed when the animation ends. */
 .drift { position: absolute; left: 50%; bottom: 8px; margin: 0; max-width: min(520px, 70vw); transform: translateX(-50%); font-size: 14px; color: #6d5a84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 14px var(--bg); animation: drift 2.6s cubic-bezier(.2,.7,.3,1) forwards }
 @keyframes drift { from { opacity: 0; transform: translate(-50%, 0) } 15% { opacity: 1 } to { opacity: 0; transform: translate(-50%, -38vh) scale(.92) } }
 
@@ -192,7 +196,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .boot { display: grid; place-items: center; height: 100dvh; color: #9a80ab }
 
 @media (max-width: 1100px) {
-  .speech { width: min(320px, 40vw) }
+
   .props { right: 12px; width: min(300px, 38vw); top: auto; max-height: 62% }
   .workspace-card { display: none }
   .corner { padding: 12px 16px 4px; gap: 10px }
