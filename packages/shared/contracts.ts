@@ -15,10 +15,12 @@ export interface ModelSettings {
 }
 /** Per-workspace permissions, like Claude Code's project settings. */
 export interface WorkspaceSettings { trusted: boolean, mode: PermissionMode, rules: RuleSet }
+/** Anna's brain: pi (built in), Claude Code or Codex, or any installed agent that speaks ACP (`acp:<agent id>`). */
+export type BrainId = 'pi' | 'claude-code' | 'codex' | `acp:${string}`
 export interface Settings {
   version: 2
-  /** Anna's brain: pi (built in) or an installed agent CLI. */
-  kernel: 'pi' | 'claude-code' | 'codex'
+  /** Anna's brain: pi (built in) or an installed agent (see BrainId). */
+  kernel: BrainId
   characterId: CharacterId
   statusEnabled: boolean
   memoryEnabled: boolean
@@ -244,7 +246,7 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'universal-delete', name: string }
   | { type: 'ccswitch-import' }
   | { type: 'agent-install', agent: string }
-  | { type: 'kernel', id: 'pi' | 'claude-code' | 'codex' }
+  | { type: 'kernel', id: BrainId }
   | { type: 'update-check' }
   | { type: 'update-install' }
   | { type: 'weixin-status' } | { type: 'weixin-login' } | { type: 'weixin-disconnect' }

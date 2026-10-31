@@ -167,14 +167,17 @@ writes a Claude Code-format rule to the workspace. Tasks that come in over WeCha
 |---|:---:|:---:|---|---|
 | Claude Code | ✅ | ✅ | step by step, via `--permission-prompt-tool stdio` | verified on a real machine |
 | Codex | ✅ | ✅ | step by step, via `app-server` JSON-RPC | verified on a real machine |
-| Gemini CLI | ✅ | | once, before the task | built from the protocol |
-| OpenCode | ✅ | | once, before the task | built from the protocol |
+| Gemini CLI | ✅ | ✅ ACP | once, before the task; as brain, per step | built from the protocol |
+| OpenCode | ✅ | ✅ ACP | once, before the task; as brain, per step | built from the protocol |
 | Pi | ✅ | | once, before the task | built from the docs |
-| Claude Desktop, Grok Build, OpenClaw, Hermes, MiniMax Code, Kimi Code, Oh My Pi, DeepSeek Harness, Antigravity CLI | detect + switch provider | | | |
-| Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | | | |
+| Claude Desktop, OpenClaw, Hermes, Oh My Pi, DeepSeek Harness, Antigravity CLI | detect + switch provider | | | |
+| Grok Build, MiniMax Code, Kimi Code | detect + switch provider | ✅ ACP | per step | built from the protocol |
+| Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | ✅ ACP | per step | built from the protocol |
 
 The brain chip in the corner (「用 pi 思考 ▾」) lists every brain on this machine with what stands between it and thinking,
-and switches in one click. Someone without a model is offered a signed-in Claude Code or Codex instead.
+and switches in one click; every installed agent that speaks the Agent Client Protocol (ACP) is listed as a brain too,
+its tool calls passing her permission gate step by step (see [docs/kernels.md](docs/kernels.md#acp-brains)). Someone
+without a model is offered a signed-in Claude Code or Codex instead.
 
 Anna snapshots the workspace before each delegation, so whatever another agent changes can be diffed and undone too.
 See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new agent.

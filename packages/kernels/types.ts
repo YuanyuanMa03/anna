@@ -51,13 +51,13 @@ export interface KernelContext {
   /** Its backups, tried in order through Anna's routing when it fails (external kernels). */
   backups?: (agent: 'claude' | 'codex') => Promise<import('../agents/providers').ProviderChoice[]>
   /** Where an installed agent CLI lives (external kernels). */
-  locate?: (agent: 'claude' | 'codex') => Promise<{ command: string, prefix?: string[] } | undefined>
+  locate?: (agent: string) => Promise<{ command: string, prefix?: string[] } | undefined>
   /** Paths the kernel must never read or edit. */
   denyPaths?: string[]
 }
 
 export interface KernelCapabilities {
-  id: 'pi' | 'claude-code' | 'codex'
+  id: 'pi' | 'claude-code' | 'codex' | `acp:${string}`
   label: string
   /** Messages can be inserted into a running turn. */
   steering: boolean

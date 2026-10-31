@@ -30,7 +30,7 @@ import { routing, routingIfStarted } from '../routing/server'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
-  locate?: (agent: DelegateAgent) => { command: string, prefix?: string[] } | undefined
+  locate?: (agent: string) => { command: string, prefix?: string[] } | undefined
   detect?: () => Promise<AgentInfo[]>
   configDirs?: Record<ProviderApp, string>
   ccSwitchDb?: string
@@ -303,7 +303,7 @@ export class AgentsHub {
     return this.detected
   }
 
-  async locate(agent: DelegateAgent) {
+  async locate(agent: string) {
     if (this.options.locate)
       return this.options.locate(agent)
     const list = this.detected.length ? this.detected : await (this.detecting ?? this.refresh())

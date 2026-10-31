@@ -1,4 +1,5 @@
 import type { Settings } from '../shared/contracts'
+import { catalog } from './catalog'
 
 export type BrainId = Settings['kernel']
 /** ready: can think now · signed-out: installed but not logged in · missing: not installed · needs-key: pi has no model yet. */
@@ -27,7 +28,16 @@ export function brainChoices(input: { detected: { id: string, installed: boolean
     const note = state === 'missing' ? '未安装' : state === 'signed-out' ? `${version} · 未登录` : version
     return { id, label, state, note, hint: hints[state], current: input.current === id }
   })
-  return [pi, ...others.sort((a, b) => order[a.state] - order[b.state])]
+  // Every installed agent that speaks the Agent Client Protocol can think for her too; ones not installed stay in the
+  // agents sheet so the list stays short. Their login cannot be checked ahead of time; a failed turn says so.
+  const acp = catalog.filter(entry => entry.acp).flatMap((entry): BrainChoice[] => {
+    const info = input.detected.find(item => item.id === entry.id)
+    if (!info?.installed)
+      return []
+    const id = `acp:${entry.id}` as const
+    return [{ id, label: entry.label, state: 'ready', note: `v${info.version ?? '?'} · ACP`, hint: '', current: input.current === id }]
+  })
+  return [pi, ...[...others, ...acp].sort((a, b) => order[a.state] - order[b.state])]
 }
 
 /** For someone whose pi has no model yet: the first agent that is installed and signed in, so one click starts her. */
