@@ -65,9 +65,33 @@ In Auto mode, risky requests still go through Anna's gate and everything else is
 to Claude Code as deny rules through `--settings`. Codex's sandbox policies only limit writes, so Codex can still read
 it; see the known limits in [permissions.md](permissions.md#known-limits).
 
+## ACP brains
+
+Any catalogued agent with `acp` arguments can be Anna's brain through the Agent Client Protocol
+(https://agentclientprotocol.com): Gemini CLI, OpenCode, Grok Build, MiniMax Code, Kimi Code, Qwen Code, Cursor CLI,
+GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline and Kilo. The arguments come from the
+ACP registry (https://github.com/agentclientprotocol/registry). The brain id is `acp:<agent id>`; `kernels/acp/kernel.ts`
+implements `AgentKernel`:
+
+- One long-lived agent process and one ACP session (`initialize`, `session/new`). Each user message is a
+  `session/prompt`, and Anna's instructions open the first one. Her own tools are offered as an HTTP MCP server when the
+  agent takes one (`mcpCapabilities.http`).
+- `session/update` streams her words (`agent_message_chunk`), thoughts and tool calls; ACP tool kinds map onto Anna's
+  tool names (`execute` → `bash`, `edit`/`delete`/`move` → `edit`, `search` → `grep`).
+- Every `session/request_permission` goes to Anna's gate, which picks the agent's allow-once or reject-once option.
+  "Always" options are never picked, so each later call is asked again.
+- Anna offers no file system or terminal of her own (`clientCapabilities` false), so the agent uses its own tools,
+  which ask permission.
+- Abort sends `session/cancel`. An error answering the first prompt usually means the agent is not logged in; the
+  message says so.
+
+Verified with a protocol-faithful fake (`tests/fixtures/fake-acp-agent.mjs`, unit tests and the desktop acceptance).
+None of the real agents has been run as her brain on a real machine yet; each needs that before it is called verified.
+
 ## Adding an agent
 
-1. Add an entry to `catalog.ts`. If cc-switch already supports the agent, match its entry.
+1. Add an entry to `catalog.ts`. If cc-switch already supports the agent, match its entry. If it speaks ACP, add its
+   `acp` arguments from the ACP registry and it can be her brain without an adapter.
 2. Record a real session into `tests/fixtures/agents/` with `scripts/record-agent.mjs`. The script removes personal
    details. If you can't record one, write a synthetic sample from the public protocol.
 3. Write the decoder, and replay the sample with `tests/agents-decoders.test.ts`.

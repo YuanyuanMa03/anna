@@ -1,5 +1,5 @@
 import type { CharacterId } from '../character/manifest'
-import type { ModelSettings, Settings, WorkspaceSettings } from '../shared/contracts'
+import type { BrainId, ModelSettings, Settings, WorkspaceSettings } from '../shared/contracts'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as v from 'valibot'
@@ -11,7 +11,7 @@ const ruleList = v.optional(v.array(v.pipe(v.string(), v.maxLength(500))), [])
 const workspaceSchema = v.object({ trusted: v.boolean(), mode: v.picklist(['plan', 'ask', 'edit', 'auto']), rules: v.optional(v.object({ allow: ruleList, ask: ruleList, deny: ruleList }), () => emptyRules()) })
 const settingsSchema = v.object({
   version: v.literal(2),
-  kernel: v.optional(v.picklist(['pi', 'claude-code', 'codex']), 'pi'),
+  kernel: v.optional(v.custom<BrainId>(value => typeof value === 'string' && (['pi', 'claude-code', 'codex'].includes(value) || /^acp:[a-z][a-z0-9-]*$/.test(value)), 'unknown brain'), 'pi'),
   characterId: v.picklist(characters.map(character => character.id) as [CharacterId, ...CharacterId[]]),
   statusEnabled: v.boolean(),
   memoryEnabled: v.optional(v.boolean(), true),

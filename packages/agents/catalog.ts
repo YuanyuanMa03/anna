@@ -25,6 +25,8 @@ export interface AgentDescriptor {
   update?: string[]
   /** Desktop app bundle paths (relative to home or absolute). */
   appPaths?: string[]
+  /** Arguments that start the installed agent as an Agent Client Protocol server, so it can be Anna's brain (from the ACP registry). */
+  acp?: string[]
 }
 
 export const catalog: AgentDescriptor[] = [
@@ -58,6 +60,7 @@ export const catalog: AgentDescriptor[] = [
     configDir: '.gemini',
     configFiles: ['settings.json', '.env', 'oauth_creds.json'],
     install: 'npm i -g @google/gemini-cli@latest',
+    acp: ['--acp'],
   },
   {
     id: 'opencode',
@@ -67,6 +70,7 @@ export const catalog: AgentDescriptor[] = [
     configDir: '.config/opencode',
     configFiles: ['opencode.json', 'opencode.jsonc'],
     install: 'npm i -g opencode-ai@latest',
+    acp: ['acp'],
     update: ['upgrade'],
   },
   {
@@ -95,6 +99,7 @@ export const catalog: AgentDescriptor[] = [
     configDir: '.grok',
     configFiles: ['config.toml'],
     install: 'npm i -g @xai-official/grok@latest',
+    acp: ['agent', 'stdio'],
     update: ['update'],
   },
   {
@@ -124,6 +129,7 @@ export const catalog: AgentDescriptor[] = [
     configDir: '.minimax',
     configFiles: ['config.yaml'],
     install: 'npm i -g @minimax-ai/code@latest',
+    acp: ['acp'],
   },
   // cc-switch's newer apps: config locations from its *_config.rs, install and update commands from its misc.rs.
   {
@@ -134,6 +140,7 @@ export const catalog: AgentDescriptor[] = [
     configDir: '.kimi-code',
     configFiles: ['config.toml'],
     install: 'npm i -g @moonshot-ai/kimi-code@latest',
+    acp: ['acp'],
     update: ['upgrade', '--yes'],
   },
   {
@@ -166,16 +173,16 @@ export const catalog: AgentDescriptor[] = [
     update: ['update'],
   },
   // Other local agents in the ACP registry. Only the executable is certain for some; their config files stay empty.
-  { id: 'qwen', label: 'Qwen Code', tier: 'detect', binaries: ['qwen'], configDir: '.qwen', configFiles: ['settings.json'], install: 'npm i -g @qwen-code/qwen-code@latest' },
-  { id: 'cursor', label: 'Cursor CLI', tier: 'detect', binaries: ['cursor-agent'], configDir: '.cursor', configFiles: ['cli-config.json'], install: 'curl https://cursor.com/install -fsS | bash' },
-  { id: 'copilot', label: 'GitHub Copilot CLI', tier: 'detect', binaries: ['copilot'], configDir: '.copilot', configFiles: ['config.json'], install: 'npm i -g @github/copilot@latest' },
-  { id: 'goose', label: 'Goose', tier: 'detect', binaries: ['goose'], configDir: { win32: 'AppData/Roaming/Block/goose/config', default: '.config/goose' }, configFiles: ['config.yaml'] },
-  { id: 'droid', label: 'Factory Droid', tier: 'detect', binaries: ['droid'], configDir: '.factory', configFiles: [], install: 'npm i -g droid@latest' },
-  { id: 'auggie', label: 'Auggie', tier: 'detect', binaries: ['auggie'], configDir: '.augment', configFiles: [], install: 'npm i -g @augmentcode/auggie@latest' },
-  { id: 'codebuddy', label: 'CodeBuddy Code', tier: 'detect', binaries: ['codebuddy'], configDir: '.codebuddy', configFiles: [], install: 'npm i -g @tencent-ai/codebuddy-code@latest' },
-  { id: 'qoder', label: 'Qoder CLI', tier: 'detect', binaries: ['qodercli'], configDir: '.qoder', configFiles: [], install: 'npm i -g @qoder-ai/qodercli@latest' },
-  { id: 'cline', label: 'Cline', tier: 'detect', binaries: ['cline'], configDir: '.cline', configFiles: [], install: 'npm i -g cline@latest' },
-  { id: 'kilo', label: 'Kilo', tier: 'detect', binaries: ['kilo'], configDir: '.kilocode', configFiles: [], install: 'npm i -g @kilocode/cli@latest' },
+  { id: 'qwen', label: 'Qwen Code', tier: 'detect', binaries: ['qwen'], configDir: '.qwen', configFiles: ['settings.json'], install: 'npm i -g @qwen-code/qwen-code@latest', acp: ['--acp'] },
+  { id: 'cursor', label: 'Cursor CLI', tier: 'detect', binaries: ['cursor-agent'], configDir: '.cursor', configFiles: ['cli-config.json'], install: 'curl https://cursor.com/install -fsS | bash', acp: ['acp'] },
+  { id: 'copilot', label: 'GitHub Copilot CLI', tier: 'detect', binaries: ['copilot'], configDir: '.copilot', configFiles: ['config.json'], install: 'npm i -g @github/copilot@latest', acp: ['--acp'] },
+  { id: 'goose', label: 'Goose', tier: 'detect', binaries: ['goose'], configDir: { win32: 'AppData/Roaming/Block/goose/config', default: '.config/goose' }, configFiles: ['config.yaml'], acp: ['acp'] },
+  { id: 'droid', label: 'Factory Droid', tier: 'detect', binaries: ['droid'], configDir: '.factory', configFiles: [], install: 'npm i -g droid@latest', acp: ['exec', '--output-format', 'acp-daemon'] },
+  { id: 'auggie', label: 'Auggie', tier: 'detect', binaries: ['auggie'], configDir: '.augment', configFiles: [], install: 'npm i -g @augmentcode/auggie@latest', acp: ['--acp'] },
+  { id: 'codebuddy', label: 'CodeBuddy Code', tier: 'detect', binaries: ['codebuddy'], configDir: '.codebuddy', configFiles: [], install: 'npm i -g @tencent-ai/codebuddy-code@latest', acp: ['--acp'] },
+  { id: 'qoder', label: 'Qoder CLI', tier: 'detect', binaries: ['qodercli'], configDir: '.qoder', configFiles: [], install: 'npm i -g @qoder-ai/qodercli@latest', acp: ['--acp'] },
+  { id: 'cline', label: 'Cline', tier: 'detect', binaries: ['cline'], configDir: '.cline', configFiles: [], install: 'npm i -g cline@latest', acp: ['--acp'] },
+  { id: 'kilo', label: 'Kilo', tier: 'detect', binaries: ['kilo'], configDir: '.kilocode', configFiles: [], install: 'npm i -g @kilocode/cli@latest', acp: ['acp'] },
 ]
 
 /** Anna runs an install command herself only when it is a plain global npm install; pipes and other package managers need a shell. */

@@ -112,10 +112,10 @@ try {
   // The brain chip lists who she can think with, the current one marked, and closes with Escape.
   await page.locator('.brain-chip').click()
   await page.locator('.brain-list button[data-brain="pi"][aria-pressed="true"][data-state="ready"]').waitFor()
-  assert.equal(await page.locator('.brain-list button[data-brain]').count(), 3)
+  assert.deepEqual(await page.locator('.brain-list button[data-brain]').evaluateAll(buttons => buttons.map(button => button.dataset.brain)), ['pi', 'claude-code', 'codex', 'acp:gemini'])
   await page.keyboard.press('Escape')
   await page.locator('.brain-list').waitFor({ state: 'detached' })
-  evidence.checks.push('Brain chip: pi, Claude Code and Codex listed with their state; pi marked as thinking')
+  evidence.checks.push('Brain chip: pi, Claude Code, Codex and an installed ACP agent listed with their state; pi marked as thinking')
 
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('你好')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
@@ -341,6 +341,23 @@ try {
   assert.equal(recovered.messages?.at(-1)?.text, reviewed)
   evidence.checks.push('Core crash: restarted by main, session and history intact')
   await page.screenshot({ path: 'artifacts/scripted-recovered.png' })
+
+  // An ACP agent as her brain (Gemini CLI, answered by the ACP fake): picked from the brain chip, its shell call
+  // waits for her approval card, and its words come back as hers.
+  await page.locator('.brain-chip').click()
+  await page.locator('.brain-list button[data-brain="acp:gemini"]').click()
+  await until(page, s => s.state === 'ready' && s.settings.kernel === 'acp:gemini' && s.kernel.label === 'Gemini CLI', 'switched to the ACP brain')
+  // Ask mode, so the agent's shell call has to come through her approval card.
+  await page.locator('.mode-switch button[data-mode="ask"]').click()
+  await until(page, s => s.mode === 'ask', 'ask mode')
+  await page.getByRole('textbox', { name: '消息', exact: true }).fill('touch 一个文件')
+  await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
+  await until(page, s => s.approvals?.length > 0, 'the ACP shell call asks for approval')
+  await page.getByRole('button', { name: '仅允许一次', exact: true }).click()
+  const acp = await until(page, s => s.state === 'ready' && s.messages?.at(-1)?.text?.includes('ran for:'), 'ACP turn answered')
+  assert.match(acp.messages.at(-1).text, /^ran for: .*touch 一个文件$/s)
+  await page.screenshot({ path: 'artifacts/scripted-acp.png' })
+  evidence.checks.push('ACP brain: picked from the brain chip, its shell call passed her approval card, its answer came back as hers')
   assert.deepEqual(evidence.consoleErrors, [])
 }
 finally {
