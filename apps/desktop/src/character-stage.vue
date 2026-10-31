@@ -166,7 +166,23 @@ function measureAnchors() {
     return best
   }
   const hand = farthest(handDrawables) ?? farthest(armDrawables)
-  emit('anchors', { mouth, hand: hand && toViewport(hand.x, hand.y) })
+  // How far her head and hair reach to the side: the leftmost visible point above her mouth, so her words keep clear.
+  let clearance: number | undefined
+  if (mouth && Number.isFinite(y1)) {
+    let left = Infinity
+    for (let index = 0; index < core._model.drawables.count; index++) {
+      if (!visible(index))
+        continue
+      const vertices = internal.getDrawableVertices(index)
+      for (let k = 0; k < vertices.length; k += 2) {
+        if (vertices[k + 1]! < y1)
+          left = Math.min(left, vertices[k]!)
+      }
+    }
+    if (Number.isFinite(left))
+      clearance = Math.max(0, mouth.x - toViewport(left, y1).x) + 24
+  }
+  emit('anchors', { mouth, hand: hand && toViewport(hand.x, hand.y), clearance })
 }
 
 function track(event: PointerEvent) {
