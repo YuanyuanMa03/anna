@@ -3,6 +3,7 @@ import type { CompanionForm, MotionCue } from '../../../packages/character/manif
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { captionPlace } from '../../../packages/character/layout'
 import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
 import { modes } from '../../../packages/permissions/modes'
@@ -45,8 +46,6 @@ const now = ref(Date.now())
 const history = ref<HTMLDivElement>()
 const bubble = ref<HTMLDivElement>()
 const modeSwitch = ref<InstanceType<typeof ModeSwitch>>()
-const wide = ref(window.innerWidth > 1100)
-function resize() { wide.value = window.innerWidth > 1100 }
 let release: (() => void) | undefined
 let clock: number | undefined
 
@@ -134,22 +133,26 @@ function speak(text: string) {
   speechSynthesis.speak(utterance)
 }
 
-// ── Stage interaction: words come from her mouth, cards from her hand ─────────
+// ── Stage interaction: words float beside her face, cards come from her hand ─────────
 const anchors = ref<Anchors>({})
 const cue = ref<{ kind: MotionCue, at: number }>()
-const tail = ref('')
 const tethers = ref<{ d: string, kind: 'approval' | 'review' }[]>([])
 const propsColumn = ref<HTMLElement>()
+const place = ref<ReturnType<typeof captionPlace>>()
+/** Your words, drifting up toward her after you send them, then gone. */
+const drifts = ref<{ id: number, text: string }[]>([])
+let driftId = 0
+const menuOpen = ref(false)
 function play(kind: MotionCue) { cue.value = { kind, at: Date.now() } }
-
-/** A tapered speech tail from the bubble's nearest edge to her mouth. */
-function tailPath(box: DOMRect, mouth: { x: number, y: number }) {
-  const left = mouth.x < box.left
-  const edgeX = left ? box.left + 8 : box.right - 8
-  const edgeY = Math.min(Math.max(mouth.y, box.top + 26), box.bottom - 26)
-  const tipX = mouth.x + (left ? 26 : -26)
-  const midX = (edgeX + tipX) / 2
-  return `M ${edgeX} ${edgeY - 11} Q ${midX} ${edgeY - 4} ${tipX} ${mouth.y} Q ${midX} ${edgeY + 8} ${edgeX} ${edgeY + 11} Z`
+function drift(text: string) {
+  const id = ++driftId
+  drifts.value = [...drifts.value, { id, text: text.length > 80 ? `${text.slice(0, 80)}…` : text }]
+  window.setTimeout(() => { drifts.value = drifts.value.filter(item => item.id !== id) }, 2600)
+}
+function placeCaption() {
+  const box = bubble.value?.parentElement?.getBoundingClientRect()
+  if (box)
+    place.value = captionPlace({ mouth: anchors.value.mouth, clearance: anchors.value.reach, viewport: { width: window.innerWidth, height: window.innerHeight }, size: { width: Math.min(380, window.innerWidth * 0.34), height: box.height } })
 }
 /** A soft curve from her hand to the card she is holding out or reading. */
 function handPath(box: DOMRect, hand: { x: number, y: number }) {
@@ -159,8 +162,7 @@ function handPath(box: DOMRect, hand: { x: number, y: number }) {
 }
 function onAnchors(next: Anchors) {
   anchors.value = next
-  const box = bubble.value?.getBoundingClientRect()
-  tail.value = next.mouth && box && subtitle.value ? tailPath(box, next.mouth) : ''
+  placeCaption()
   const lines: { d: string, kind: 'approval' | 'review' }[] = []
   const held = propsColumn.value?.querySelector('.approval-request') ?? (anna.value.phase === 'reviewing' ? propsColumn.value?.querySelector('.collaborator-card') : null)
   if (next.hand && held)
@@ -215,7 +217,13 @@ function send(text = input.value) {
     stream.value = ''
     collaborator.value = undefined
   }
+  drift(body)
   void run({ type: 'send', text: body })
+}
+/** Opens one of the places behind the corner menu and closes the menu. */
+function open(action: () => void) {
+  menuOpen.value = false
+  action()
 }
 const decide = (id: string, allow: boolean, scope: ApprovalScope) => run({ type: 'approval', id, allow, scope })
 async function showChanges() {
@@ -224,6 +232,8 @@ async function showChanges() {
 }
 const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
 function keydown(event: KeyboardEvent) {
+  if (event.key === 'Escape')
+    menuOpen.value = false
   if (event.key === 'Tab' && event.shiftKey && canChat.value) {
     event.preventDefault()
     modeSwitch.value?.cycle()
@@ -231,7 +241,6 @@ function keydown(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  window.addEventListener('resize', resize)
   window.addEventListener('keydown', keydown)
   clock = window.setInterval(() => { now.value = Date.now() }, 200)
   release = window.anna.subscribe((event) => {
@@ -291,37 +300,46 @@ watch(() => character.value.id, (_, previous) => {
   window.setTimeout(() => play('greet'), 1200)
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
-onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
+onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
 </script>
 
 <template>
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
-    <header class="topbar">
+    <header class="corner">
       <div class="brand">anna<span>v0.5</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
-      <nav class="header-actions">
-        <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
-        <button :aria-pressed="drawer === 'work'" @click="drawer = drawer === 'work' ? undefined : 'work'">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
-        <button @click="weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
-        <button @click="agentsOpen = true; run({ type: 'snapshot' })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
-        <button @click="pluginsOpen = true">外观与能力</button>
-        <button @click="settingsOpen = true">模型与设置</button>
-      </nav>
+      <div class="corner-actions">
+        <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" @click="settingsOpen = true"><i />大脑 · {{ snapshot.kernel.label }}</button>
+        <div class="menu">
+          <button class="menu-button" aria-label="更多" aria-haspopup="menu" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯<small v-if="callTools.length">{{ callTools.length }}</small></button>
+          <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
+          <nav v-if="menuOpen" class="menu-list" role="menu" aria-label="更多">
+            <button role="menuitem" @click="open(() => drawer = 'history')">对话记录</button>
+            <button role="menuitem" @click="open(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
+            <button role="menuitem" @click="open(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+            <button role="menuitem" @click="open(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
+            <button role="menuitem" @click="open(() => pluginsOpen = true)">外观与能力</button>
+            <button role="menuitem" @click="open(() => settingsOpen = true)">模型与设置</button>
+          </nav>
+        </div>
+      </div>
     </header>
 
     <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="wide ? 0.62 : 0.4" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
-        <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
-        <div class="status-ribbon" role="status" :data-phase="anna.phase" :style="{ left: `${(wide ? 0.62 : 0.4) * 100}%` }"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
+        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
+        <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <div class="status-ribbon" role="status" :data-phase="anna.phase"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 
-      <div class="speech" :class="{ live: running }">
-        <span class="speaker">{{ character.name }}<small> · {{ character.tagline }}</small></span>
+      <!-- Her words float beside her face; older lines fade out above. -->
+      <div class="speech" :class="[place?.side ?? 'left', { live: running }]" :style="place && { left: `${place.left}px`, top: `${place.top}px`, width: `${place.width}px` }">
+        <span class="speaker">{{ character.name }}</span>
         <div ref="bubble" class="bubble" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
-        <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><button v-for="item in suggestions" :key="item" @click="send(item)">{{ item }}</button></div>
+        <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><span>你可以对 {{ character.name }} 说</span><button v-for="item in suggestions" :key="item" @click="send(item)">「{{ item }}」</button></div>
       </div>
+      <div class="drifts" aria-hidden="true"><p v-for="item in drifts" :key="item.id" class="drift">{{ item.text }}</p></div>
 
       <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
         <div v-if="needsTrust" class="card trust-card" role="alert">
@@ -365,15 +383,15 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
       </aside>
     </section>
 
-    <svg class="stage-overlay" aria-hidden="true"><path v-if="tail" class="speech-tail" :d="tail" /><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
+    <svg class="stage-overlay" aria-hidden="true"><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
-    <footer class="dock">
+    <footer class="dock whisper">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
-        <textarea v-model="input" aria-label="消息" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `把要做的事交给${character.name}…（@claude、@codex 可以直接派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
+        <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么，或交给 ${character.name} 一件事…（@claude、@codex 可以派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
           <label><input v-model="autoSpeak" type="checkbox">朗读</label>

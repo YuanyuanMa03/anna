@@ -37,21 +37,28 @@ p { line-height: 1.8 }
 code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-radius: 6px; padding: 1px 6px; margin: 2px 4px 2px 0; display: inline-block }
 
 .app-shell { height: 100dvh; min-height: 600px; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(ellipse at 34% 58%, #efe6f8 0, transparent 55%), radial-gradient(ellipse at 90% 10%, #f6eef3 0, transparent 40%), var(--bg); overflow: hidden }
-.topbar { display: flex; align-items: center; gap: 18px; padding: 16px 26px 6px; z-index: 3 }
+/* The corner bar stays out of her way: brand and connection on the left, her brain and one menu on the right. */
+.corner { display: flex; align-items: center; gap: 18px; padding: 14px 22px 4px; z-index: 5 }
+.corner-actions { margin-left: auto; display: flex; align-items: center; gap: 8px }
+.brain-chip { font-size: 12px; padding: 6px 12px; border-radius: 999px; background: var(--glass); display: flex; align-items: center; gap: 7px }
+.brain-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent) }
+.menu { position: relative }
+.menu-button { font-size: 16px; line-height: 1; padding: 6px 12px; border-radius: 999px; background: var(--glass) }
+.menu-button small, .menu-list small { margin-left: 6px; background: var(--accent); color: #fff; border-radius: 8px; padding: 0 6px; font-size: 10px }
+.menu-backdrop { position: fixed; inset: 0; z-index: 6 }
+.menu-list { position: absolute; right: 0; top: calc(100% + 8px); z-index: 7; min-width: 168px; display: flex; flex-direction: column; padding: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow) }
+.menu-list button { border: 0; background: none; text-align: left; font-size: 13px; padding: 9px 12px; border-radius: 10px; display: flex; align-items: center }
+.menu-list button:hover { background: #f1eaf7 }
 .brand { font: italic 30px Georgia, serif; letter-spacing: -1.5px; color: #78618e; display: flex; align-items: baseline; gap: 9px }
 .brand span { font: 9px -apple-system, sans-serif; letter-spacing: 2px; color: #a898b4 }
 .connection { font-size: 11px; color: #8e7e9d; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .connection i, .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #c6bbc9; margin-right: 7px; vertical-align: middle }
 .connection i.online, .dot.online { background: var(--good) }
 .connection i.bad { background: var(--bad) }
-.header-actions { margin-left: auto; display: flex; gap: 8px }
-.header-actions button { font-size: 12px; padding: 7px 12px; background: var(--glass) }
-.header-actions button[aria-pressed=true] { background: #ece3f5; border-color: #cdbbe0 }
-.header-actions small { margin-left: 6px; background: var(--accent); color: #fff; border-radius: 8px; padding: 0 6px; font-size: 10px }
-
-.scene { position: relative; display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 420px) 330px; gap: 16px; padding: 0 26px; min-height: 0 }
-.stage { position: relative; min-height: 0 }
-.stage-halo { position: absolute; inset: 8% 14% 0; border-radius: 50%; background: radial-gradient(ellipse, #e5d8f080, transparent 66%); pointer-events: none; transition: background .8s }
+/* She fills the window; everything else floats around her. */
+.scene { position: relative; min-height: 0 }
+.stage { position: absolute; inset: 0 }
+.stage-halo { position: absolute; inset: 6% 22% 0; border-radius: 50%; background: radial-gradient(ellipse, #e5d8f080, transparent 66%); pointer-events: none; transition: background .8s }
 [data-phase=waiting] .stage-halo { background: radial-gradient(ellipse, #f4dfc280, transparent 66%) }
 [data-phase=failed] .stage-halo { background: radial-gradient(ellipse, #f1d3dc90, transparent 66%) }
 [data-phase=done] .stage-halo { background: radial-gradient(ellipse, #d7ecdf90, transparent 66%) }
@@ -71,25 +78,39 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .status-ribbon[data-phase=failed] i { background: var(--bad) }
 @keyframes pulse { 50% { opacity: .3; transform: scale(.75) } }
 
-.speech { align-self: start; margin-top: 7vh; margin-left: -40px; z-index: 2; display: flex; flex-direction: column; gap: 6px; min-height: 0; max-height: 100% }
-.speaker { font-size: 10px; letter-spacing: 1px; color: #a58eb5; padding-left: 14px }
-.bubble { position: relative; max-height: 58vh; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 22px 22px 22px 6px; padding: 14px 18px; box-shadow: var(--shadow) }
-.bubble p { margin: 0; font-size: 13.5px; line-height: 1.85 }
+/* Her words: no box, just text in the air beside her face, the older lines fading out at the top. */
+.speech { position: fixed; left: 6vw; top: 18vh; width: min(380px, 34vw); z-index: 2; display: flex; flex-direction: column; gap: 6px; transition: left .5s ease, top .5s ease }
+.speech.left { text-align: right; align-items: flex-end }
+.speaker { font-size: 10px; letter-spacing: 3px; color: #a58eb5 }
+.bubble { position: relative; max-height: 42vh; overflow: auto; scrollbar-width: none; padding: 18px 2px 4px; text-shadow: 0 0 18px var(--bg), 0 0 6px var(--bg); mask-image: linear-gradient(to bottom, transparent 0, #000 34px) }
+.bubble::-webkit-scrollbar { display: none }
+.bubble p { margin: 0; font-size: 15px; line-height: 1.85 }
+.bubble .rich { font-size: 15px; color: #4a3d5c }
+.bubble .rich pre, .bubble .rich ul, .bubble .rich ol { text-align: left; text-shadow: none }
 .rich { font-size: 13.5px; line-height: 1.85; overflow-wrap: anywhere }
 .rich p { margin: 0 0 6px; white-space: pre-wrap }
 .rich h4 { font-size: 13.5px; font-weight: 600; margin: 10px 0 2px; color: #6a557f }
 .rich ul, .rich ol { margin: 2px 0 8px; padding-left: 20px }
 .rich pre { white-space: pre-wrap; font: 11.5px/1.6 ui-monospace, Menlo, monospace; background: #f5f0f9; border-radius: 10px; padding: 8px 10px; margin: 6px 0 }
 .rich code { margin: 0 2px }
-.speech.live .bubble { border-color: #d7c7e6 }
+.speech.live .bubble .rich { color: #3f3352 }
 .typing { display: flex; gap: 5px; padding: 6px 0 }
 .typing i { width: 7px; height: 7px; border-radius: 50%; background: #c4b2d6; animation: pulse 1s infinite }
 .typing i:nth-child(2) { animation-delay: .15s }
 .typing i:nth-child(3) { animation-delay: .3s }
-.suggestions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start }
-.suggestions button { font-size: 12px; text-align: left; background: var(--glass); border-radius: 14px }
+/* For a newcomer: things to say to her, spoken options rather than buttons to find. */
+.suggestions { display: flex; flex-direction: column; gap: 4px; align-items: inherit; margin-top: 6px }
+.suggestions span { font-size: 10px; letter-spacing: 2px; color: #a58eb5 }
+.suggestions button { font-size: 13px; border: 0; background: none; padding: 4px 2px; color: var(--accent); text-shadow: 0 0 12px var(--bg) }
+.suggestions button:hover { background: none; color: #5e4783 }
 
-.props { display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: 6px 2px 16px; min-height: 0 }
+/* Your words drift up from the whisper line toward her and fade. */
+.drifts { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 2; pointer-events: none }
+.drift { position: absolute; left: 50%; bottom: 8px; margin: 0; max-width: min(520px, 70vw); transform: translateX(-50%); font-size: 14px; color: #6d5a84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 14px var(--bg); animation: drift 2.6s cubic-bezier(.2,.7,.3,1) forwards }
+@keyframes drift { from { opacity: 0; transform: translate(-50%, 0) } 15% { opacity: 1 } to { opacity: 0; transform: translate(-50%, -38vh) scale(.92) } }
+
+/* What she holds out to you floats at her right hand. */
+.props { position: absolute; right: 22px; top: 8px; bottom: 64px; width: 330px; display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: 6px 2px 16px; z-index: 2 }
 .card { display: flex; flex-direction: column; gap: 6px; text-align: left; background: var(--glass); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; box-shadow: var(--shadow); backdrop-filter: blur(8px); animation: rise .35s ease-out }
 @keyframes rise { from { opacity: 0; transform: translateY(8px) } }
 .card strong { font-weight: 500; font-size: 14px }
@@ -110,11 +131,13 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .workspace-card { cursor: pointer; margin-top: auto }
 .workspace-card:hover { background: #f4eef9 }
 
-.dock { padding: 8px 26px 18px; display: flex; flex-direction: column; gap: 8px; z-index: 2 }
-.composer { max-width: 860px; width: 100%; margin: 0 auto; padding: 10px 12px 8px; border: 1px solid #e3d9ea; border-radius: 22px; background: var(--paper); box-shadow: var(--shadow) }
-.composer textarea { width: 100%; height: 52px; border: 0; resize: none; outline: none; background: transparent; padding: 4px; font-size: 13.5px }
-.composer textarea::placeholder { color: #b1a2bc }
-.composer-actions { display: flex; align-items: center; gap: 10px }
+.dock { padding: 8px 26px 18px; display: flex; flex-direction: column; gap: 8px; z-index: 3 }
+/* The whisper line at her feet: one line to talk to her, the mode and controls tucked beside it. */
+.composer { max-width: 920px; width: 100%; margin: 0 auto; padding: 6px 8px 6px 18px; border: 1px solid #e3d9ea; border-radius: 999px; background: var(--glass); box-shadow: var(--shadow); backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px }
+.composer textarea { flex: 1; min-width: 0; height: 26px; border: 0; resize: none; outline: none; background: transparent; padding: 3px 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden }
+.composer textarea:focus { white-space: normal; overflow: auto }
+.composer textarea::placeholder { color: #b1a2bc; overflow: hidden; text-overflow: ellipsis }
+.composer-actions { display: flex; align-items: center; gap: 8px; flex: none }
 .composer-actions label { font-size: 11px; color: #a491b2; display: flex; align-items: center; gap: 5px; margin-right: auto }
 .composer-actions input { accent-color: #947aae }
 .composer-actions button { font-size: 12px; padding: 8px 15px }
@@ -167,13 +190,13 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .boot { display: grid; place-items: center; height: 100dvh; color: #9a80ab }
 
 @media (max-width: 1100px) {
-  .scene { grid-template-columns: 1fr; padding: 0 16px }
-  .speech { position: absolute; top: 2%; right: 16px; width: min(380px, 48%) }
-  .props { position: absolute; left: 16px; bottom: 54px; width: min(330px, 44%); max-height: 62%; z-index: 2 }
+  .speech { width: min(320px, 40vw) }
+  .props { right: 12px; width: min(300px, 38vw); top: auto; max-height: 62% }
   .workspace-card { display: none }
-  .topbar { padding: 12px 16px 4px; gap: 10px }
+  .corner { padding: 12px 16px 4px; gap: 10px }
   .connection { display: none }
   .dock { padding: 6px 16px 12px }
+  .mode-switch button small { display: none }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
 
@@ -188,7 +211,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .app-shell[data-mode=auto] .stage-halo { background: radial-gradient(ellipse, #d4ecdd90, transparent 66%); animation: breathe 2.6s ease-in-out infinite }
 @keyframes breathe { 50% { opacity: .65; transform: scale(1.03) } }
 .mode-badge { font-style: normal; font-size: 10px; letter-spacing: 1px; color: #fff; background: var(--mode); border-radius: 999px; padding: 2px 8px; margin-right: 2px; transition: background .4s }
-.mode-switch { display: flex; gap: 3px; padding: 3px; border-radius: 14px; background: #f3eef7; margin-right: auto }
+.mode-switch { display: flex; gap: 3px; padding: 3px; border-radius: 14px; background: #f3eef7 }
 .mode-switch button { border: 0; background: transparent; padding: 5px 10px; font-size: 12px; border-radius: 11px; display: flex; align-items: center; gap: 5px; color: #7d6e8a }
 .mode-switch button small { font-size: 9px; color: #ad9eb9 }
 .mode-switch button i { width: 7px; height: 7px; border-radius: 50%; background: var(--mode) }
@@ -260,10 +283,8 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .brain-options button small { font-size: 10px; color: var(--muted) }
 .brain-options button[aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
 
-/* ── Stage interaction: speech tail and hand tethers ──────────────── */
+/* ── Stage interaction: hand tethers ──────────────── */
 .stage-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; overflow: visible }
-.speech-tail { fill: var(--paper); stroke: var(--line); stroke-width: 1; filter: drop-shadow(0 6px 10px #5f487514) }
-.app-shell[data-phase=responding] .speech-tail { stroke: #d7c7e6 }
 .tether { fill: none; stroke: var(--mode, var(--accent)); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 2 7; opacity: .55; animation: tether-flow 1.4s linear infinite }
 .tether.review { stroke: var(--accent); stroke-dasharray: 1 6; opacity: .45 }
 @keyframes tether-flow { to { stroke-dashoffset: -18 } }
