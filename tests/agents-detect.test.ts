@@ -30,7 +30,44 @@ describe('detectAgents', () => {
     expect(byId.codex).toMatchObject({ installed: true, path: codex, version: '0.160.0', loggedIn: true, tier: 'delegate' })
     expect(byId.gemini).toMatchObject({ installed: false, tier: 'delegate' })
     expect(byId['claude-desktop']).toMatchObject({ tier: 'switch' })
-    expect(agents.map(agent => agent.id)).toEqual(['claude', 'codex', 'gemini', 'opencode', 'pi', 'claude-desktop', 'grok', 'openclaw', 'hermes', 'mcode'])
+    expect(agents.map(agent => agent.id)).toEqual([
+      'claude',
+      'codex',
+      'gemini',
+      'opencode',
+      'pi',
+      'claude-desktop',
+      'grok',
+      'openclaw',
+      'hermes',
+      'mcode',
+      'kimi',
+      'omp',
+      'dsh',
+      'agy',
+      'qwen',
+      'cursor',
+      'copilot',
+      'goose',
+      'droid',
+      'auggie',
+      'codebuddy',
+      'qoder',
+      'cline',
+      'kilo',
+    ])
+  })
+  it('recognises the apps cc-switch added and the other local agents, with their config', async () => {
+    const kimi = '/Users/a/.local/bin/kimi'
+    const qwen = '/usr/local/bin/qwen'
+    const agents = await detectAgents(machine([kimi, qwen, '/Users/a/.kimi-code/config.toml', '/Users/a/.qwen/settings.json'], {
+      [`${kimi} --version`]: { stdout: 'kimi, version 1.52.0\n' },
+      [`${qwen} --version`]: { stdout: '0.26.4\n' },
+    }))
+    const byId = Object.fromEntries(agents.map(agent => [agent.id, agent]))
+    expect(byId.kimi).toMatchObject({ label: 'Kimi Code', tier: 'switch', installed: true, version: '1.52.0', configured: true })
+    expect(byId.qwen).toMatchObject({ label: 'Qwen Code', tier: 'detect', installed: true, version: '0.26.4', configured: true })
+    expect(byId.omp).toMatchObject({ label: 'Oh My Pi', installed: false })
   })
 })
 
