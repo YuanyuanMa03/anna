@@ -162,7 +162,7 @@ function tick() {
     const lips = toStage(moved.x, moved.y)
     const { hands } = props.body
     const hand = toStage(hands.cx + hands.rx * 0.5, hands.cy)
-    emit('anchors', { mouth: { x: rect.left + lips.x, y: rect.top + lips.y }, hand: { x: rect.left + hand.x, y: rect.top + Math.min(hand.y, rect.height - 24) } })
+    emit('anchors', { mouth: { x: rect.left + lips.x, y: rect.top + lips.y }, hand: { x: rect.left + hand.x, y: rect.top + Math.min(hand.y, rect.height - 24) }, reach: head ? (head.rx + Math.abs(head.cx - mouth.x)) * placement.value.scale : undefined })
   }
   requestAnimationFrame(tick)
 }

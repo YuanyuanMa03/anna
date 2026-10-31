@@ -94,7 +94,8 @@ try {
   await page.screenshot({ path: 'artifacts/stage-result.png' })
   evidence.checks.push('Real work task: read, write, approval-gated command, result card, stage phases')
 
-  await page.getByRole('button', { name: '工作过程' }).click()
+  await page.getByRole('button', { name: '更多', exact: true }).click()
+  await page.getByRole('menuitem', { name: /工作过程/ }).click()
   await page.locator('.drawer .tool-events details').first().waitFor()
   await page.screenshot({ path: 'artifacts/stage-work-drawer.png' })
   await page.getByRole('button', { name: '关闭抽屉', exact: true }).click()

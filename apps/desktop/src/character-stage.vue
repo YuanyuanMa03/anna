@@ -9,7 +9,8 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { applyStance, approach, Director, gestureForModeChange, gestureOffset, poses, restingPose, stances } from '../../../packages/character/director'
 import { fitStage, paramId } from '../../../packages/character/manifest'
 
-export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number } }
+/** `reach` is how far her head and hair extend sideways from her mouth, in viewport pixels, when the stage knows it. */
+export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number }, reach?: number }
 const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number }, reach?: number }>(), { phase: 'idle', mode: 'edit', speaking: false, zoom: 1, align: 0.5, reach: 0 })
 /** `anchors` reports where her mouth and her outward hand are on screen (viewport pixels), a few times a second. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors] }>()
