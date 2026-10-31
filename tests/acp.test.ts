@@ -178,6 +178,18 @@ describe('acp kernel', () => {
     expect(outcome.error).toContain('没能核对')
     await kernel.close()
   })
+  it('waits for a slow gate: a refusal after the agent finished still fails the turn', async () => {
+    const { value } = await context({ instructions: [], gate: async () => {
+      await new Promise(done => setTimeout(done, 300))
+      return { allow: false, reason: '受保护的路径' }
+    } })
+    const kernel = new AcpKernel(value, 'gemini')
+    await kernel.start()
+    const outcome = await kernel.prompt('peek', { origin: 'desktop' })
+    expect(outcome.status).toBe('failed')
+    expect(outcome.error).toContain('受保护的路径')
+    await kernel.close()
+  })
   it('refuses to start an agent that is not installed or does not speak ACP', async () => {
     const missing = await context({ locate: async () => undefined })
     await expect(new AcpKernel(missing.value, 'gemini').start()).rejects.toThrow('Gemini CLI')
