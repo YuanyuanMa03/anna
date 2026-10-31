@@ -57,6 +57,8 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 [data-phase=done] .stage-halo { background: radial-gradient(ellipse, #d7ecdf90, transparent 66%) }
 .model-canvas { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer }
 .model-canvas canvas { display: block; position: absolute }
+/* Her own body is framed by the stage itself: no flex centring, the cursor shows only over her outline. */
+.body-stage { display: block; cursor: default }
 .stage-loading, .stage-error { font-size: 12px; color: #9a87aa; z-index: 2; position: absolute; bottom: 60px }
 .stage-error { background: #fff0f0; padding: 12px }
 .status-ribbon { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; max-width: 92%; padding: 7px 14px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font-size: 12px; box-shadow: var(--shadow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(8px) }
@@ -151,6 +153,8 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .plugin-row p { font-size: 11px; color: #9f8aaa; margin: 4px 0; overflow-wrap: anywhere }
 .plugin-row span { font-size: 10px; color: #9172a7 }
 .plugin-row button { font-size: 11px; white-space: nowrap; padding: 8px }
+.segmented { display: flex; flex-shrink: 0; gap: 4px }
+.segmented button[aria-pressed=true] { background: #ece3f5; border-color: #cdbbe0 }
 .character-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
 .character-card { display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; border-radius: 16px; min-width: 0 }
 .character-card.selected { border-color: #aa95bd; background: #f0e9f7 }

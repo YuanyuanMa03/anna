@@ -223,7 +223,7 @@ onBeforeUnmount(() => { generation++; window.removeEventListener('pointermove', 
 </script>
 
 <template>
-  <div ref="element" class="model-canvas" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :style="{ right: `${-reach}px` }" @click="event => event.offsetX < (element?.clientWidth ?? 0) - reach && emit('poke')">
+  <div ref="element" class="model-canvas" data-renderer="live2d" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :style="{ right: `${-reach}px` }" @click="event => event.offsetX < (element?.clientWidth ?? 0) - reach && emit('poke')">
     <p v-if="state === 'loading'" class="stage-loading" role="status">正在唤醒 {{ character.name }}…</p>
     <p v-if="error" class="stage-error" role="alert">模型加载失败：{{ error }}</p>
   </div>

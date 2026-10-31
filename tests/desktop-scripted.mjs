@@ -69,6 +69,12 @@ try {
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
+  // Anna's own body shows when its archive was in place at build time (it is not committed); otherwise her Live2D form.
+  if (!packaged) {
+    const body = existsSync(join(root, 'dist/renderer/anna-body/anna.mavatar'))
+    assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), body ? 'mesh' : 'live2d')
+    evidence.checks.push(`Stage: ${body ? 'her own body (mesh avatar)' : 'Live2D form, no body archive in this build'}`)
+  }
 
   // Pick the project folder: unknown folders wait for a trust decision before anything loads.
   await page.evaluate(path => window.anna.invoke({ type: 'workspace', path }), workspace)

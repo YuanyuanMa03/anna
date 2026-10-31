@@ -1,3 +1,5 @@
+import type { Box, Ellipse } from './body'
+
 /** A moment on stage that a model's own motion can play: meeting the user, handing something over, a win. */
 export type MotionCue = 'greet' | 'present' | 'celebrate' | 'review'
 
@@ -27,6 +29,12 @@ export interface Companion {
   params?: { legacy?: boolean, rename?: Record<string, string> }
   /** Motions from the model's own motion3 files, by group and index. */
   motions?: Partial<Record<MotionCue, [group: string, index: number]>>
+  /**
+   * The companion's own body: a mesh avatar built from original art with Mesh Avatar Studio, offered instead of the
+   * Live2D model. The archive is not committed; without it the Live2D model is used.
+   * `crop` frames the figure and `hands` is where she holds things, both in image pixels.
+   */
+  body?: { path: string, crop: Box, hands: Ellipse }
 }
 
 export const characters = [
@@ -45,6 +53,7 @@ export const characters = [
     stage: { scale: 0.9, offsetX: 0, offsetY: 0 },
     // Index 0 is her idle loop: m01 is the greeting bow, m20 reaches out with the right arm, m10 is the big gesture.
     motions: { greet: ['', 1], present: ['', 20], celebrate: ['', 10] },
+    body: { path: './anna-body/anna.mavatar', crop: { x0: 330, y0: 30, x1: 1350, y1: 906 }, hands: { cx: 865, cy: 850, rx: 190, ry: 55 } },
   },
   {
     id: 'mao',

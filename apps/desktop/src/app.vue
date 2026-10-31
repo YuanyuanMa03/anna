@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
 import { modes } from '../../../packages/permissions/modes'
+import BodyStage from './body-stage.vue'
 import CharacterStage from './character-stage.vue'
 import AgentsSheet from './components/agents-sheet.vue'
 import ApprovalCard from './components/approval-card.vue'
@@ -50,6 +51,30 @@ let release: (() => void) | undefined
 let clock: number | undefined
 
 const character = computed(() => companion(snapshot.value?.settings.characterId))
+/** Her own body (a mesh avatar of her original art) or the Live2D anime form; a per-machine preference. */
+const form = ref<'body' | 'anime'>(readForm())
+/** The body archive is not committed: without it on this machine the choice is not offered at all. */
+const bodyMissing = ref(false)
+const bodyFailure = ref('')
+const usesBody = computed(() => Boolean(character.value.body) && form.value === 'body' && !bodyMissing.value && !bodyFailure.value)
+function bodyUnavailable(reason?: string) {
+  if (reason)
+    bodyFailure.value = reason
+  else bodyMissing.value = true
+}
+function readForm() {
+  try { return localStorage.getItem('anna.form') === 'anime' ? 'anime' : 'body' }
+  catch { return 'body' }
+}
+function chooseForm(next: 'body' | 'anime') {
+  form.value = next
+  bodyFailure.value = ''
+  try { localStorage.setItem('anna.form', next) }
+  catch {}
+}
+/** The person is typing to her: she looks down at what is being written. */
+const typedAt = ref(0)
+const listening = computed(() => Boolean(input.value.trim()) && now.value - typedAt.value < 3000)
 const suggestions = computed(() => ['看看这个工作文件夹里有什么，给我一个概览', '帮我找出项目里的 TODO 并整理成清单', `${character.value.name}，你好，介绍一下你自己。`])
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
@@ -244,6 +269,7 @@ onMounted(async () => {
     settingsOpen.value = true
 })
 watch(() => messages.value.length, () => { void scrollHistory() })
+watch(input, () => { typedAt.value = Date.now() })
 watch(() => anna.value.phase, (phase, previous) => {
   if (phase === 'responding' && previous !== 'responding')
     fromMouth()
@@ -286,7 +312,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="wide ? 0.62 : 0.4" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
+        <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase" :style="{ left: `${(wide ? 0.62 : 0.4) * 100}%` }"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 
@@ -386,7 +413,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
     <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
-    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="pluginsOpen = false" @command="run" />
+    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? 'body' : 'anime'" :body-missing="bodyMissing" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
 </template>
