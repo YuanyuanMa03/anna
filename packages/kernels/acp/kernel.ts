@@ -32,7 +32,7 @@ export class AcpKernel implements AgentKernel {
   private introduced = false
   private toolServer?: ToolServer
   /** The turn in progress: her words so far, each tool call (and whether her gate saw it), and why it must stop. */
-  private turn?: { text: string, calls: Map<string, { name: string, kind?: string, input: Record<string, unknown>, gated: boolean }>, violation?: string, cancelling?: boolean }
+  private turn?: { text: string, calls: Map<string, { name: string, kind?: string, input: Record<string, unknown>, gated: boolean }>, checks: Promise<void>[], violation?: string, cancelling?: boolean }
   private args: string[]
   /** The end of what the agent wrote to stderr, shown when it fails to start or dies. */
   private stderr = ''
@@ -138,7 +138,9 @@ export class AcpKernel implements AgentKernel {
   private stop(turn: NonNullable<AcpKernel['turn']>, violation: string) {
     turn.violation ??= violation
     turn.cancelling = true
-    this.connection?.notify('session/cancel', { sessionId: this.session })
+    // Only the turn still running is cancelled: an older one has already ended, and the session now belongs to another.
+    if (turn === this.turn)
+      this.connection?.notify('session/cancel', { sessionId: this.session })
   }
 
   /** Session updates: her words as they stream, thoughts, and tool calls as they start and finish. */
@@ -160,7 +162,7 @@ export class AcpKernel implements AgentKernel {
         this.turn.calls.set(update.toolCallId, { name, kind: update.kind, input, gated: false })
         this.context.emit({ type: 'tool-start', id: update.toolCallId, name, input })
         if (update.status === 'in_progress' || update.status === 'completed')
-          void this.unasked(update.toolCallId)
+          this.turn.checks.push(this.unasked(update.toolCallId))
         break
       }
       case 'tool_call_update':
@@ -171,7 +173,7 @@ export class AcpKernel implements AgentKernel {
           this.context.emit({ type: 'tool-start', id: update.toolCallId, name: call.name, input: call.input })
         }
         if (update.status === 'in_progress' || update.status === 'completed')
-          void this.unasked(update.toolCallId)
+          this.turn.checks.push(this.unasked(update.toolCallId))
         if (update.status === 'completed' || update.status === 'failed')
           this.context.emit({ type: 'tool-end', id: update.toolCallId, name: this.turn.calls.get(update.toolCallId)?.name ?? toolName(update.kind), output: toolOutput(update.content), isError: update.status === 'failed' })
         break
@@ -214,12 +216,14 @@ export class AcpKernel implements AgentKernel {
     this.introduced = true
     const body = [...intro, ...this.notes.splice(0), text].filter(Boolean).join('\n\n')
     this.entries.push({ kind: 'user', text, origin: meta.origin })
-    const turn: NonNullable<AcpKernel['turn']> = { text: '', calls: new Map() }
+    const turn: NonNullable<AcpKernel['turn']> = { text: '', calls: new Map(), checks: [] }
     this.turn = turn
     this.context.emit({ type: 'thinking' })
     let outcome: TurnOutcome
     try {
       const result = await this.connection.request('session/prompt', { sessionId: this.session, prompt: [{ type: 'text', text: body }] })
+      // A check of an unasked call may still be waiting on her gate: the turn's outcome waits for every verdict.
+      await Promise.all(turn.checks)
       if (turn.violation)
         outcome = { status: 'failed', text: turn.text, error: turn.violation }
       else if (result?.stopReason === 'refusal')
@@ -227,6 +231,7 @@ export class AcpKernel implements AgentKernel {
       else outcome = { status: result?.stopReason === 'cancelled' ? 'aborted' : 'completed', text: turn.text }
     }
     catch (error) {
+      await Promise.all(turn.checks)
       outcome = { status: 'failed', text: turn.text, error: turn.violation ?? this.explain(error) }
     }
     this.turn = undefined
