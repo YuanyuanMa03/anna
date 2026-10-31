@@ -1,7 +1,10 @@
-import type { Box, Ellipse } from './body'
-
 /** A moment on stage that a model's own motion can play: meeting the user, handing something over, a win. */
 export type MotionCue = 'greet' | 'present' | 'celebrate' | 'review'
+/** How a companion with its own body appears: that body, or its Live2D anime form. */
+export type CompanionForm = 'body' | 'anime'
+/** Image-pixel geometry for a companion's own body. */
+export interface Box { x0: number, y0: number, x1: number, y1: number }
+export interface Ellipse { cx: number, cy: number, rx: number, ry: number }
 
 /**
  * One companion: a Live2D model plus the character card that gives it a name and a personality.

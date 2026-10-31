@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MotionCue } from '../../../packages/character/manifest'
+import type { CompanionForm, MotionCue } from '../../../packages/character/manifest'
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -52,9 +52,9 @@ let clock: number | undefined
 
 const character = computed(() => companion(snapshot.value?.settings.characterId))
 /** Her own body (a mesh avatar of her original art) or the Live2D anime form; a per-machine preference. */
-const form = ref<'body' | 'anime'>(readForm())
-/** The body archive is not committed: without it on this machine the choice is not offered at all. */
-const bodyMissing = ref(false)
+const form = ref<CompanionForm>(readForm())
+/** The body archive is not committed or published: a build without it offers no choice and never tries to load it. */
+const bodyMissing = ref(!__ANNA_BODY__)
 const bodyFailure = ref('')
 const usesBody = computed(() => Boolean(character.value.body) && form.value === 'body' && !bodyMissing.value && !bodyFailure.value)
 function bodyUnavailable(reason?: string) {
@@ -66,7 +66,7 @@ function readForm() {
   try { return localStorage.getItem('anna.form') === 'anime' ? 'anime' : 'body' }
   catch { return 'body' }
 }
-function chooseForm(next: 'body' | 'anime') {
+function chooseForm(next: CompanionForm) {
   form.value = next
   bodyFailure.value = ''
   try { localStorage.setItem('anna.form', next) }

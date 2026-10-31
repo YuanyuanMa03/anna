@@ -17,7 +17,9 @@ The body archive is not committed. To put it in place, pack the Studio project w
 npm run pack-avatar -- projects/anna --no-source -o <anna>/assets/anna-body/anna.mavatar   # in the Studio checkout
 ```
 
-`pnpm build` copies it into the renderer. Without it the app shows the anime form and does not offer the choice.
+The dev server (`pnpm dev:desktop`) uses it when it is in place. A build carries it only when asked to:
+`ANNA_WITH_BODY=1 pnpm build`, for the owner's own machine. Never publish such a build or package: the archive holds
+her art. Without it the app shows the anime form, never tries to load the body and does not offer the choice.
 The manifest's `body.crop` (the figure's bounds) and `body.hands` (where she holds things) are in image pixels: update
 them when the art changes. Face, mouth and head come from the archive's rig.
 

@@ -6,7 +6,7 @@ import type { AnnaPhase, PermissionMode } from '../../../packages/shared/contrac
 import type { Anchors } from './character-stage.vue'
 import { loadMeshAvatar, openAvatar } from 'mesh-avatar'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { aim, BodyDirector, bodyRegions, frameBody, headPoint, motionSeconds, regionAt, voiceAt } from '../../../packages/character/body'
+import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt, voiceAt } from '../../../packages/character/body'
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
 const props = withDefaults(defineProps<{ body: NonNullable<Companion['body']>, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
@@ -25,7 +25,7 @@ const motion = ref('')
 const expression = ref<BodyExpression>('neutral')
 const placement = ref({ scale: 0, left: 0, top: 0, width: 0, height: 0 })
 const director = new Director()
-const body = new BodyDirector()
+const bodyDirector = new BodyDirector()
 const reduced = matchMedia('(prefers-reduced-motion: reduce)')
 let avatar: MeshAvatar | undefined
 let avatarPackage: AvatarPackage | undefined
@@ -108,7 +108,7 @@ function touch(event: MouseEvent, double: boolean) {
   if (!region)
     return
   activeAt = performance.now()
-  body.touch(region, activeAt, double)
+  bodyDirector.touch(region, activeAt, double)
   // Her face and hair get a personal reaction; her hands and body hold the work, and a click there opens it,
   // as a click on the Live2D stage does.
   if ((region === 'hands' || region === 'body') && !double)
@@ -120,7 +120,7 @@ function tick() {
     return
   const now = performance.now()
   performed.value = director.tick(now)
-  const next = body.frame(performed.value, now, { pointerAt: pointer.at, activeAt, listening: props.listening })
+  const next = bodyDirector.frame(performed.value, now, { pointerAt: pointer.at, activeAt, listening: props.listening })
   if (next.motion && !reduced.matches)
     avatar.play(next.motion)
   if (next.expression !== expression.value) {
@@ -225,11 +225,11 @@ watch(() => props.mode, (next, previous) => {
   if (!previous || next === previous)
     return
   const kind = gestureForModeChange(previous, next)
-  body.gesture(kind, performance.now())
+  const now = performance.now()
   playing.value = kind
-  gestureUntil = performance.now() + motionSeconds[kind === 'shake' ? 'no' : kind] * 1000
+  gestureUntil = now + bodyDirector.gesture(kind, now)
 })
-watch(() => props.cue?.at, () => props.cue && body.cue(props.cue.kind, performance.now()))
+watch(() => props.cue?.at, () => props.cue && bodyDirector.cue(props.cue.kind, performance.now()))
 watch(() => props.align, layout)
 onBeforeUnmount(() => {
   disposed = true

@@ -77,6 +77,11 @@ describe('body director', () => {
     expect(director.frame('idle', 10, awake(10)).motion).toBe('giggle')
     director.touch('face', 5000, true)
     expect(director.frame('idle', 5010, awake(5010))).toMatchObject({ motion: 'wink', expression: 'wink' })
+    director.touch('hands', 9000, true)
+    expect(director.frame('idle', 9010, awake(9010)).motion).toBe('wink')
+  })
+  it('tells the stage how long a mode gesture plays', () => {
+    expect(new BodyDirector().gesture('shake', 0)).toBe(motionSeconds.no * 1000)
   })
   it('pouts when poked three times in a row', () => {
     const director = new BodyDirector()

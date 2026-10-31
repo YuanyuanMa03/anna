@@ -1,6 +1,6 @@
 import type { AnnaPhase } from '../shared/contracts'
 import type { GestureKind } from './director'
-import type { MotionCue } from './manifest'
+import type { Box, Ellipse, MotionCue } from './manifest'
 
 /** Motions built into the mesh-avatar runtime, with their length in seconds (mesh-avatar 0.4 motions.js). */
 export const motionSeconds = {
@@ -27,6 +27,7 @@ export const motionSeconds = {
   spaceOut: 7.4,
 } as const
 export type BodyMotion = keyof typeof motionSeconds
+const motionMs = (motion: BodyMotion) => motionSeconds[motion] * 1000
 /** The runtime's live expressions, layered over motions and lip sync. */
 export type BodyExpression = 'neutral' | 'smile' | 'shy' | 'surprise' | 'halfLidded' | 'angry' | 'sad' | 'wink'
 /** Where she looks: at the person's pointer, wherever her idle wandering takes her, or a fixed direction (-1..1, up is +y). */
@@ -89,9 +90,9 @@ const cues: Record<MotionCue, Reaction> = {
 }
 const gestures: Record<GestureKind, Reaction> = { nod: { motion: 'nod' }, tilt: { motion: 'tilt' }, shake: { motion: 'no' } }
 
-/** Alone this long while idle, she dozes off. */
+/** Alone this long while idle, she dozes off, carrying herself as when offline. */
 const drowsyMs = 90_000
-const dozeEvery = 9000
+const asleep = beats.offline
 /** A pointer that moved this recently is followed; after that her gaze wanders on its own. */
 const followMs = 4000
 /** Three pokes inside this window earn a pout. */
@@ -130,10 +131,10 @@ export class BodyDirector {
   private listening = false
 
   touch(region: Touch, now: number, double = false) {
-    // A double click arrives after its two clicks: it is one gesture, not a third poke.
+    // A double click anywhere on her earns a wink. It arrives after its two clicks: one gesture, not a third poke.
     if (double) {
       this.pokes = []
-      return this.queue(region === 'face' ? wink : touches[region], now)
+      return this.queue(wink, now)
     }
     this.pokes = [...this.pokes.filter(at => now - at < pokeMs), now]
     if (this.pokes.length >= 3) {
@@ -144,7 +145,8 @@ export class BodyDirector {
   }
 
   cue(kind: MotionCue, now: number) { this.queue(cues[kind], now) }
-  gesture(kind: GestureKind, now: number) { this.queue(gestures[kind], now) }
+  /** Queues the mode-change gesture and returns how long it plays (ms). */
+  gesture(kind: GestureKind, now: number) { return this.queue(gestures[kind], now) }
 
   frame(phase: AnnaPhase, now: number, input: BodyInput): BodyFrame {
     const beat = beats[phase]
@@ -155,58 +157,61 @@ export class BodyDirector {
       const greeting = (this.phase === undefined || this.phase === 'offline') && phase === 'idle'
       motion = now < this.reactingUntil ? undefined : greeting ? wake.motion : beat.enter
       this.phase = phase
-      this.repeatAt = beat.repeat ? now + beat.repeat.every : Number.POSITIVE_INFINITY
+      this.scheduleRepeat(beat, now)
     }
     const listening = input.listening && phase === 'idle'
     const alone = phase === 'idle' && !listening && now - input.activeAt >= drowsyMs
     if (alone && !this.dozing) {
       this.dozing = true
-      motion = 'doze'
-      this.repeatAt = now + dozeEvery
+      motion = asleep.enter
+      this.scheduleRepeat(asleep, now)
     }
     else if (!alone && this.dozing) {
       this.dozing = false
-      this.repeatAt = beat.repeat ? now + beat.repeat.every : Number.POSITIVE_INFINITY
+      this.scheduleRepeat(beat, now)
       this.queue(wake, now)
     }
+    // While she dozes, the offline beat stands in for the idle one.
+    const carriage = this.dozing ? asleep : beat
     if (listening && !this.listening)
       motion ??= 'tilt'
     this.listening = listening
     if (this.queued) {
       motion = this.queued.motion
       this.queued = undefined
-      this.reactingUntil = now + motionSeconds[motion] * 1000
+      this.reactingUntil = now + motionMs(motion)
     }
     else if (!motion && now >= this.repeatAt && now >= this.busyUntil) {
-      motion = this.dozing ? 'doze' : beat.repeat!.motion
-      this.repeatAt = now + (this.dozing ? dozeEvery : beat.repeat!.every)
+      motion = carriage.repeat!.motion
+      this.scheduleRepeat(carriage, now)
     }
     if (motion)
-      this.busyUntil = now + motionSeconds[motion] * 1000
+      this.busyUntil = now + motionMs(motion)
 
     const held = this.face && now < this.face.until ? this.face.expression : undefined
-    let look = beat.look
-    let head = beat.head ?? {}
-    if (this.dozing) {
-      look = { x: 0, y: -0.5 }
-      head = { y: -8 }
-    }
-    else if (listening) {
+    let look = carriage.look
+    let head = carriage.head ?? {}
+    if (listening) {
       // She looks down at what is being typed, leaning in a little.
       look = { x: 0, y: -0.45 }
       head = { y: -4, z: 4 }
     }
-    else if (phase === 'idle') {
+    else if (phase === 'idle' && !this.dozing) {
       look = now - input.pointerAt < followMs ? 'person' : 'free'
     }
     // While the person moves around she attends to them; her own idle motions resume once they rest.
-    return { expression: held ?? (this.dozing ? 'halfLidded' : beat.expression), motion, look, head, idle: beat.idle && !this.dozing && !listening && look !== 'person' }
+    return { expression: held ?? carriage.expression, motion, look, head, idle: carriage.idle && !listening && look !== 'person' }
+  }
+
+  private scheduleRepeat(beat: Beat, now: number) {
+    this.repeatAt = beat.repeat ? now + beat.repeat.every : Number.POSITIVE_INFINITY
   }
 
   private queue(reaction: Reaction, now: number) {
     this.queued = reaction
     if (reaction.expression)
-      this.face = { expression: reaction.expression, until: now + (reaction.hold ?? motionSeconds[reaction.motion] * 1000) }
+      this.face = { expression: reaction.expression, until: now + (reaction.hold ?? motionMs(reaction.motion)) }
+    return motionMs(reaction.motion)
   }
 }
 
@@ -259,7 +264,6 @@ export function voiceAt(t: number) {
   return Math.sin(Math.PI * (beat - index)) ** 1.5 * stress
 }
 
-export interface Box { x0: number, y0: number, x1: number, y1: number }
 /**
  * Scale and offset (stage pixels per image pixel) that fit the `crop` of her image inside the stage: her figure as
  * large as fits, her arms resting `bottom` pixels above the bottom edge, centred at `align` of the width but never
@@ -287,7 +291,6 @@ export function headPoint(point: { x: number, y: number }, head: { pivotX: numbe
   }
 }
 
-export interface Ellipse { cx: number, cy: number, rx: number, ry: number }
 export type BodyRegions = Record<Touch, Ellipse>
 /** Touchable regions in image pixels, from the rig's head, eyes, mouth and chest and the hands from the manifest. */
 export function bodyRegions(rig: { head: Ellipse, face: { eyeA: Ellipse, eyeB: Ellipse, mouth: Ellipse }, body: { chest: Ellipse } }, hands: Ellipse): BodyRegions {
