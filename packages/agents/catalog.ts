@@ -143,7 +143,7 @@ export const catalog: AgentDescriptor[] = [
     binaries: ['omp'],
     configDir: '.omp/agent',
     configFiles: ['models.yml', 'config.yml'],
-    install: 'bun install -g @oh-my-pi/pi-coding-agent@latest',
+    install: 'curl -fsSL https://omp.sh/install | sh',
     update: ['update'],
   },
   {
