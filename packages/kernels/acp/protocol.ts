@@ -9,19 +9,22 @@ import { createInterface } from 'node:readline'
  */
 
 /** ACP tool kinds onto Anna's normalized tool names (what her gate and presence understand). */
-const names: Record<string, string> = { read: 'read', edit: 'edit', delete: 'edit', move: 'edit', search: 'grep', execute: 'bash', fetch: 'fetch', think: 'think' }
+const toolNamesByKind: Record<string, string> = { read: 'read', edit: 'edit', delete: 'edit', move: 'edit', search: 'grep', execute: 'bash', fetch: 'fetch', think: 'think' }
 export function toolName(kind: string | undefined) {
-  return (kind && names[kind]) || 'other'
+  return (kind && toolNamesByKind[kind]) || 'other'
 }
 
 export interface AcpToolCall { toolCallId: string, title?: string, kind?: string, rawInput?: Record<string, unknown>, locations?: { path: string }[] }
-/** A tool call's input in Anna's terms: the command for a shell call, the path for a file call. */
+/**
+ * A tool call's input in Anna's terms: the command for a shell call, the path for a file call. A file call whose path
+ * cannot be told is judged as outside the workspace ('/'), so her gate asks instead of waving it through.
+ */
 export function toolInput(call: AcpToolCall): Record<string, unknown> {
   const raw = call.rawInput ?? {}
   if (toolName(call.kind) === 'bash')
     return { command: String(raw.command ?? raw.cmd ?? call.title ?? '') }
   const path = call.locations?.[0]?.path ?? raw.path ?? raw.file_path ?? raw.filePath
-  return path === undefined ? { ...raw } : { ...raw, path: String(path) }
+  return { ...raw, path: path === undefined ? '/' : String(path) }
 }
 
 /** The text a tool call produced, from ACP content blocks (text, or a diff shown by its path). */
@@ -53,8 +56,8 @@ export class Connection {
   private ended?: AcpError
   constructor(private child: ChildProcess, private handlers: { request: (method: string, params: any) => Promise<unknown>, notify: (method: string, params: any) => void }) {
     createInterface({ input: child.stdout! }).on('line', line => this.receive(line))
-    child.on('error', error => this.end(new AcpError(`could not start the agent (${error.message})`)))
-    child.on('exit', code => this.end(new AcpError(`agent exited (${code ?? 'signal'})`)))
+    child.on('error', error => this.end(new AcpError(`启动失败（${error.message}）`)))
+    child.on('exit', code => this.end(new AcpError(`进程已退出（${code ?? '被终止'}）`)))
   }
 
   private end(reason: AcpError) {

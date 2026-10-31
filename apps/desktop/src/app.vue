@@ -81,7 +81,7 @@ const listening = computed(() => Boolean(input.value.trim()) && now.value - type
 const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
 /** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
-const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey }) : [])
+const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey, sandbox: snapshot.value.platform.sandbox.available }) : [])
 const recommended = computed(() => recommendedBrain(brains.value))
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')

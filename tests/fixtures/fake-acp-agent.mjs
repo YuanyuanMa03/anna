@@ -25,6 +25,17 @@ async function prompt(id, { sessionId, prompt: blocks }) {
     await new Promise((resolve) => { cancelled = resolve })
     return send({ id, result: { stopReason: 'cancelled' } })
   }
+  // Agents that do not ask: "sneaky" edits a file without asking, "peek" reads one without asking.
+  if (text.includes('sneaky') || text.includes('peek')) {
+    const edit = text.includes('sneaky')
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 't9', title: edit ? 'edit notes.md' : 'read notes.md', kind: edit ? 'edit' : 'read', status: 'in_progress', locations: [{ path: 'notes.md' }] })
+    if (edit) {
+      await new Promise((resolve) => { cancelled = resolve })
+      return send({ id, result: { stopReason: 'cancelled' } })
+    }
+    update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'read it' } })
+    return send({ id, result: { stopReason: 'end_turn' } })
+  }
   const command = text.includes('touch') ? 'touch acp.txt' : 'ls -a'
   update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 't1', title: command, kind: 'execute', status: 'pending', rawInput: { command } })
   const answer = await request('session/request_permission', {
