@@ -167,6 +167,17 @@ describe('acp kernel', () => {
     expect(gated).toEqual([{ tool: 'read', input: { path: 'notes.md' } }])
     await kernel.close()
   })
+  it('stops the turn when her gate fails while checking an unasked read', async () => {
+    const { value } = await context({ instructions: [], gate: async () => {
+      throw new Error('gate down')
+    } })
+    const kernel = new AcpKernel(value, 'gemini')
+    await kernel.start()
+    const outcome = await kernel.prompt('peek', { origin: 'desktop' })
+    expect(outcome.status).toBe('failed')
+    expect(outcome.error).toContain('没能核对')
+    await kernel.close()
+  })
   it('refuses to start an agent that is not installed or does not speak ACP', async () => {
     const missing = await context({ locate: async () => undefined })
     await expect(new AcpKernel(missing.value, 'gemini').start()).rejects.toThrow('Gemini CLI')

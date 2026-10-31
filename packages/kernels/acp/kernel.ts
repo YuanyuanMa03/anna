@@ -124,9 +124,15 @@ export class AcpKernel implements AgentKernel {
     const label = this.capabilities.label
     if (!['read', 'grep', 'fetch', 'think'].includes(call.name))
       return this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，这一轮已停止。请在它自己的设置里把审批改为每次询问。`)
-    const verdict = await this.context.gate(call.name, call.input, id)
-    if (!verdict.allow)
-      this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，Anna 不同意（${verdict.reason}），这一轮已停止。`)
+    // Fail closed, and stop this call's own turn even if a later one has begun by the time the gate answers.
+    try {
+      const verdict = await this.context.gate(call.name, call.input, id)
+      if (!verdict.allow)
+        this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，Anna 不同意（${verdict.reason}），这一轮已停止。`)
+    }
+    catch (error) {
+      this.stop(turn, `Anna 没能核对 ${label} 未经询问的「${call.name}」（${error instanceof Error ? error.message : String(error)}），这一轮已停止。`)
+    }
   }
 
   private stop(turn: NonNullable<AcpKernel['turn']>, violation: string) {
@@ -154,7 +160,7 @@ export class AcpKernel implements AgentKernel {
         this.turn.calls.set(update.toolCallId, { name, kind: update.kind, input, gated: false })
         this.context.emit({ type: 'tool-start', id: update.toolCallId, name, input })
         if (update.status === 'in_progress' || update.status === 'completed')
-          this.unasked(update.toolCallId).catch(error => this.turn && this.stop(this.turn, `Anna 没能核对这个未经询问的操作（${error instanceof Error ? error.message : String(error)}），这一轮已停止。`))
+          void this.unasked(update.toolCallId)
         break
       }
       case 'tool_call_update':
@@ -165,7 +171,7 @@ export class AcpKernel implements AgentKernel {
           this.context.emit({ type: 'tool-start', id: update.toolCallId, name: call.name, input: call.input })
         }
         if (update.status === 'in_progress' || update.status === 'completed')
-          this.unasked(update.toolCallId).catch(error => this.turn && this.stop(this.turn, `Anna 没能核对这个未经询问的操作（${error instanceof Error ? error.message : String(error)}），这一轮已停止。`))
+          void this.unasked(update.toolCallId)
         if (update.status === 'completed' || update.status === 'failed')
           this.context.emit({ type: 'tool-end', id: update.toolCallId, name: this.turn.calls.get(update.toolCallId)?.name ?? toolName(update.kind), output: toolOutput(update.content), isError: update.status === 'failed' })
         break
