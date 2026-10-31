@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process'
 import type { AgentId } from '../../agents/catalog'
 import type { Message, Origin } from '../../shared/contracts'
 import type { ToolServer } from '../external/mcp'
+import type { TranscriptEntry } from '../external/transcript'
 import type { AgentKernel, KernelCapabilities, KernelContext, TurnOutcome } from '../types'
 import type { AcpToolCall, PermissionOption } from './protocol'
 import { spawn } from 'node:child_process'
@@ -11,9 +12,8 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { catalog } from '../../agents/catalog'
 import { mcpServerName, serveTools } from '../external/mcp'
+import { historyOf } from '../external/transcript'
 import { AcpError, Connection, permissionOutcome, toolInput, toolName, toolOutput } from './protocol'
-
-type Entry = { kind: 'user' | 'assistant', text: string, origin: Origin } | { kind: string, data: unknown }
 
 /**
  * Any local agent that speaks the Agent Client Protocol as Anna's brain. The agent runs as one long-lived process with
@@ -23,7 +23,7 @@ type Entry = { kind: 'user' | 'assistant', text: string, origin: Origin } | { ki
  */
 export class AcpKernel implements AgentKernel {
   readonly capabilities: KernelCapabilities
-  private entries: Entry[] = []
+  private entries: TranscriptEntry[] = []
   private file: string
   private notes: string[] = []
   private child?: ChildProcess
@@ -56,14 +56,17 @@ export class AcpKernel implements AgentKernel {
     if (!located)
       throw new Error(`没有在这台电脑上找到 ${label}，请先在“外部 agent”里安装。`)
     if (existsSync(this.file)) {
-      this.entries = (JSON.parse(await readFile(this.file, 'utf8')) as { entries: Entry[] }).entries
+      this.entries = (JSON.parse(await readFile(this.file, 'utf8')) as { entries: TranscriptEntry[] }).entries
       this.restored = this.entries.length > 0
     }
     if (this.context.tools.length) {
       this.toolServer = await serveTools(this.context.tools)
       this.tools = this.context.tools.map(tool => tool.name)
     }
-    this.child = spawn(located.command, [...(located.prefix ?? []), ...this.args], { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'ignore'], shell: process.platform === 'win32' })
+    // Windows starts npm's .cmd shims through a shell, so every part is quoted (paths under C:\Program Files).
+    const windows = process.platform === 'win32'
+    const quote = (part: string) => windows && /[\s"]/.test(part) ? `"${part.replace(/"/g, '\\"')}"` : part
+    this.child = spawn(quote(located.command), [...(located.prefix ?? []), ...this.args].map(quote), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'ignore'], shell: windows })
     this.connection = new Connection(this.child, { request: (method, params) => this.answer(method, params), notify: (method, params) => this.hear(method, params) })
     try {
       const init = await this.connection.request('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } })
@@ -125,6 +128,18 @@ export class AcpKernel implements AgentKernel {
     return [...this.context.instructions, ...tools].join('\n\n')
   }
 
+  /**
+   * A new ACP session starts empty, but the person sees the restored conversation: the last few exchanges open the
+   * session so she can carry on from them. Empty for a conversation that starts fresh.
+   */
+  private recap() {
+    const recent = historyOf(this.entries).filter(message => !message.note).slice(-8)
+    if (!recent.length)
+      return ''
+    const lines = recent.map(message => `${message.role === 'user' ? '对方' : '你'}：${message.text.length > 400 ? `${message.text.slice(0, 400)}…` : message.text}`)
+    return `## 之前的对话（最近几轮）\n${lines.join('\n')}`
+  }
+
   private saving: Promise<void> = Promise.resolve()
   private save() {
     const run = this.saving.then(async () => {
@@ -139,7 +154,7 @@ export class AcpKernel implements AgentKernel {
   async prompt(text: string, meta: { origin: Origin }): Promise<TurnOutcome> {
     if (!this.connection)
       return { status: 'failed', text: '', error: `${this.capabilities.label} 还没有启动` }
-    const intro = this.introduced ? [] : [this.instructions()]
+    const intro = this.introduced ? [] : [this.instructions(), this.recap()]
     this.introduced = true
     const body = [...intro, ...this.notes.splice(0), text].filter(Boolean).join('\n\n')
     this.entries.push({ kind: 'user', text, origin: meta.origin })
@@ -180,22 +195,5 @@ export class AcpKernel implements AgentKernel {
     this.toolServer = undefined
   }
 
-  history(): Message[] {
-    const out: Message[] = []
-    for (const entry of this.entries) {
-      if ((entry.kind === 'user' || entry.kind === 'assistant') && 'text' in entry && entry.text) {
-        out.push({ role: entry.kind, text: entry.text, origin: entry.origin })
-      }
-      else if (entry.kind === 'aborted') {
-        out.push({ role: 'assistant', text: '这一轮被中断了。随时可以继续。', note: true })
-      }
-      else if (entry.kind === 'delegation') {
-        const record = (entry as { data: { task: string, text: string, origin?: Origin, delegation: Message['delegation'], nested?: boolean } }).data
-        if (!record.nested)
-          out.push({ role: 'user', text: record.task, origin: record.origin ?? 'desktop' })
-        out.push({ role: 'assistant', text: record.text, origin: record.origin ?? 'desktop', delegation: record.delegation })
-      }
-    }
-    return out
-  }
+  history(): Message[] { return historyOf(this.entries) }
 }

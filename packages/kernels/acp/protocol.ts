@@ -49,16 +49,24 @@ export class AcpError extends Error {
 export class Connection {
   private next = 1
   private pending = new Map<number, { resolve: (value: unknown) => void, reject: (error: Error) => void }>()
+  /** Why the agent is gone (it failed to start or exited); every request from then on fails with it. */
+  private ended?: AcpError
   constructor(private child: ChildProcess, private handlers: { request: (method: string, params: any) => Promise<unknown>, notify: (method: string, params: any) => void }) {
     createInterface({ input: child.stdout! }).on('line', line => this.receive(line))
-    child.on('exit', (code) => {
-      for (const { reject } of this.pending.values())
-        reject(new AcpError(`agent exited (${code ?? 'signal'})`))
-      this.pending.clear()
-    })
+    child.on('error', error => this.end(new AcpError(`could not start the agent (${error.message})`)))
+    child.on('exit', code => this.end(new AcpError(`agent exited (${code ?? 'signal'})`)))
+  }
+
+  private end(reason: AcpError) {
+    this.ended ??= reason
+    for (const { reject } of this.pending.values())
+      reject(this.ended)
+    this.pending.clear()
   }
 
   request<T = any>(method: string, params: unknown): Promise<T> {
+    if (this.ended)
+      return Promise.reject(this.ended)
     const id = this.next++
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject })

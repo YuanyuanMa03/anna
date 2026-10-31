@@ -52,6 +52,9 @@ describe('recommended brain', () => {
   it('offers a newcomer without a model the first signed-in agent', () => {
     expect(recommendedBrain(brainChoices({ detected: [codex, claude], current: 'pi', hasKey: false }))?.id).toBe('claude-code')
   })
+  it('never recommends an ACP agent, whose login it cannot check', () => {
+    expect(recommendedBrain(brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: false }))).toBeUndefined()
+  })
   it('recommends nothing when pi already thinks or no agent is ready', () => {
     expect(recommendedBrain(brainChoices({ detected: [claude], current: 'pi', hasKey: true }))).toBeUndefined()
     expect(recommendedBrain(brainChoices({ detected: [codex], current: 'pi', hasKey: false }))).toBeUndefined()

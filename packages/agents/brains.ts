@@ -40,9 +40,12 @@ export function brainChoices(input: { detected: { id: string, installed: boolean
   return [pi, ...[...others, ...acp].sort((a, b) => order[a.state] - order[b.state])]
 }
 
-/** For someone whose pi has no model yet: the first agent that is installed and signed in, so one click starts her. */
+/**
+ * For someone whose pi has no model yet: the first agent that is installed and signed in, so one click starts her.
+ * Only Claude Code and Codex qualify: an ACP agent's login cannot be checked ahead of time.
+ */
 export function recommendedBrain(choices: BrainChoice[]) {
   if (choices.some(choice => choice.id === 'pi' && choice.state === 'ready'))
     return undefined
-  return choices.find(choice => choice.id !== 'pi' && choice.state === 'ready')
+  return choices.find(choice => externalBrains.some(brain => brain.id === choice.id) && choice.state === 'ready')
 }
