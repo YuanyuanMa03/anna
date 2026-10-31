@@ -75,7 +75,7 @@ const touches: Record<Touch, Reaction> = {
   head: { motion: 'shy', expression: 'shy' },
   face: { motion: 'giggle', expression: 'smile' },
   hands: { motion: 'nod' },
-  body: { motion: 'surprise' },
+  body: { motion: 'nod' },
 }
 const wink: Reaction = { motion: 'wink', expression: 'wink' }
 const pout: Reaction = { motion: 'no', expression: 'angry' }
@@ -271,6 +271,20 @@ export function frameBody(stage: { width: number, height: number }, crop: Box, a
   const centre = stage.width * align - ((crop.x0 + crop.x1) / 2) * scale
   const left = clamp(centre, -crop.x0 * scale, stage.width - crop.x1 * scale)
   return { scale, left, top: floor - crop.y1 * scale }
+}
+
+/**
+ * Where a point on her face (image pixels) is after the head moves: rolled about the neck pivot, then shifted by the
+ * turn and nod, the way the runtime deforms the head (angles in degrees, ±30 at most; `shift` is the travel at 30°).
+ */
+export function headPoint(point: { x: number, y: number }, head: { pivotX: number, pivotY: number, shiftX: number, shiftY: number, maxRoll: number }, angles: { angleX?: number, angleY?: number, angleZ?: number }) {
+  const roll = ((angles.angleZ ?? 0) / 30) * head.maxRoll
+  const dx = point.x - head.pivotX
+  const dy = point.y - head.pivotY
+  return {
+    x: head.pivotX + dx * Math.cos(roll) - dy * Math.sin(roll) + head.shiftX * (angles.angleX ?? 0) / 30,
+    y: head.pivotY + dx * Math.sin(roll) + dy * Math.cos(roll) - head.shiftY * (angles.angleY ?? 0) / 30,
+  }
 }
 
 export interface Ellipse { cx: number, cy: number, rx: number, ry: number }

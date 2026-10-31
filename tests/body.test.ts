@@ -1,6 +1,6 @@
 import type { AnnaPhase } from '../packages/shared/contracts'
 import { describe, expect, it } from 'vitest'
-import { aim, beats, BodyDirector, bodyRegions, frameBody, motionSeconds, regionAt, voiceAt } from '../packages/character/body'
+import { aim, beats, BodyDirector, bodyRegions, frameBody, headPoint, motionSeconds, regionAt, voiceAt } from '../packages/character/body'
 
 const awake = (now: number) => ({ pointerAt: now, activeAt: now, listening: false })
 /** Runs the director frame by frame and collects the motions it starts. */
@@ -184,6 +184,20 @@ describe('body framing', () => {
     const frame = frameBody({ width: 1600, height: 600 }, crop, 0.62)
     expect(frame.left + ((crop.x0 + crop.x1) / 2) * frame.scale).toBeCloseTo(992)
     expect(frame.top + crop.y1 * frame.scale).toBeCloseTo(600)
+  })
+})
+
+describe('head point', () => {
+  const head = { pivotX: 810, pivotY: 516, shiftX: 45, shiftY: 24, maxRoll: 0.15 }
+  it('leaves her mouth where it is drawn at rest', () => {
+    expect(headPoint({ x: 816, y: 394 }, head, {})).toEqual({ x: 816, y: 394 })
+  })
+  it('moves her mouth with a head turn, a nod and a roll', () => {
+    expect(headPoint({ x: 816, y: 394 }, head, { angleX: 30 }).x).toBeCloseTo(861)
+    expect(headPoint({ x: 816, y: 394 }, head, { angleY: -30 }).y).toBeCloseTo(418)
+    const rolled = headPoint({ x: 816, y: 394 }, head, { angleZ: 30 })
+    expect(Math.hypot(rolled.x - 810, rolled.y - 516)).toBeCloseTo(Math.hypot(6, 122))
+    expect(rolled.x).not.toBeCloseTo(816)
   })
 })
 
