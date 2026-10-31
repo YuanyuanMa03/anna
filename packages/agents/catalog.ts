@@ -178,6 +178,11 @@ export const catalog: AgentDescriptor[] = [
   { id: 'kilo', label: 'Kilo', tier: 'detect', binaries: ['kilo'], configDir: '.kilocode', configFiles: [], install: 'npm i -g @kilocode/cli@latest' },
 ]
 
+/** Anna runs an install command herself only when it is a plain global npm install; pipes and other package managers need a shell. */
+export function autoInstallable(install: string) {
+  return /^npm i(?:nstall)? -g [@\w/.-]+(?: --[\w-]+)*$/.test(install)
+}
+
 export function configDirOf(agent: AgentDescriptor, platform: NodeJS.Platform) {
   return typeof agent.configDir === 'string' ? agent.configDir : agent.configDir[platform] ?? agent.configDir.default!
 }
