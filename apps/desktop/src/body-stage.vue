@@ -157,12 +157,12 @@ function tick() {
 
   if (++frame % 6 === 0 && element.value) {
     const rect = element.value.getBoundingClientRect()
-    // Her mouth as it is now drawn, moved with the head, so the speech tail stays on it while she turns.
+    // Her mouth as it is now drawn, moved with the head, so her words keep clear of it while she turns.
     const moved = head ? headPoint(mouth, head, avatar.getParameters()) : mouth
     const lips = toStage(moved.x, moved.y)
     const { hands } = props.body
     const hand = toStage(hands.cx + hands.rx * 0.5, hands.cy)
-    emit('anchors', { mouth: { x: rect.left + lips.x, y: rect.top + lips.y }, hand: { x: rect.left + hand.x, y: rect.top + Math.min(hand.y, rect.height - 24) }, reach: head ? (head.rx + Math.abs(head.cx - mouth.x)) * placement.value.scale : undefined })
+    emit('anchors', { mouth: { x: rect.left + lips.x, y: rect.top + lips.y }, hand: { x: rect.left + hand.x, y: rect.top + Math.min(hand.y, rect.height - 24) }, clearance: head ? (head.rx + Math.abs(head.cx - mouth.x)) * placement.value.scale : undefined })
   }
   requestAnimationFrame(tick)
 }

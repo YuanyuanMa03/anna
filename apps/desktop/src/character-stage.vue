@@ -9,9 +9,9 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { applyStance, approach, Director, gestureForModeChange, gestureOffset, poses, restingPose, stances } from '../../../packages/character/director'
 import { fitStage, paramId } from '../../../packages/character/manifest'
 
-/** `reach` is how far her head and hair extend sideways from her mouth, in viewport pixels, when the stage knows it. */
-export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number }, reach?: number }
-const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number }, reach?: number }>(), { phase: 'idle', mode: 'edit', speaking: false, zoom: 1, align: 0.5, reach: 0 })
+/** `clearance` is how far her head and hair extend sideways from her mouth, in viewport pixels, when the stage knows it. */
+export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number }, clearance?: number }
+const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, zoom: 1, align: 0.5 })
 /** `anchors` reports where her mouth and her outward hand are on screen (viewport pixels), a few times a second. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors] }>()
 const element = ref<HTMLDivElement>()
@@ -55,10 +55,8 @@ let anchorFrame = 0
 function layout() {
   if (!app || !model || !element.value)
     return
-  const { width: canvasWidth, height } = element.value.getBoundingClientRect()
-  app.renderer.resize(canvasWidth, height)
-  // The canvas reaches `reach` pixels past the stage so an outstretched arm is not cut off; framing ignores it.
-  const width = canvasWidth - props.reach
+  const { width, height } = element.value.getBoundingClientRect()
+  app.renderer.resize(width, height)
   const fit = fitStage(width, height, bounds.width, bounds.height, props.character.stage.scale * props.zoom)
   model.scale.set(fit.scale)
   // Zoomed framing keeps the head in the upper third and lets the legs leave the frame.
@@ -224,7 +222,7 @@ onBeforeUnmount(() => { generation++; window.removeEventListener('pointermove', 
 </script>
 
 <template>
-  <div ref="element" class="model-canvas" data-renderer="live2d" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :style="{ right: `${-reach}px` }" @click="event => event.offsetX < (element?.clientWidth ?? 0) - reach && emit('poke')">
+  <div ref="element" class="model-canvas" data-renderer="live2d" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" @click="emit('poke')">
     <p v-if="state === 'loading'" class="stage-loading" role="status">正在唤醒 {{ character.name }}…</p>
     <p v-if="error" class="stage-error" role="alert">模型加载失败：{{ error }}</p>
   </div>
