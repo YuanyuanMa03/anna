@@ -21,8 +21,11 @@ export type KernelId = keyof typeof kernels
 
 /** The kernel behind a brain id; an ACP brain is available when its agent is catalogued with ACP arguments. */
 export function kernelFor(id: BrainId): { label: string, create: KernelFactory, available: boolean } {
-  if (!id.startsWith('acp:'))
-    return kernels[id as KernelId] ?? { label: id, create: kernels.pi.create, available: false }
+  if (!id.startsWith('acp:')) {
+    return kernels[id as KernelId] ?? { label: id, available: false, create: () => {
+      throw new Error(`没有名为 ${id} 的大脑`)
+    } }
+  }
   const agent = id.slice(4) as AgentId
   const entry = catalog.find(item => item.id === agent)
   return { label: entry?.label ?? agent, create: context => new AcpKernel(context, agent), available: Boolean(entry?.acp) }
