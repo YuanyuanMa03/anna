@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { BrainChoice } from '../../../packages/agents/brains'
 import type { CaptionPlace } from '../../../packages/character/layout'
 import type { CompanionForm, MotionCue } from '../../../packages/character/manifest'
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { brainChoices, recommendedBrain } from '../../../packages/agents/brains'
 import { captionPlace } from '../../../packages/character/layout'
 import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
@@ -78,6 +80,10 @@ const listening = computed(() => Boolean(input.value.trim()) && now.value - type
 /** What a newcomer can say to her: greet her first, then ask, then hand her something to do. */
 const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
+/** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
+const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey }) : [])
+const recommended = computed(() => recommendedBrain(brains.value))
+const brainHints: Record<BrainChoice['state'], string> = { 'ready': '', 'signed-out': ' · 先在终端登录', 'missing': ' · 去安装', 'needs-key': ' · 去配置' }
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
@@ -152,6 +158,7 @@ let driftId = 0
 const timers = new Set<number>()
 const menuOpen = ref(false)
 const menuList = ref<HTMLElement>()
+const brainOpen = ref(false)
 function play(kind: MotionCue) { cue.value = { kind, at: Date.now() } }
 function drift(text: string) {
   const id = ++driftId
@@ -244,6 +251,16 @@ function openFromMenu(action: () => void) {
   menuOpen.value = false
   action()
 }
+/** A brain that can think takes over now; pi without a model opens its settings; a missing agent opens the sheet to install it. */
+function pickBrain(choice: BrainChoice) {
+  brainOpen.value = false
+  if (choice.state === 'needs-key')
+    settingsOpen.value = true
+  else if (choice.state === 'missing')
+    void run({ type: 'snapshot' }).then(() => { agentsOpen.value = true })
+  else if (!choice.current)
+    void run({ type: 'kernel', id: choice.id })
+}
 const decide = (id: string, allow: boolean, scope: ApprovalScope) => run({ type: 'approval', id, allow, scope })
 async function showChanges() {
   if (snapshot.value?.result && await run({ type: 'changes', taskId: snapshot.value.result.taskId }))
@@ -252,7 +269,7 @@ async function showChanges() {
 const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
 function keydown(event: KeyboardEvent) {
   if (event.key === 'Escape')
-    menuOpen.value = false
+    menuOpen.value = brainOpen.value = false
   if (event.key === 'Tab' && event.shiftKey && canChat.value) {
     event.preventDefault()
     modeSwitch.value?.cycle()
@@ -298,9 +315,9 @@ onMounted(async () => {
 })
 watch(() => messages.value.length, () => { void scrollHistory() })
 watch(input, () => { typedAt.value = Date.now() })
-// Opening the corner menu moves focus to its first place, so it works from the keyboard.
-watch(menuOpen, async (isOpen) => {
-  if (!isOpen)
+// Opening the corner menu or the brain list moves focus to its first entry, so both work from the keyboard.
+watch([menuOpen, brainOpen], async ([menu, brain]) => {
+  if (!menu && !brain)
     return
   await nextTick()
   menuList.value?.querySelector('button')?.focus()
@@ -335,9 +352,17 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div class="brand">anna<span>v0.5</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <div class="corner-actions">
-        <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" @click="settingsOpen = true"><i />大脑 · {{ snapshot.kernel.label }}</button>
         <div class="menu">
-          <button class="menu-button" aria-label="更多" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">更多<small v-if="callTools.length">{{ callTools.length }}</small></button>
+          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />大脑 · {{ snapshot.kernel.label }}</button>
+          <div v-if="brainOpen" class="menu-backdrop" @click="brainOpen = false" />
+          <nav v-if="brainOpen" ref="menuList" class="menu-list brain-list" :aria-label="`${character.name} 用谁来思考`">
+            <span class="menu-title">{{ character.name }} 用谁来思考</span>
+            <button v-for="choice in brains" :key="choice.id" :data-brain="choice.id" :data-state="choice.state" :aria-pressed="choice.current" :disabled="configuring || running" @click="pickBrain(choice)"><strong>{{ choice.label }}</strong><small>{{ choice.note }}{{ brainHints[choice.state] }}</small></button>
+            <button class="more" @click="brainOpen = false; settingsOpen = true">模型与设置…</button>
+          </nav>
+        </div>
+        <div class="menu">
+          <button class="menu-button" aria-label="更多" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen; brainOpen = false">更多<small v-if="callTools.length">{{ callTools.length }}</small></button>
           <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
           <nav v-if="menuOpen" ref="menuList" class="menu-list" aria-label="更多">
             <button @click="openFromMenu(() => drawer = 'history')">对话记录</button>
@@ -415,7 +440,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
-      <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。</span><button @click="settingsOpen = true">配置模型</button></div>
+      <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。<template v-if="recommended">这台电脑上的 {{ recommended.label }} 已经登录，可以直接用它思考。</template></span><button v-if="recommended" class="primary" @click="pickBrain(recommended)">用 {{ recommended.label }} 思考</button><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么，或交给 ${character.name} 一件事…（@claude、@codex 可以派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">

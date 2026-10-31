@@ -109,6 +109,14 @@ try {
   await until(page, s => s.state === 'ready' && s.workspace.trusted, 'trusted and connected')
   evidence.checks.push('Unknown folder asks for trust first; auto mode disabled until trusted')
 
+  // The brain chip lists who she can think with, the current one marked, and closes with Escape.
+  await page.locator('.brain-chip').click()
+  await page.locator('.brain-list button[data-brain="pi"][aria-pressed="true"][data-state="ready"]').waitFor()
+  assert.equal(await page.locator('.brain-list button[data-brain]').count(), 3)
+  await page.keyboard.press('Escape')
+  await page.locator('.brain-list').waitFor({ state: 'detached' })
+  evidence.checks.push('Brain chip: pi, Claude Code and Codex listed with their state; pi marked as thinking')
+
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('你好')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
   await until(page, s => s.state === 'ready' && s.messages?.length === 2, 'greeting')
