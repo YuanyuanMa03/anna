@@ -63,7 +63,8 @@ describe('acp protocol', () => {
   })
 })
 
-describe('acp kernel', () => {
+// Windows has no sandbox, so no ACP brain is offered or started there; the agent-process tests run on macOS and Linux.
+describe.skipIf(process.platform === 'win32')('acp kernel', () => {
   it('runs a turn: streams her words, passes the tool call through Anna\'s gate, keeps the transcript', async () => {
     const { value, events, gated } = await context({ instructions: [] })
     const kernel = new AcpKernel(value, 'gemini')
