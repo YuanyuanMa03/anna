@@ -102,7 +102,7 @@ export class Connection {
       const waiter = this.pending.get(message.id)!
       this.pending.delete(message.id)
       if (message.error)
-        waiter.reject(new AcpError(message.error.message ?? 'error', message.error.code))
+        waiter.reject(new AcpError(message.error.message ?? '出错了', message.error.code))
       else waiter.resolve(message.result)
     }
   }

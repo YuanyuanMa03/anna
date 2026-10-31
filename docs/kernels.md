@@ -85,16 +85,18 @@ implements `AgentKernel`:
   does not make an agent ask before every call, and its own settings (auto-accept, yolo) can skip asking. So:
   - The whole agent process runs inside Anna's sandbox (`context.sandbox.wrap`): her data stays unreadable and
     unwritable, writes are limited to the workspace, temp and package caches, and every network host goes through her
-    network approval. Without a sandbox (Windows today) no ACP brain is offered or started.
-  - A tool call that starts without having asked is checked when it shows up: a change (edit, shell, anything unknown)
-    stops the turn at once with a message to switch the agent's own approvals to asking; a read, search or fetch goes
-    through her gate and stops the turn if the gate says no. A change caught this way may already have happened; the
-    workspace checkpoint can undo it.
+    network approval. Wherever the sandbox is unavailable (Windows; Linux without bubblewrap, socat and ripgrep; a
+    failed self-test; `ANNA_DISABLE_SANDBOX=1`) no ACP brain is offered or started.
+  - A tool call that starts without having asked is checked when it is reported (`in_progress` or `completed`): a
+    change (edit, shell, anything unknown) stops the turn at once with a message to switch the agent's own approvals to
+    asking; a read, search or fetch goes through her gate and stops the turn if the gate says no. Either way the call
+    may already have run: a change can be undone with the workspace checkpoint, and a read has already reached the
+    agent. A call the agent never reports is limited by the sandbox alone.
 - Abort sends `session/cancel`, and an open permission question is answered `cancelled`. An error answering the first
   prompt usually means the agent is not logged in; the message says so, with the end of the agent's stderr.
 
 Known limits: agents that keep their own state outside the workspace and caches may fail to write it inside the
-sandbox; in Plan mode the sandbox refuses network unless a `Network(host)` rule allows the agent's model host; Anna's
+sandbox; in Plan mode the sandbox refuses all network, so an ACP brain cannot reach its model there; Anna's
 own tools reach only agents that accept HTTP MCP servers.
 
 Verified with a protocol-faithful fake (`tests/fixtures/fake-acp-agent.mjs`, unit tests and the desktop acceptance).
