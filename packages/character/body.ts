@@ -132,16 +132,11 @@ export class BodyDirector {
 
   touch(region: Touch, now: number, double = false) {
     // A double click anywhere on her earns a wink. It arrives after its two clicks: one gesture, not a third poke.
-    if (double) {
+    this.pokes = double ? [] : [...this.pokes.filter(at => now - at < pokeMs), now]
+    const pouting = this.pokes.length >= 3
+    if (pouting)
       this.pokes = []
-      return this.queue(wink, now)
-    }
-    this.pokes = [...this.pokes.filter(at => now - at < pokeMs), now]
-    if (this.pokes.length >= 3) {
-      this.pokes = []
-      return this.queue(pout, now)
-    }
-    this.queue(touches[region], now)
+    this.queue(double ? wink : pouting ? pout : touches[region], now)
   }
 
   cue(kind: MotionCue, now: number) { this.queue(cues[kind], now) }

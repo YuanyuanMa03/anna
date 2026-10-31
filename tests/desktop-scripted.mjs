@@ -75,7 +75,8 @@ try {
     assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), body ? 'mesh' : 'live2d')
     evidence.checks.push(`Stage: ${body ? 'her own body (mesh avatar)' : 'Live2D form, no body archive in this build'}`)
     if (body) {
-      // Image pixels of her art (1672 × 941) to the window: a pat on her hair, then a double click.
+      // Image pixels of her current art (1672 × 941; update with the art) to the window: a pat on her hair, then a
+      // double click once the 2.5 s poke window has passed, so its two clicks are not taken for pokes three and four.
       const canvas = await page.locator('.body-stage canvas').boundingBox()
       const at = (x, y) => ({ x: canvas.x + x * canvas.width / 1672, y: canvas.y + y * canvas.height / 941 })
       const hair = at(840, 120)
