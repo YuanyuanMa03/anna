@@ -142,17 +142,28 @@ const place = ref<ReturnType<typeof captionPlace>>()
 /** Your words, drifting up toward her after you send them, then gone. */
 const drifts = ref<{ id: number, text: string }[]>([])
 let driftId = 0
+const timers = new Set<number>()
 const menuOpen = ref(false)
+const menuList = ref<HTMLElement>()
 function play(kind: MotionCue) { cue.value = { kind, at: Date.now() } }
 function drift(text: string) {
   const id = ++driftId
   drifts.value = [...drifts.value, { id, text: text.length > 80 ? `${text.slice(0, 80)}…` : text }]
-  window.setTimeout(() => { drifts.value = drifts.value.filter(item => item.id !== id) }, 2600)
+  const timer = window.setTimeout(() => {
+    timers.delete(timer)
+    drifts.value = drifts.value.filter(item => item.id !== id)
+  }, 2600)
+  timers.add(timer)
 }
 function placeCaption() {
   const box = bubble.value?.parentElement?.getBoundingClientRect()
-  if (box)
-    place.value = captionPlace({ mouth: anchors.value.mouth, clearance: anchors.value.reach, viewport: { width: window.innerWidth, height: window.innerHeight }, size: { width: Math.min(380, window.innerWidth * 0.34), height: box.height } })
+  if (!box)
+    return
+  const next = captionPlace({ mouth: anchors.value.mouth, clearance: anchors.value.reach, viewport: { width: window.innerWidth, height: window.innerHeight }, size: { width: Math.min(380, window.innerWidth * 0.34), height: box.height } })
+  // Anchors arrive several times a second; only a real move (more than a couple of pixels) re-places her words.
+  const moved = !place.value || place.value.side !== next.side || Math.abs(place.value.left - next.left) + Math.abs(place.value.top - next.top) + Math.abs(place.value.width - next.width) > 2
+  if (moved)
+    place.value = next
 }
 /** A soft curve from her hand to the card she is holding out or reading. */
 function handPath(box: DOMRect, hand: { x: number, y: number }) {
@@ -279,6 +290,13 @@ onMounted(async () => {
 })
 watch(() => messages.value.length, () => { void scrollHistory() })
 watch(input, () => { typedAt.value = Date.now() })
+// Opening the corner menu moves focus to its first place, so it works from the keyboard.
+watch(menuOpen, async (isOpen) => {
+  if (!isOpen)
+    return
+  await nextTick()
+  menuList.value?.querySelector('button')?.focus()
+})
 watch(() => anna.value.phase, (phase, previous) => {
   if (phase === 'responding' && previous !== 'responding')
     fromMouth()
@@ -300,7 +318,7 @@ watch(() => character.value.id, (_, previous) => {
   window.setTimeout(() => play('greet'), 1200)
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
-onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); speechSynthesis.cancel() })
+onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); timers.forEach(timer => window.clearTimeout(timer)); speechSynthesis.cancel() })
 </script>
 
 <template>
@@ -311,15 +329,15 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div class="corner-actions">
         <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" @click="settingsOpen = true"><i />大脑 · {{ snapshot.kernel.label }}</button>
         <div class="menu">
-          <button class="menu-button" aria-label="更多" aria-haspopup="menu" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯<small v-if="callTools.length">{{ callTools.length }}</small></button>
+          <button class="menu-button" aria-label="更多" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">⋯<small v-if="callTools.length">{{ callTools.length }}</small></button>
           <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
-          <nav v-if="menuOpen" class="menu-list" role="menu" aria-label="更多">
-            <button role="menuitem" @click="open(() => drawer = 'history')">对话记录</button>
-            <button role="menuitem" @click="open(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
-            <button role="menuitem" @click="open(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
-            <button role="menuitem" @click="open(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
-            <button role="menuitem" @click="open(() => pluginsOpen = true)">外观与能力</button>
-            <button role="menuitem" @click="open(() => settingsOpen = true)">模型与设置</button>
+          <nav v-if="menuOpen" ref="menuList" class="menu-list" aria-label="更多">
+            <button @click="open(() => drawer = 'history')">对话记录</button>
+            <button @click="open(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
+            <button @click="open(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+            <button @click="open(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length">{{ snapshot.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length }}</small></button>
+            <button @click="open(() => pluginsOpen = true)">外观与能力</button>
+            <button @click="open(() => settingsOpen = true)">模型与设置</button>
           </nav>
         </div>
       </div>
@@ -385,7 +403,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
 
     <svg class="stage-overlay" aria-hidden="true"><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
-    <footer class="dock whisper">
+    <footer class="dock">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>

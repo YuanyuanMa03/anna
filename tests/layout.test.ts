@@ -31,6 +31,12 @@ describe('caption place', () => {
     expect(place.side).toBe('right')
     expect(place.left).toBeGreaterThan(300)
   })
+  it('falls back to the left edge, away from the cards, when neither side has room', () => {
+    const place = captionPlace({ mouth: { x: 450, y: 330 }, clearance: 360, viewport: { width: 900, height: 700 }, size })
+    expect(place.side).toBe('left')
+    expect(place.left).toBe(16)
+    expect(place.width).toBe(220)
+  })
   it('stays inside the window, below the corner bar and above the whisper line', () => {
     const high = captionPlace({ mouth: { x: 640, y: 20 }, viewport, size })
     expect(high.top).toBeGreaterThanOrEqual(64)

@@ -49,7 +49,7 @@ const snapshot = async page => (await page.evaluate(() => window.anna.invoke({ t
 /** Opens one of the places behind the corner menu. */
 async function menu(page, name) {
   await page.getByRole('button', { name: '更多', exact: true }).click()
-  await page.getByRole('menuitem', { name }).click()
+  await page.locator('.menu-list').getByRole('button', { name }).click()
 }
 async function until(page, predicate, label, timeout = 20000) {
   const deadline = Date.now() + timeout

@@ -7,9 +7,10 @@ const narrowest = 220
 
 /**
  * Where her words float: beside her face, on her left (screen left; cards come from the hand on the right). They narrow
- * to stay on that side, move to her right only when even the narrowest column does not fit, and always stay inside the
- * window between the corner bar and the whisper line. `clearance` is how far from her mouth her words must start to stay
- * off her face and hair; `size` is the width they would like and the height they take.
+ * to stay on that side, move to her right only when even the narrowest column does not fit there (and to the left edge
+ * when it fits on neither side), and always stay inside the window between the corner bar and the whisper line.
+ * `clearance` is how far from her mouth her words must start to stay off her face and hair; `size` is the width they
+ * would like and the height they take.
  */
 export function captionPlace(input: { mouth?: { x: number, y: number }, clearance?: number, viewport: { width: number, height: number }, size: { width: number, height: number } }) {
   const { mouth, viewport, size } = input
@@ -23,6 +24,9 @@ export function captionPlace(input: { mouth?: { x: number, y: number }, clearanc
     const width = Math.min(size.width, roomLeft)
     return { left: mouth.x - gap - width, top: y, width, side: 'left' as const }
   }
-  const width = Math.max(narrowest, Math.min(size.width, viewport.width - margin - mouth.x - gap))
-  return { left: Math.min(mouth.x + gap, viewport.width - margin - width), top: y, width, side: 'right' as const }
+  const roomRight = viewport.width - margin - mouth.x - gap
+  if (roomRight >= narrowest)
+    return { left: mouth.x + gap, top: y, width: Math.min(size.width, roomRight), side: 'right' as const }
+  // Too narrow on both sides: the left edge, where at least the cards at her right hand are not covered.
+  return { left: margin, top: y, width: narrowest, side: 'left' as const }
 }
