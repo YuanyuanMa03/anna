@@ -18,7 +18,7 @@ watch(() => props.snapshot.agents.pendingImport, (pending) => {
 const agents = computed(() => props.snapshot.agents)
 const name = computed(() => companion(props.snapshot.settings.characterId).name)
 const delegates = computed(() => agents.value.detected.filter(agent => agent.tier === 'delegate'))
-const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier === 'switch'))
+const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier !== 'delegate'))
 function install(agent: AgentStatus) {
   confirmInstall.value = undefined
   installing.value = agent.id

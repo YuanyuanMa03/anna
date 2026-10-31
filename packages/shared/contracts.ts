@@ -48,7 +48,7 @@ export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: stri
 export interface AgentStatus {
   id: string
   label: string
-  tier: 'delegate' | 'switch'
+  tier: 'delegate' | 'switch' | 'detect'
   installed: boolean
   path?: string
   version?: string
