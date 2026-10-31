@@ -170,7 +170,11 @@ writes a Claude Code-format rule to the workspace. Tasks that come in over WeCha
 | Gemini CLI | ✅ | | once, before the task | built from the protocol |
 | OpenCode | ✅ | | once, before the task | built from the protocol |
 | Pi | ✅ | | once, before the task | built from the docs |
-| Claude Desktop, Grok Build, OpenClaw, Hermes, MiniMax Code | detect + switch provider | | | |
+| Claude Desktop, Grok Build, OpenClaw, Hermes, MiniMax Code, Kimi Code, Oh My Pi, DeepSeek Harness, Antigravity CLI | detect + switch provider | | | |
+| Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | | | |
+
+The brain chip in the corner (「用 pi 思考 ▾」) lists every brain on this machine with what stands between it and thinking,
+and switches in one click. Someone without a model is offered a signed-in Claude Code or Codex instead.
 
 Anna snapshots the workspace before each delegation, so whatever another agent changes can be diffed and undone too.
 See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new agent.

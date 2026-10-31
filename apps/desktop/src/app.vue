@@ -83,7 +83,6 @@ const delegates = computed(() => snapshot.value?.agents.detected.filter(agent =>
 /** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
 const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey }) : [])
 const recommended = computed(() => recommendedBrain(brains.value))
-const brainHints: Record<BrainChoice['state'], string> = { 'ready': '', 'signed-out': ' · 先在终端登录', 'missing': ' · 去安装', 'needs-key': ' · 去配置' }
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
@@ -251,7 +250,10 @@ function openFromMenu(action: () => void) {
   menuOpen.value = false
   action()
 }
-/** A brain that can think takes over now; pi without a model opens its settings; a missing agent opens the sheet to install it. */
+/**
+ * A brain that can think takes over now; pi without a model opens its settings; an agent that is missing or signed out opens
+ * the agents sheet, where it can be installed or its login checked.
+ */
 function pickBrain(choice: BrainChoice) {
   brainOpen.value = false
   if (choice.state === 'needs-key') {
@@ -260,7 +262,7 @@ function pickBrain(choice: BrainChoice) {
       void run({ type: 'kernel', id: choice.id })
     settingsOpen.value = true
   }
-  else if (choice.state === 'missing') {
+  else if (choice.state === 'missing' || choice.state === 'signed-out') {
     void run({ type: 'snapshot' }).then(() => { agentsOpen.value = true })
   }
   else if (!choice.current) {
@@ -359,11 +361,11 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <div class="corner-actions">
         <div class="menu">
-          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />大脑 · {{ snapshot.kernel.label }}</button>
+          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ snapshot.kernel.label }} 思考 ▾</button>
           <div v-if="brainOpen" class="menu-backdrop" @click="brainOpen = false" />
           <nav v-if="brainOpen" ref="menuList" class="menu-list brain-list" :aria-label="`${character.name} 用谁来思考`">
             <span class="menu-title">{{ character.name }} 用谁来思考</span>
-            <button v-for="choice in brains" :key="choice.id" :data-brain="choice.id" :data-state="choice.state" :aria-pressed="choice.current" :disabled="configuring || running" @click="pickBrain(choice)"><strong>{{ choice.label }}</strong><small>{{ choice.note }}{{ brainHints[choice.state] }}</small></button>
+            <button v-for="choice in brains" :key="choice.id" :data-brain="choice.id" :data-state="choice.state" :aria-pressed="choice.current" :disabled="configuring || running" @click="pickBrain(choice)"><strong>{{ choice.label }}</strong><small>{{ choice.note }}{{ choice.hint && ` · ${choice.hint}` }}</small></button>
             <button class="more" @click="brainOpen = false; settingsOpen = true">模型与设置…</button>
           </nav>
         </div>

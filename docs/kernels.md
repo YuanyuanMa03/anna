@@ -4,7 +4,8 @@ Anna uses other agents in two ways. Both are built on the adapters in `packages/
 
 - **Delegation**: pi is Anna's brain and the other agents are her colleagues. Mention one with `@claude <task>`, or let
   Anna decide through the `anna_delegate` tool. Implemented in `anna-host/delegator.ts`.
-- **Brain swap**: in **Model & Settings**, replace Anna's brain with Claude Code or Codex. Implemented in
+- **Brain swap**: from the brain chip in the corner (or **Model & Settings**), replace Anna's brain with Claude Code or Codex in
+  one click; `agents/brains.ts` lists the choices and their state. Implemented in
   `kernels/external/kernel.ts`. The provider chosen for that agent under **External agents** applies here too, read
   again every turn, so Codex can run on DeepSeek's native Responses endpoint.
 
@@ -29,7 +30,7 @@ is the brain, `kernels/external/mcp.ts` serves the same tools as a Streamable HT
 
 | File | Responsibility |
 |---|---|
-| `agents/catalog.ts` | The same 10 apps as cc-switch: detection, config folders, install and upgrade commands, capability tier |
+| `agents/catalog.ts` | cc-switch's 14 apps plus ten more local agents from the ACP registry: detection, config folders, install and upgrade commands, tier (`delegate`, `switch`, `detect`) |
 | `agents/detect.ts` | Searches `PATH` plus nvm, fnm, volta, mise, Homebrew and npm global folders; reads the version; runs each agent's own login-status command |
 | `agents/launch.ts` | Maps Anna's mode, provider, session and persona to each agent's command-line flags |
 | `agents/adapters/*` | Decodes each agent's headless output line by line into Anna's `KernelEvent`s and writes approval replies |

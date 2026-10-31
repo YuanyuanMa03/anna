@@ -6,7 +6,7 @@ describe('install commands', () => {
   it('runs only plain global npm installs itself, and every agent she can delegate to has one', () => {
     expect(autoInstallable('npm i -g @deepseek-ai/dsh@latest --engine-strict')).toBe(true)
     expect(autoInstallable('curl -fsSL https://antigravity.google/cli/install.sh | bash')).toBe(false)
-    expect(autoInstallable('bun install -g @oh-my-pi/pi-coding-agent@latest')).toBe(false)
+    expect(autoInstallable('curl -fsSL https://omp.sh/install | sh')).toBe(false)
     expect(autoInstallable('npm i -g x; rm -rf ~')).toBe(false)
     for (const agent of catalog.filter(item => item.tier === 'delegate'))
       expect(autoInstallable(agent.install!), agent.id).toBe(true)
@@ -28,6 +28,11 @@ describe('brain choices', () => {
     const choices = brainChoices({ detected: [], current: 'pi', hasKey: false })
     expect(choices.find(choice => choice.id === 'pi')).toMatchObject({ state: 'needs-key' })
     expect(choices.find(choice => choice.id === 'claude-code')).toMatchObject({ state: 'missing', note: '未安装' })
+  })
+  it('puts pi first, then the brains that can think now, then the ones that need a step, each with its hint', () => {
+    const choices = brainChoices({ detected: [{ id: 'claude', installed: false }, codex], current: 'pi', hasKey: true })
+    expect(choices.map(choice => [choice.id, choice.state])).toEqual([['pi', 'ready'], ['codex', 'signed-out'], ['claude-code', 'missing']])
+    expect(choices.map(choice => choice.hint)).toEqual(['', '先在终端登录', '去安装'])
   })
   it('treats an agent whose login it cannot check as ready', () => {
     const choices = brainChoices({ detected: [{ id: 'claude', installed: true, version: '2.0.0' }], current: 'claude-code', hasKey: false })
