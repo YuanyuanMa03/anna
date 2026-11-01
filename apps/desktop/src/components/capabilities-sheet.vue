@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import type { CompanionForm } from '../../../../packages/character/manifest'
 import type { Command, RuntimeSnapshot } from '../../../../packages/shared/contracts'
 import { computed } from 'vue'
-import { characters } from '../../../../packages/character/manifest'
+import { characters, companion } from '../../../../packages/character/manifest'
 import { modeOrder, modes } from '../../../../packages/permissions/modes'
 
-const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string }>()
-const emit = defineEmits<{ command: [command: Command], close: [] }>()
+const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string, form?: CompanionForm, bodyMissing?: boolean, bodyFailure?: string }>()
+const emit = defineEmits<{ command: [command: Command], close: [], form: [form: CompanionForm] }>()
+const current = computed(() => companion(props.snapshot.settings.characterId))
 const rules = computed(() => [
   ...props.snapshot.workspace.rules.deny.map(rule => ({ rule, kind: '禁止' })),
   ...props.snapshot.workspace.rules.ask.map(rule => ({ rule, kind: '先问' })),
@@ -24,7 +26,15 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
       <div class="character-cards" role="group" aria-label="选择伙伴">
         <button v-for="item in characters" :key="item.id" :aria-label="`选择 ${item.name}`" :aria-pressed="snapshot.settings.characterId === item.id" class="character-card" :class="[{ selected: snapshot.settings.characterId === item.id }]" :disabled="locked" :title="item.persona" @click="emit('command', { type: 'character', id: item.id })"><img :src="item.thumbnailPath" :alt="item.model"><span><strong>{{ item.name }}<i :class="item.gender">{{ item.gender === 'female' ? '♀' : '♂' }}</i></strong><small>{{ item.tagline }}</small></span></button>
       </div>
-      <p class="small muted">每位伙伴有自己的名字、性格和说话方式；诚实、权限和记忆这些底线大家都一样，换人后对话和记忆会延续。形象来自 Live2D 官方样例模型，使用前请阅读随附许可证。</p>
+      <p class="small muted">每位伙伴有自己的名字、性格和说话方式；诚实、权限和记忆这些底线大家都一样，换人后对话和记忆会延续。伙伴的二次元形象来自 Live2D 官方样例模型，使用前请阅读随附许可证。</p>
+
+      <div v-if="current.body && !bodyMissing" class="plugin-row form-row">
+        <div><h3>{{ current.name }} 的形态</h3><p>本体由 {{ current.name }} 自己的原画做成：会看着你，你打字时低头听，摸摸头会害羞，太久没人理会犯困。二次元是 Live2D 样例形象。</p><span v-if="bodyFailure" role="alert">这台电脑上显示不了本体（{{ bodyFailure }}），先用二次元形象。</span></div>
+        <div class="segmented" role="group" :aria-label="`${current.name} 的形态`">
+          <button :aria-pressed="form === 'body'" @click="emit('form', 'body')">本体</button>
+          <button :aria-pressed="form === 'anime'" @click="emit('form', 'anime')">二次元</button>
+        </div>
+      </div>
 
       <div class="plugin-row">
         <div><h3>工作文件夹</h3><p>{{ snapshot.workspace.path }}</p><span>{{ isDefault ? 'Anna 自己的默认工作区（已信任）' : snapshot.workspace.trusted ? '已信任：加载项目说明（AGENTS.md），可使用协作与放手模式' : '未信任：不加载项目说明，只能使用规划和谨慎模式' }}</span></div>

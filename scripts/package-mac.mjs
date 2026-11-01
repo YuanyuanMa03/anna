@@ -4,6 +4,7 @@ import { cp, mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { assertNoBody } from './body-guard.mjs'
 
 /** Stage the production dependency closure and a complete Electron application. No user data enters the bundle. */
 async function main() {
@@ -15,6 +16,7 @@ async function main() {
   const stage = resolve('.data/macos-stage')
   const icon = resolve('.data/Anna.iconset')
   execFileSync('pnpm', ['build'], { stdio: 'inherit' })
+  assertNoBody()
   await mkdir(output, { recursive: true })
   await rm(stage, { recursive: true, force: true })
   execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', stage], { stdio: 'inherit' })

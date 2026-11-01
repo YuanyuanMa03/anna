@@ -96,6 +96,11 @@ previous pose comes back only after all of them are resolved.
 The halo and mode badge colors follow the mode: Plan is blue, Ask amber, Edit lavender and Auto green. While another
 agent works, Anna switches to a "supervising" pose.
 
+Anna has a second form, her own body: a mesh avatar of her original art (`apps/desktop/src/body-stage.vue`). It takes
+the same props and events as the Live2D stage. The Director still decides which phase she performs; `character/body.ts`
+turns that phase, the person's presence and touches into motions, expressions and gaze for the mesh-avatar runtime.
+The archive is not committed or published, so public builds show only the Live2D form; see `packages/character/README.md`.
+
 ## Linux: Chromium sandbox
 
 Chromium's own process sandbox (separate from the bubblewrap sandbox that confines shell commands) needs either
