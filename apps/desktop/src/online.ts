@@ -40,9 +40,9 @@ export function tourPrompts() {
 /** The tour card: what the demo shows, and what only the desktop app does (said as such). */
 export const tour = {
   online: [
-    { title: '派活，再验收', body: '输入 @claude 或 @codex，把活交给 Claude Code、Codex。它们做完，伙伴会亲自核对改动，再告诉你能不能放心用。' },
+    { title: '派活，再验收', body: '输入 @claude 或 @codex，把活交给 Claude Code、Codex。它们做完，Anna 会亲自核对改动，再告诉你能不能放心用。' },
     { title: 'Claude Code、Codex 跑在魔搭 Qwen 上', body: '它们在这里没有自己的账号：Anna 的本地路由把它们的请求转成 Qwen 能懂的格式（桌面版用同一套路由接你自己的服务商）。某个模型的免费额度用完，服务端会自动换下一个。' },
-    { title: '一本共同的日记', body: '五位伙伴、三种大脑共用记忆，每条都写明是谁记的。说一句「记住：…」，再换一位伙伴，或在“模型与设置”里把大脑换成 Claude Code，问问看。' },
+    { title: '一本日记', body: '换了大脑，她还是记得你。每条都写明是谁记的。说一句「记住：…」，再换一个大脑问问她。' },
   ],
   desktop: [
     { title: '微信 ClawBot', body: '在手机微信里给 Anna 派活，她在电脑上做完，把结果发回微信。' },
