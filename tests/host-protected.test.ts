@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { expect, it } from 'vitest'
 import { Host } from '../packages/anna-host/host'
@@ -10,12 +10,12 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 /** pi's shell tool: bash, or powershell on Windows. */
 const shell = process.platform === 'win32' ? 'powershell' : 'bash'
 
-it('the agents\' config backups (their original keys) are Anna\'s own data: no tool reads them, even in Auto', async () => {
+it.each([['the agents\' config backups (their original keys)', 'agent-backups/codex/auth.json.orig'], ['the brain set aside by the data move', 'before-0.6/credential.bin']])('%s are Anna\'s own data: no tool reads them, even in Auto', async (_name, file) => {
   const data = await mkdtemp(join(tmpdir(), 'anna-protected-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
-  const backup = join(data, 'agent-backups/codex/auth.json.orig')
-  await mkdir(join(data, 'agent-backups/codex'), { recursive: true })
+  const backup = join(data, file)
+  await mkdir(dirname(backup), { recursive: true })
   await writeFile(backup, '{"OPENAI_API_KEY":"sk-user-original"}')
   await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend([{ tools: [{ name: 'read', args: { path: backup } }] }, { tools: [{ name: shell, args: { command: `cat '${backup}'` } }] }, { text: '好的。' }], data)

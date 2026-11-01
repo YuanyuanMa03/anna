@@ -145,5 +145,7 @@ asserts that Chromium's sandbox is on.
 | `journal.json` | the last 40 tasks per workspace (request, status, changed files, collaborators, undo), briefed to a new session |
 | `pi-agent/auth.json` | always `{}`; keys stay in memory |
 
-The data directory is `~/.local/share/anna-dsh` on macOS (kept from earlier releases), `$XDG_DATA_HOME/anna` on Linux
-and `%APPDATA%\Anna` on Windows.
+The data directory is `~/Library/Application Support/Anna` on macOS, `%APPDATA%\Anna` on Windows and
+`$XDG_DATA_HOME/anna` on Linux. Releases up to 0.5 kept it in `~/.local/share/anna-dsh` on macOS: the first launch moves it
+(`anna-host/data-home.ts`) and leaves a link behind. Her memory, sessions and agent backups come along; her brain starts
+fresh, and the old model and key stay in `before-0.6/`.

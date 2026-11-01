@@ -8,8 +8,9 @@ import process from 'node:process'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
+import { moveDataHome } from '../../packages/anna-host/data-home'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
-import { dataDirectory } from '../../packages/shared/platform'
+import { dataDirectory, earlierDataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { createVault } from '../../packages/shared/vault'
 import { externalUrl } from './external-link'
@@ -18,6 +19,12 @@ import { Updater } from './updater'
 
 const root = app.isPackaged ? app.getAppPath() : process.env.ANNA_ROOT ?? resolve(import.meta.dirname, '../../../..')
 const data = dataDirectory(process.platform, process.env, app.getPath('appData'))
+const earlier = earlierDataDirectory(process.platform, process.env)
+if (earlier) {
+  // Never stands in the way of starting: she opens with a new home and says where the old one still is.
+  try { moveDataHome(earlier, data) }
+  catch (error) { dialog.showErrorBox('Anna 的数据没能搬家', `以前的数据还在 ${earlier}，这次先用新的。\n${error instanceof Error ? error.message : String(error)}`) }
+}
 const mac = process.platform === 'darwin'
 // The Keychain entry backing safeStorage is keyed by this name; changing it would orphan saved credentials.
 app.setName('Anna Reborn')

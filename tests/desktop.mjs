@@ -16,7 +16,7 @@ const data = await mkdtemp(resolve('.data/e2e-'))
 const workspace = join(data, 'project')
 await mkdir(workspace)
 await writeFile(join(workspace, 'tasks.txt'), 'Synthetic acceptance input: Anna website; Windows package; WeChat QR.\n')
-const source = process.env.ANNA_CREDENTIAL_SOURCE ?? join(homedir(), '.local/share/anna-dsh')
+const source = process.env.ANNA_CREDENTIAL_SOURCE ?? join(homedir(), 'Library/Application Support/Anna')
 await copyFile(join(source, 'credential.bin'), join(data, 'credential.bin'))
 const previous = JSON.parse(await readFile(join(source, 'settings.json'), 'utf8'))
 // The key is the one this machine already uses; the real requests below would fail if it were bad.
