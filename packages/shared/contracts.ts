@@ -207,6 +207,7 @@ export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'providers' } | 
   | { type: 'collaborator', agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }
 export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'plugin', enabled: boolean }
+  | { type: 'avatar-job', image: string }
   | { type: 'configure', model: ModelSettings, key: string } | { type: 'connect' }
   | { type: 'restart' } | { type: 'stop' } | { type: 'new-session' }
   | { type: 'workspace', path: string }
