@@ -10,7 +10,7 @@ pnpm assets            # Live2D models, not in Git
 pnpm dev:desktop
 ```
 
-You need Node 24+ and pnpm 10. On Linux, install `bubblewrap`, `socat` and `ripgrep` for the command sandbox.
+You only need pnpm. It switches itself to the pinned 10.33.0 (`packageManager`) and downloads the pinned Node 24.21.0, the version inside Electron 44 (`devEngines.runtime`, also in `.nvmrc`), so every machine builds with the same tools. On Linux, install `bubblewrap`, `socat` and `ripgrep` for the command sandbox.
 
 ## Before you open a pull request
 
