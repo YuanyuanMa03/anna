@@ -14,7 +14,8 @@ This project does not copy the AIRI monorepo or its agent runtime.
 
 Anna's own body is drawn by the mesh-avatar runtime (https://github.com/shinshin86/mesh-avatar-studio, MIT, © 2026 Yuki Shindo)
 from an archive built with Mesh Avatar Studio from her original art. The archive (`assets/anna-body/`) and the art
-(`artwork/anna-body/`) are part of this repository and under its license. The art was generated with AI tools.
+(`artwork/anna-body/`) are part of this repository and under its license. The art was generated with AI tools, as was
+the room behind her (`assets/stage/`, `artwork/stage/`).
 
 Haru Greeter (Anna's anime form) is a Live2D sample asset. Anna's license does not cover it.
 Anna's name, personality and lines in `packages/character/manifest.ts` are this project's own writing; the character's design belongs to Live2D Inc.

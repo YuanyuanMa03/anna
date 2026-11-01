@@ -372,7 +372,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       </div>
     </header>
 
-    <section class="scene" :aria-label="`${character.name} 的舞台`">
+    <section class="scene" :data-form="usesBody ? 'body' : 'anime'" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
         <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyFailure = $event" />
