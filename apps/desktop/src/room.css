@@ -1,0 +1,53 @@
+/* The room is a renderer-only appearance. All existing controls and sheets keep their contracts. */
+.app-shell[data-appearance=room] { position: relative; isolation: isolate; background: #211c2c }
+.room-background { position: absolute; inset: 0; background: url('/anna-room/room.png') left center / cover no-repeat; z-index: -1 }
+.room-background::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 42%, #20192b38 65%, #19142166) }
+.room-model { position: fixed; inset: 0; pointer-events: none; z-index: 0 }
+.room-model canvas { display: block }
+.room-loading { position: absolute; left: 10%; top: 40%; max-width: 400px; padding: 16px 22px; border-radius: 18px; color: #fff6ff; background: #33263bd9 }
+.room-touch { position: fixed; left: 4%; top: 15%; width: 49%; height: 69%; padding: 0; border: 0; border-radius: 45%; background: transparent; z-index: 1 }
+.room-touch:hover { background: transparent }
+.room-touch:focus-visible { outline: 2px solid #ead8fa; outline-offset: -10px }
+[data-appearance=room] .topbar { padding: 18px 26px 14px; gap: 14px; background: linear-gradient(#20172ad9, #20172a38); flex-wrap: wrap }
+[data-appearance=room] .brand { color: #f4e9fc }
+[data-appearance=room] .brand span, [data-appearance=room] .connection { color: #e5d7ee }
+[data-appearance=room] .header-actions { gap: 6px }
+[data-appearance=room] .header-actions button { background: #fff7ffdc; font-size: 11px; padding: 7px 10px }
+[data-appearance=room] .scene { grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr); grid-template-rows: auto minmax(0, 1fr); gap: 16px 28px; padding: 0 32px; z-index: 1 }
+[data-appearance=room] .stage { grid-column: 1; grid-row: 1 / 3 }
+[data-appearance=room] .stage-halo { display: none }
+[data-appearance=room] .speech { grid-column: 2; grid-row: 1; margin: 6vh 0 0; gap: 10px }
+[data-appearance=room] .speaker { color: #f5e6ff; font-size: 14px; text-shadow: 0 1px 8px #251d2c }
+[data-appearance=room] .speaker small { font-size: 11px; color: #e0d1e8 }
+[data-appearance=room] .bubble { background: #fff8fff0; backdrop-filter: blur(20px); border-color: #f5e8ff99; padding: 22px 24px; border-radius: 24px 24px 24px 8px; box-shadow: 0 14px 50px #100b1929; max-height: 34vh }
+[data-appearance=room] .bubble p, [data-appearance=room] .bubble .rich { font-size: 14px; line-height: 1.95 }
+[data-appearance=room] .suggestions button { background: #fff8ffe3 }
+[data-appearance=room] .props { grid-column: 2; grid-row: 2; position: relative; z-index: 2; padding: 0 2px 8px }
+[data-appearance=room] .props .card { background: #fff8fff0; backdrop-filter: blur(18px) }
+[data-appearance=room] .status-ribbon { bottom: 12px; left: 50% !important; background: #fff8ffe3; max-width: 100% }
+[data-appearance=room] .dock { position: relative; z-index: 3; width: 46.5%; margin-left: auto; padding: 10px 32px 24px 0; background: transparent }
+[data-appearance=room] .composer { background: #fff8fff2; backdrop-filter: blur(24px); box-shadow: 0 12px 40px #17102036; border-color: #f3dfff99 }
+[data-appearance=room] .composer-actions { flex-wrap: wrap; gap: 8px }
+[data-appearance=room] .mode-switch { flex: 1 0 100%; justify-content: space-between; margin: 0 }
+[data-appearance=room] .mode-switch button { white-space: nowrap; padding: 6px 10px }
+[data-appearance=room] .composer-actions label { margin-right: auto; white-space: nowrap }
+[data-appearance=room] .composer-actions > button { white-space: nowrap }
+[data-appearance=room] .stage-overlay { display: none }
+@media (max-width: 1100px) {
+  [data-appearance=room] .topbar { padding: 12px 20px; gap: 10px }
+  [data-appearance=room] .header-actions { width: 100%; flex-wrap: wrap; margin: 0 }
+  [data-appearance=room] .scene { grid-template-columns: minmax(0, 1fr) minmax(330px, 0.95fr); gap: 10px 16px; padding: 0 20px }
+  [data-appearance=room] .speech { margin-top: 3vh }
+  [data-appearance=room] .bubble { max-height: 30vh; padding: 15px 18px }
+  [data-appearance=room] .dock { width: 49%; padding: 8px 20px 16px 0 }
+}
+@media (max-width: 700px) {
+  [data-appearance=room] .scene { display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(140px, 27vh) auto minmax(0, 1fr); gap: 8px }
+  [data-appearance=room] .stage { grid-column: 1; grid-row: 1; min-height: 0 }
+  [data-appearance=room] .speech { grid-column: 1; grid-row: 2; margin: 0 }
+  [data-appearance=room] .props { grid-column: 1; grid-row: 3 }
+  [data-appearance=room] .bubble { max-height: 25vh }
+  [data-appearance=room] .dock { width: 100%; padding: 8px 20px 16px }
+  [data-appearance=room] .status-ribbon { bottom: 0; max-width: 90%; font-size: 10px }
+  .room-touch { top: 14%; height: 28%; width: 65% }
+}

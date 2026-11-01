@@ -12,6 +12,7 @@ import ApprovalCard from './components/approval-card.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
+import RoomStage from './room-stage.vue'
 import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -20,6 +21,9 @@ const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', fi
 const snapshot = ref<RuntimeSnapshot>()
 const messages = ref<Message[]>([])
 const settingsOpen = ref(false)
+// Appearance belongs to this renderer, independently of the brain, persona and session settings.
+const roomAppearance = ref(localStorage.getItem('anna.appearance') !== 'classic')
+watch(roomAppearance, value => localStorage.setItem('anna.appearance', value ? 'room' : 'classic'))
 const pluginsOpen = ref(false)
 const agentsOpen = ref(false)
 const collaborator = ref<{ agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }>()
@@ -260,8 +264,11 @@ watch(() => snapshot.value?.result?.taskId, () => {
     play('celebrate')
 })
 watch(() => character.value.id, (_, previous) => {
-  if (previous)
+  if (previous) {
     repliesFrom.value = messages.value.length
+    // Selecting another existing companion still shows that companion's own model.
+    roomAppearance.value = false
+  }
   window.setTimeout(() => play('greet'), 1200)
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
@@ -269,11 +276,13 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
 </script>
 
 <template>
-  <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
+  <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode" :data-appearance="roomAppearance ? 'room' : 'classic'">
+    <div v-if="roomAppearance" class="room-background" aria-hidden="true" />
     <header class="topbar">
       <div class="brand">anna<span>v0.5</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <nav class="header-actions">
+        <button :aria-pressed="roomAppearance" @click="roomAppearance = !roomAppearance">{{ roomAppearance ? '原有外观' : '房间外观' }}</button>
         <button :aria-pressed="drawer === 'history'" @click="drawer = drawer === 'history' ? undefined : 'history'">对话记录</button>
         <button :aria-pressed="drawer === 'work'" @click="drawer = drawer === 'work' ? undefined : 'work'">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
         <button @click="weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
@@ -286,7 +295,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', resize); window.rem
     <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <CharacterStage :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <RoomStage v-if="roomAppearance" :phase="anna.phase" :mode="mode" :speaking="mouth" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="wide ? 0.62 : 0.4" :cue="cue" :reach="wide ? 260 : 0" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase" :style="{ left: `${(wide ? 0.62 : 0.4) * 100}%` }"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 
