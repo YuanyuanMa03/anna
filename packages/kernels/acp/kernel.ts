@@ -8,7 +8,7 @@ import type { AcpToolCall, PermissionOption } from './protocol'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import process from 'node:process'
 import { catalog } from '../../agents/catalog'
 import { mcpServerName, serveTools } from '../external/mcp'
@@ -73,7 +73,7 @@ export class AcpKernel implements AgentKernel {
     // The wrapped line runs under /bin/sh: there is no sandbox on Windows, so no ACP brain runs there.
     const quote = (part: string) => `'${part.replace(/'/g, `'\\''`)}'`
     const line = [located.command, ...(located.prefix ?? []), ...this.args].map(quote).join(' ')
-    this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, stdio: ['pipe', 'pipe', 'pipe'], shell: true, detached: true })
+    this.child = spawn(await this.context.sandbox.wrap(line, `acp-${this.agent}-${Date.now()}`), { cwd: this.context.workspace, env: { ...process.env, PATH: [dirname(located.command), process.env.PATH].filter(Boolean).join(delimiter) }, stdio: ['pipe', 'pipe', 'pipe'], shell: true, detached: true })
     this.child.stderr?.setEncoding('utf8').on('data', (chunk: string) => { this.stderr = (this.stderr + chunk).slice(-400) })
     this.connection = new Connection(this.child, { request: (method, params) => this.answer(method, params), notify: (method, params) => this.hear(method, params) })
     try {
@@ -123,7 +123,10 @@ export class AcpKernel implements AgentKernel {
     call.gated = true
     const turn = this.turn
     const label = this.capabilities.label
-    if (!['read', 'grep', 'fetch', 'think'].includes(call.name))
+    // Thinking touches nothing, so there is nothing to check.
+    if (call.name === 'think')
+      return
+    if (!['read', 'grep', 'fetch'].includes(call.name))
       return this.stop(turn, `${label} 没有先征得同意就执行了「${call.name}」，这一轮已停止。请在它自己的设置里把审批改为每次询问。`)
     // Fail closed, and stop this call's own turn even if a later one has begun by the time the gate answers.
     try {

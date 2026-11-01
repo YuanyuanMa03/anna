@@ -4,6 +4,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, dirname } from 'node:path'
 import process from 'node:process'
+import { unwrapCmdShim } from './windows-shim'
 
 /** The real machine, for detectAgents. Commands time out so one hung CLI cannot stall detection. */
 export function nodeEnvironment(): DetectEnvironment {
@@ -17,11 +18,12 @@ export function nodeEnvironment(): DetectEnvironment {
       catch { return [] }
     },
     run: (command, args) => new Promise((resolve) => {
-      // npm shims on Windows are .cmd files, which need a shell.
-      const shell = process.platform === 'win32' && /\.(?:cmd|bat|ps1)$/i.test(command)
+      // npm shims on Windows are .cmd files; a script Anna cannot run directly needs a shell.
+      const script = process.platform === 'win32' && /\.(?:cmd|bat|ps1)$/i.test(command)
+      const shim = script && !/\.ps1$/i.test(command) ? unwrapCmdShim(command) : undefined
       // npm-installed CLIs are `#!/usr/bin/env node` scripts: put their own bin dir (where node lives for nvm/fnm) first.
       const env = { ...process.env, PATH: [dirname(command), process.env.PATH].filter(Boolean).join(delimiter), NO_COLOR: '1', CI: '1' }
-      execFile(command, args, { timeout: 8000, shell, windowsHide: true, env }, (error, stdout, stderr) => {
+      execFile(shim?.command ?? command, [...(shim?.prefix ?? []), ...args], { timeout: 8000, shell: script && !shim, windowsHide: true, env }, (error, stdout, stderr) => {
         // Some CLIs (codex login status) report on stderr.
         resolve({ stdout: `${stdout ?? ''}${stderr ?? ''}`, code: error ? (typeof error.code === 'number' ? error.code : 1) : 0 })
       })

@@ -49,6 +49,7 @@ const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
 const pointer = { x: 0, y: 0, at: performance.now() }
 let activeAt = performance.now()
 let lastFrameAt = performance.now()
+let pokeTimer: number | undefined
 
 function layout() {
   if (!element.value)
@@ -112,9 +113,10 @@ function touch(event: MouseEvent, double: boolean) {
   activeAt = performance.now()
   bodyDirector.touch(region, activeAt, double)
   // Her face and hair get a personal reaction; her hands and body hold the work, and a click there opens it,
-  // as a click on the Live2D stage does.
+  // as a click on the Live2D stage does. It waits out a double click, which is a wink and opens nothing.
+  window.clearTimeout(pokeTimer)
   if ((region === 'hands' || region === 'body') && !double)
-    emit('poke')
+    pokeTimer = window.setTimeout(() => emit('poke'), 320)
 }
 
 function tick() {
@@ -215,11 +217,11 @@ onMounted(async () => {
       return
     }
     avatar = loaded
+    // A driver reset or waking from sleep leaves the canvas blank and nothing else would say so.
+    canvas.value!.addEventListener('webglcontextlost', () => fail(new Error('显卡上下文丢失')))
     avatar.setTalkGain(0.18)
     avatar.setSwayGain(reduced.matches ? 0 : 0.5)
     avatar.onMotion((id) => { motion.value = id ?? '' })
-    if (reduced.matches)
-      avatar.setSwayGain(0)
     state.value = 'ready'
     requestAnimationFrame(tick)
   }
@@ -238,16 +240,15 @@ watch(() => props.cue?.at, () => props.cue && bodyDirector.cue(props.cue.kind, p
 watch(() => props.align, layout)
 onBeforeUnmount(() => {
   disposed = true
+  window.clearTimeout(pokeTimer)
   window.removeEventListener('pointermove', track)
   window.removeEventListener('keydown', stir)
   document.removeEventListener('visibilitychange', returned)
   observer?.disconnect()
-  if (avatar) {
-    avatar.destroy()
-    // The runtime keeps its WebGL context for canvas reuse; this canvas is discarded, so free the context now
-    // instead of piling one up per form switch until garbage collection.
-    canvas.value?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
-  }
+  avatar?.destroy()
+  // The runtime keeps its WebGL context for canvas reuse; this canvas is discarded, so free the context now
+  // instead of piling one up per form switch until garbage collection.
+  canvas.value?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
   avatar = undefined
   avatarPackage?.release()
   avatarPackage = undefined

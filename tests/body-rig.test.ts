@@ -47,9 +47,25 @@ describe('portrait binding', () => {
     for (const [a, b] of pairs) {
       const distance = (rig: Rig) => { const x = transform(rig, a!); const y = transform(rig, b!); return Math.hypot(x[0]! - y[0]!, x[1]! - y[1]!) }
       originalStrain = Math.max(originalStrain, Math.abs(distance(fixture) - 10))
-      expect(distance(stabilizeBodyRig(fixture))).toBeCloseTo(10, 8)
+      expect(Math.abs(distance(stabilizeBodyRig(fixture)) - 10)).toBeLessThan(0.05)
     }
     expect(originalStrain).toBeGreaterThan(0.1)
+  })
+  it('still nods and follows: the whole face moves, as one piece', async () => {
+    const js = readFileSync(new URL('../node_modules/mesh-avatar/dist/index.js', import.meta.url), 'utf8')
+    const url = `data:text/javascript;base64,${Buffer.from(`${js}\nexport {xn as kernel,Ge as params};`).toString('base64')}`
+    const { kernel, params } = await import(/* @vite-ignore */ url)
+    const engine = kernel(stabilizeBodyRig(fixture))
+    const moved = (point: number[], pose: Record<string, number>) => {
+      const p = { ...Object.fromEntries(params.map((v: { id: string, def: number }) => [v.id, v.def])), ...pose }
+      const out: number[] = []
+      engine.deformBase(point[0], point[1], engine.baseWeights(...point, 0), p, { gain: 0, bunL: [0, 0], bunR: [0, 0] }, out)
+      return [out[0]! - point[0]!, out[1]! - point[1]!]
+    }
+    const [nose, eyeLeft, eyeRight] = [[500, 350], [440, 300], [560, 300]]
+    expect(Math.abs(moved(nose!, { angleY: -15 })[1]!)).toBeGreaterThan(2.5)
+    expect(Math.abs(moved(nose!, { angleX: 6 })[0]!)).toBeGreaterThan(3)
+    expect(moved(eyeLeft!, { angleX: 6 })[0]).toBeCloseTo(moved(eyeRight!, { angleX: 6 })[0]!, 6)
   })
 })
 

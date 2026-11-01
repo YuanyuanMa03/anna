@@ -2,15 +2,16 @@ import type { Rig } from 'mesh-avatar'
 
 /**
  * Binding for Anna's frontal illustration. A single view has no painted side planes:
- * the runtime's elliptical turn field stretches cheek and hair pixels to invent them.
- * Keep skull rotation, neck blending, eyes and drawn mouths, but remove that elastic
- * pseudo-depth translation. Apply to a copy so hit regions and the archive stay intact.
+ * the runtime's turn field stretches cheek and hair pixels to invent them. Her face moves
+ * as one piece inside that field, so half its travel still reads as a nod or a turn of the
+ * head while the stretch around it halves too; without any she stops nodding altogether.
+ * Apply to a copy so hit regions and the archive stay intact.
  */
 export function stabilizeBodyRig(source: Rig): Rig {
   const rig = structuredClone(source)
   rig.rigidFace = true
-  rig.head.shiftX = 0
-  rig.head.shiftY = 0
+  rig.head.shiftX *= 0.5
+  rig.head.shiftY *= 0.5
   rig.head.maxRoll = Math.min(rig.head.maxRoll, 0.065)
   if (rig.strands) {
     for (const strand of rig.strands)

@@ -35,7 +35,7 @@ describe('brain choices', () => {
     expect(choices.map(choice => choice.hint)).toEqual(['', '先在终端登录', '去安装'])
   })
   it('offers every installed agent that speaks ACP as a brain, and leaves out the ones not installed', () => {
-    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true, version: '0.66.0' }, { id: 'goose', installed: false }, { id: 'grok', installed: true }], current: 'acp:gemini', hasKey: true })
+    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true, version: '0.66.0' }, { id: 'goose', installed: false }, { id: 'grok', installed: true }], current: 'acp:gemini', hasKey: true, acp: true })
     expect(choices.filter(choice => choice.id.startsWith('acp:')).map(choice => [choice.id, choice.label, choice.state, choice.current])).toEqual([
       ['acp:gemini', 'Gemini CLI', 'ready', true],
       ['acp:grok', 'Grok Build', 'ready', false],
@@ -43,7 +43,11 @@ describe('brain choices', () => {
     expect(choices.find(choice => choice.id === 'acp:gemini')?.note).toBe('v0.66.0 · ACP · 未实测')
   })
   it('offers no ACP brain on a machine without a sandbox, where none may run', () => {
-    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: true, sandbox: false })
+    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: true, sandbox: false, acp: true })
+    expect(choices.some(choice => choice.id.startsWith('acp:'))).toBe(false)
+  })
+  it('offers no ACP brain until the machine asks for them: no real agent has run as her brain yet', () => {
+    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: true })
     expect(choices.some(choice => choice.id.startsWith('acp:'))).toBe(false)
   })
   it('treats an agent whose login it cannot check as ready', () => {

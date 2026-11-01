@@ -115,6 +115,8 @@ the sandbox refuses connections to local ports without even asking.
   Claude Code documents for its Read rules.
 - Undo covers changes made by Anna's file tools (write and edit), not changes made by commands. Claude Code's
   checkpoints have the same limit.
+- An ACP brain is checked when it asks. A call it starts without asking is checked only once it is reported, after it may
+  have run, and such a change is not checkpointed: see `docs/kernels.md`.
 - Command classes only reduce prompts; they are not a security boundary. Without a sandbox, trust only your own projects.
 - Anna's data directory is hidden from delegated agents only where the agent supports it. Claude Code gets deny rules
   through `--settings`. Codex's sandbox has no way to deny reads (its policies only limit writes), and Gemini CLI,

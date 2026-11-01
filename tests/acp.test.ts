@@ -1,11 +1,14 @@
 import type { KernelContext, KernelEvent } from '../packages/kernels/types'
-import { mkdtemp } from 'node:fs/promises'
+import { Buffer } from 'node:buffer'
+import { EventEmitter } from 'node:events'
+import { chmod, mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
+import { PassThrough } from 'node:stream'
 import { describe, expect, it } from 'vitest'
 import { AcpKernel } from '../packages/kernels/acp/kernel'
-import { permissionOutcome, toolInput, toolName } from '../packages/kernels/acp/protocol'
+import { Connection, permissionOutcome, toolInput, toolName, toolOutput } from '../packages/kernels/acp/protocol'
 
 const fixture = resolve('tests/fixtures/fake-acp-agent.mjs')
 
@@ -39,7 +42,33 @@ async function context(overrides: Partial<KernelContext> = {}) {
   return { value, events, gated, wrapped }
 }
 
+it.skipIf(process.platform === 'win32')('finds what the agent\'s own folder holds, as an npm-installed agent needs when the app has no shell PATH', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'anna-acp-bin-'))
+  await symlink(process.execPath, join(dir, 'its-own-node'))
+  await writeFile(join(dir, 'agent'), `#!/bin/sh\nexec its-own-node ${JSON.stringify(fixture)}\n`)
+  await chmod(join(dir, 'agent'), 0o755)
+  const { value } = await context({ locate: async () => ({ command: join(dir, 'agent') }) })
+  const kernel = new AcpKernel(value, 'gemini')
+  await expect(kernel.start()).resolves.not.toThrow()
+  await kernel.close()
+})
+
 describe('acp protocol', () => {
+  it('ignores what an agent prints that is JSON but no message, and a null content block', async () => {
+    const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stdin: new PassThrough() })
+    const seen: string[] = []
+    const connection = new Connection(child as never, { request: async () => null, notify: method => seen.push(method) })
+    expect(connection).toBeDefined()
+    child.stdout.write(Buffer.from('null\n42\n"text"\n{"method":"ping"}\n'))
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(seen).toEqual(['ping'])
+    expect(toolOutput([null, { content: { text: 'kept' } }])).toBe('kept')
+  })
+  it('survives writing to an agent that has died', () => {
+    const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stdin: new PassThrough() })
+    expect(new Connection(child as never, { request: async () => null, notify: () => {} })).toBeDefined()
+    expect(() => child.stdin.emit('error', new Error('EPIPE'))).not.toThrow()
+  })
   it('maps ACP tool kinds onto Anna\'s tool names', () => {
     expect(toolName('execute')).toBe('bash')
     expect(toolName('read')).toBe('read')

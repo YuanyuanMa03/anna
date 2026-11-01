@@ -29,7 +29,8 @@
 
 `AgentKernel` is the only interface between Anna and an agent brain. A kernel has two duties:
 
-1. Call `gate(tool, input)` before every tool call.
+1. Call `gate(tool, input)` before every tool call. An ACP agent that runs a tool without asking can only be checked
+   afterwards; `docs/kernels.md` says what happens then.
 2. Emit normalized events: `thinking`, `text`, `tool-start`, `tool-end`, `compacting`, `retrying`.
 
 Permissions, the stage, delivery stats, checkpoints and channels live in the Host and don't depend on the kernel. See
