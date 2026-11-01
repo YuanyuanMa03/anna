@@ -78,6 +78,15 @@ try {
   if (!packaged) {
     assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), 'mesh')
     evidence.checks.push('Stage: her own body (mesh avatar)')
+    // The room behind her really loads: a broken URL in a CSS background fails silently.
+    assert.equal(await page.evaluate(async () => {
+      const url = getComputedStyle(document.querySelector('.app-shell')).backgroundImage.match(/url\("([^"]*room[^"]*)"\)/)?.[1]
+      const room = new Image()
+      room.src = url
+      await room.decode()
+      return room.naturalWidth > 0
+    }), true)
+    evidence.checks.push('Stage: the room is behind her')
     // Image pixels of her current art (1672 × 941; update with the art) to the window: a pat on her hair, then a
     // double click once the 2.5 s poke window has passed, so its two clicks are not taken for pokes three and four.
     const canvas = await page.locator('.body-stage canvas').boundingBox()
