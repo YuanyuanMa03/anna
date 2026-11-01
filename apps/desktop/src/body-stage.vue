@@ -7,6 +7,7 @@ import type { Anchors } from './character-stage.vue'
 import { loadMeshAvatar, openAvatar } from 'mesh-avatar'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt, voiceAt } from '../../../packages/character/body'
+import { followBodyLook, stabilizeBodyRig } from '../../../packages/character/body-rig'
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
 const props = withDefaults(defineProps<{ body: NonNullable<Companion['body']>, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
@@ -47,6 +48,7 @@ let weight = 0
 const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
 const pointer = { x: 0, y: 0, at: performance.now() }
 let activeAt = performance.now()
+let lastFrameAt = performance.now()
 
 function layout() {
   if (!element.value)
@@ -135,8 +137,8 @@ function tick() {
   // Gaze leads and the head follows; a playing motion gets most of the head back so it reads clearly.
   const face = toStage(gazeCentre.x, gazeCentre.y)
   const target = aim(next.look, next.head, { dx: pointer.x - face.x, dy: pointer.y - face.y, reach: Math.max(320, placement.value.width * 0.35) })
-  for (const key of Object.keys(look) as (keyof typeof look)[])
-    look[key] += (target[key] - look[key]) * 0.12
+  followBodyLook(look, target, (now - lastFrameAt) / 1000)
+  lastFrameAt = now
   weight += ((next.look === 'free' ? 0 : motion.value ? 0.3 : 0.8) - weight) * 0.08
   avatar.setParameters(look, weight)
 
@@ -198,7 +200,8 @@ onMounted(async () => {
     const { rig } = opened
     image = { width: rig.image.width, height: rig.image.height }
     mouth = { x: rig.mouth.cx, y: rig.mouth.cy }
-    head = rig.head
+    const stableRig = stabilizeBodyRig(rig)
+    head = stableRig.head
     const centre = rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy]
     gazeCentre = { x: centre[0]!, y: centre[1]! }
     regions = bodyRegions(rig, props.body.hands)
@@ -206,12 +209,14 @@ onMounted(async () => {
     traceSilhouette(opened.assets['base.png']!).catch(() => {})
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, opened, { padTop: 0, padSide: 0, fit: 'contain' })
+    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: { openness: 0.65 } })
     if (disposed) {
       loaded.destroy()
       return
     }
     avatar = loaded
+    avatar.setTalkGain(0.18)
+    avatar.setSwayGain(reduced.matches ? 0 : 0.5)
     avatar.onMotion((id) => { motion.value = id ?? '' })
     if (reduced.matches)
       avatar.setSwayGain(0)

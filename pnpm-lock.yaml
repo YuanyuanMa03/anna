@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  mesh-avatar@0.4.0:
+    hash: 91e791cfe1b6f9ab0e4cd14e082414bf27c331e40da4d354201ce35a83518a50
+    path: patches/mesh-avatar@0.4.0.patch
+
 importers:
 
   .:
@@ -31,7 +36,7 @@ importers:
         version: 8.0.4
       mesh-avatar:
         specifier: 0.4.0
-        version: 0.4.0
+        version: 0.4.0(patch_hash=91e791cfe1b6f9ab0e4cd14e082414bf27c331e40da4d354201ce35a83518a50)
       pixi-live2d-display:
         specifier: 0.4.0
         version: 0.4.0(0736f5bd67d2e4de7e9fff36ad63fa2e)
@@ -6289,7 +6294,7 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  mesh-avatar@0.4.0:
+  mesh-avatar@0.4.0(patch_hash=91e791cfe1b6f9ab0e4cd14e082414bf27c331e40da4d354201ce35a83518a50):
     dependencies:
       fflate: 0.8.3
 

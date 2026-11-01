@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - plugins/*
+patchedDependencies:
+  mesh-avatar@0.4.0: patches/mesh-avatar@0.4.0.patch
 onlyBuiltDependencies:
   - electron
   - esbuild
