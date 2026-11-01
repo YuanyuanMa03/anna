@@ -1,0 +1,27 @@
+diff --git a/dist/index.js b/dist/index.js
+index 9d4970a48f598d8c40a89250e8a4180d0e78e19a..f383de43ab06eb269ea06bf9f20d5064cf67737c 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -308,7 +308,8 @@ function xn(n) {
+     }
+     F[1] += _.mouthOpen * 3.5 * T.jaw;
+     const Z = _.angleX / 30, E = _.angleY / 30;
+-    return F[0] += Z * (8 * T.nose + 5 * T.mouth) + (x - n.face.eyeA.cx) * 0.12 * Z * T.eyeA - (x - n.face.eyeB.cx) * 0.12 * Z * T.eyeB - Z * 9 * T.earR + Z * 4 * T.earL - Z * 10 * (T.bunL + T.bunR), F[1] -= E * (6 * T.nose + 3 * T.mouth), F[1] += (M - n.face.eyeA.cy) * -0.06 * Math.abs(E) * T.eyeA + (M - n.face.eyeB.cy) * -0.06 * Math.abs(E) * T.eyeB, j(F, T.head, _, T.turn), k(F, M, _, T.chest, T.breath, T.shoulder), F;
++    // A frontal portrait has no side planes: preserve the skull instead of warping individual features.
++    return n.rigidFace || (F[0] += Z * (8 * T.nose + 5 * T.mouth) + (x - n.face.eyeA.cx) * 0.12 * Z * T.eyeA - (x - n.face.eyeB.cx) * 0.12 * Z * T.eyeB - Z * 9 * T.earR + Z * 4 * T.earL - Z * 10 * (T.bunL + T.bunR), F[1] -= E * (6 * T.nose + 3 * T.mouth), F[1] += (M - n.face.eyeA.cy) * -0.06 * Math.abs(E) * T.eyeA + (M - n.face.eyeB.cy) * -0.06 * Math.abs(E) * T.eyeB), j(F, T.head, _, T.turn), k(F, M, _, T.chest, T.breath, T.shoulder), F;
+   }
+   const O = n.hand, $ = O?.elbow ?? [0, 0], D = O?.wrist ?? [0, 0], q = O?.knuckle ?? [0, 0], N = O?.contact ?? [0, 0], P = O?.forearmShare ?? 0;
+   function H(x, M) {
+diff --git a/dist/rig/types.d.ts b/dist/rig/types.d.ts
+index a52d406530bfc0d20fc92f3f3653f96cbd1ed61c..c38eba8f0666a37680d7fc3633016c0f384cb372 100644
+--- a/dist/rig/types.d.ts
++++ b/dist/rig/types.d.ts
+@@ -50,6 +50,8 @@ export interface Hand {
+     pinBand: Band;
+ }
+ export interface Rig {
++    /** Opt in for frontal portraits: omit invented per-feature turn parallax. Default unchanged. */
++    rigidFace?: boolean;
+     version: 1;
+     image: {
+         width: number;

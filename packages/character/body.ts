@@ -234,14 +234,14 @@ export function aim(look: Look, head: Head = {}, pointer?: { dx: number, dy: num
     x = look.x
     y = look.y
   }
-  const gazeX = clamp(x * 1.2, -1, 1)
-  const gazeY = clamp(y * 1.2, -1, 1)
+  const gazeX = clamp(x * 0.65, -0.55, 0.55)
+  const gazeY = clamp(y * 0.65, -0.4, 0.4)
   return {
     gazeX,
     gazeY,
-    angleX: clamp(gazeX * 14 + (head.x ?? 0), -30, 30),
-    angleY: clamp(gazeY * 10 + (head.y ?? 0), -30, 30),
-    angleZ: clamp((head.z ?? 0) - gazeX * gazeY * 6, -30, 30),
+    angleX: clamp(gazeX * 6 + (head.x ?? 0), -6, 6),
+    angleY: clamp(gazeY * 4 + (head.y ?? 0), -4, 4),
+    angleZ: clamp((head.z ?? 0) - gazeX * gazeY * 2, -3, 3),
   }
 }
 

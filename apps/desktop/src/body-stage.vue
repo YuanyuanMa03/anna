@@ -7,6 +7,7 @@ import type { Anchors } from './character-stage.vue'
 import { loadMeshAvatar, openAvatar } from 'mesh-avatar'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt, voiceAt } from '../../../packages/character/body'
+import { followBodyLook, stabilizeBodyRig } from '../../../packages/character/body-rig'
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
 const props = withDefaults(defineProps<{ body: NonNullable<Companion['body']>, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
@@ -47,6 +48,8 @@ let weight = 0
 const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
 const pointer = { x: 0, y: 0, at: performance.now() }
 let activeAt = performance.now()
+let lastFrameAt = performance.now()
+let pokeTimer: number | undefined
 
 function layout() {
   if (!element.value)
@@ -110,9 +113,10 @@ function touch(event: MouseEvent, double: boolean) {
   activeAt = performance.now()
   bodyDirector.touch(region, activeAt, double)
   // Her face and hair get a personal reaction; her hands and body hold the work, and a click there opens it,
-  // as a click on the Live2D stage does.
+  // as a click on the Live2D stage does. It waits out a double click, which is a wink and opens nothing.
+  window.clearTimeout(pokeTimer)
   if ((region === 'hands' || region === 'body') && !double)
-    emit('poke')
+    pokeTimer = window.setTimeout(() => emit('poke'), 450)
 }
 
 function tick() {
@@ -135,8 +139,8 @@ function tick() {
   // Gaze leads and the head follows; a playing motion gets most of the head back so it reads clearly.
   const face = toStage(gazeCentre.x, gazeCentre.y)
   const target = aim(next.look, next.head, { dx: pointer.x - face.x, dy: pointer.y - face.y, reach: Math.max(320, placement.value.width * 0.35) })
-  for (const key of Object.keys(look) as (keyof typeof look)[])
-    look[key] += (target[key] - look[key]) * 0.12
+  followBodyLook(look, target, (now - lastFrameAt) / 1000)
+  lastFrameAt = now
   weight += ((next.look === 'free' ? 0 : motion.value ? 0.3 : 0.8) - weight) * 0.08
   avatar.setParameters(look, weight)
 
@@ -198,7 +202,8 @@ onMounted(async () => {
     const { rig } = opened
     image = { width: rig.image.width, height: rig.image.height }
     mouth = { x: rig.mouth.cx, y: rig.mouth.cy }
-    head = rig.head
+    const stableRig = stabilizeBodyRig(rig)
+    head = stableRig.head
     const centre = rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy]
     gazeCentre = { x: centre[0]!, y: centre[1]! }
     regions = bodyRegions(rig, props.body.hands)
@@ -206,15 +211,17 @@ onMounted(async () => {
     traceSilhouette(opened.assets['base.png']!).catch(() => {})
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, opened, { padTop: 0, padSide: 0, fit: 'contain' })
+    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: { openness: 0.65 } })
     if (disposed) {
       loaded.destroy()
       return
     }
     avatar = loaded
+    // A driver reset or waking from sleep leaves the canvas blank and nothing else would say so.
+    canvas.value!.addEventListener('webglcontextlost', () => fail(new Error('显卡上下文丢失')))
+    avatar.setTalkGain(0.18)
+    avatar.setSwayGain(reduced.matches ? 0 : 0.5)
     avatar.onMotion((id) => { motion.value = id ?? '' })
-    if (reduced.matches)
-      avatar.setSwayGain(0)
     state.value = 'ready'
     requestAnimationFrame(tick)
   }
@@ -233,16 +240,15 @@ watch(() => props.cue?.at, () => props.cue && bodyDirector.cue(props.cue.kind, p
 watch(() => props.align, layout)
 onBeforeUnmount(() => {
   disposed = true
+  window.clearTimeout(pokeTimer)
   window.removeEventListener('pointermove', track)
   window.removeEventListener('keydown', stir)
   document.removeEventListener('visibilitychange', returned)
   observer?.disconnect()
-  if (avatar) {
-    avatar.destroy()
-    // The runtime keeps its WebGL context for canvas reuse; this canvas is discarded, so free the context now
-    // instead of piling one up per form switch until garbage collection.
-    canvas.value?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
-  }
+  avatar?.destroy()
+  // The runtime keeps its WebGL context for canvas reuse; this canvas is discarded, so free the context now
+  // instead of piling one up per form switch until garbage collection.
+  canvas.value?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
   avatar = undefined
   avatarPackage?.release()
   avatarPackage = undefined

@@ -31,7 +31,7 @@ export function toolInput(call: AcpToolCall): Record<string, unknown> {
 export function toolOutput(content: unknown) {
   if (!Array.isArray(content))
     return ''
-  return content.map((block: { type?: string, content?: { text?: string }, path?: string }) => block.type === 'diff' ? `diff ${block.path ?? ''}` : block.content?.text ?? '').filter(Boolean).join('\n')
+  return content.map((block: { type?: string, content?: { text?: string }, path?: string } | null) => block?.type === 'diff' ? `diff ${block.path ?? ''}` : block?.content?.text ?? '').filter(Boolean).join('\n')
 }
 
 export interface PermissionOption { optionId: string, kind: string }
@@ -56,6 +56,8 @@ export class Connection {
   private ended?: AcpError
   constructor(private child: ChildProcess, private handlers: { request: (method: string, params: any) => Promise<unknown>, notify: (method: string, params: any) => void }) {
     createInterface({ input: child.stdout! }).on('line', line => this.receive(line))
+    // Writing to an agent that just died: the exit below is what reports it.
+    child.stdin?.on('error', () => {})
     child.on('error', error => this.end(new AcpError(`启动失败（${error.message}）`)))
     child.on('exit', code => this.end(new AcpError(`进程已退出（${code ?? '被终止'}）`)))
   }
@@ -88,6 +90,8 @@ export class Connection {
     let message: { id?: number | string, method?: string, params?: unknown, result?: unknown, error?: { code?: number, message?: string } }
     try { message = JSON.parse(line) }
     catch { return } // agents may log to stdout; anything that is not JSON-RPC is ignored
+    if (!message || typeof message !== 'object')
+      return
     if (message.method && message.id !== undefined) {
       const id = message.id
       this.handlers.request(message.method, message.params).then(

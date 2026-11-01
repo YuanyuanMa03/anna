@@ -81,7 +81,7 @@ const listening = computed(() => Boolean(input.value.trim()) && now.value - type
 const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
 /** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
-const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey, sandbox: snapshot.value.platform.sandbox.available }) : [])
+const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey, sandbox: snapshot.value.platform.sandbox.available, acp: snapshot.value.platform.acp }) : [])
 const recommended = computed(() => recommendedBrain(brains.value))
 const running = computed(() => snapshot.value?.state === 'running')
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
@@ -94,7 +94,7 @@ const connected = computed(() => snapshot.value?.state === 'ready' || snapshot.v
 const connection = computed(() => {
   const state = snapshot.value?.state
   if (connected.value)
-    return snapshot.value?.credential === 'rejected' ? '密钥被拒绝' : snapshot.value?.credential === 'unverified' ? '已就绪 · 未验证' : '已连接'
+    return snapshot.value?.credential === 'rejected' ? '密钥被拒绝' : snapshot.value?.credential === 'unverified' ? '已就绪 · 未验证' : snapshot.value?.settings.kernel.startsWith('acp:') ? '已连接 · 未实测' : '已连接'
   return state === 'starting' ? '正在连接' : state === 'error' ? '连接出错' : '未连接'
 })
 /** After a companion switch, earlier replies belong to someone else: the newcomer greets instead of repeating them. */
@@ -276,8 +276,10 @@ async function showChanges() {
 }
 const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
 function keydown(event: KeyboardEvent) {
-  if (event.key === 'Escape')
+  if (event.key === 'Escape') {
+    document.querySelector<HTMLElement>('.corner [aria-expanded="true"]')?.focus()
     menuOpen.value = brainOpen.value = false
+  }
   if (event.key === 'Tab' && event.shiftKey && canChat.value) {
     event.preventDefault()
     modeSwitch.value?.cycle()
@@ -328,7 +330,7 @@ watch([menuOpen, brainOpen], async ([menu, brain]) => {
   if (!menu && !brain)
     return
   await nextTick()
-  menuList.value?.querySelector('button')?.focus()
+  menuList.value?.querySelector<HTMLElement>('button:not(:disabled)')?.focus()
 })
 watch(() => anna.value.phase, (phase, previous) => {
   if (phase === 'responding' && previous !== 'responding')
@@ -361,7 +363,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
       <div class="corner-actions">
         <div class="menu">
-          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ snapshot.kernel.label }} 思考 ▾</button>
+          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ brains.find(choice => choice.current)?.label ?? snapshot.kernel.label }} 思考 ▾</button>
           <div v-if="brainOpen" class="menu-backdrop" @click="brainOpen = false" />
           <nav v-if="brainOpen" ref="menuList" class="menu-list brain-list" :aria-label="`${character.name} 用谁来思考`">
             <span class="menu-title">{{ character.name }} 用谁来思考</span>
@@ -395,7 +397,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <!-- Her words float beside her face; older lines fade out above. -->
       <div class="speech" :class="[place?.side ?? 'left', { live: running, quiet }]" :style="place && { left: `${place.left}px`, top: `${place.top}px`, width: `${place.width}px` }">
         <span class="speaker">{{ character.name }}</span>
-        <div ref="bubble" class="bubble" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
+        <div ref="bubble" class="bubble" tabindex="0" aria-live="polite"><div v-if="subtitle" class="rich" v-html="renderMarkdown(subtitle)" /><p v-else class="typing"><i /><i /><i /></p></div>
         <div v-if="!messages.length && canChat && !running && !needsTrust" class="suggestions"><span>你可以对 {{ character.name }} 说</span><button v-for="item in suggestions" :key="item" @click="send(item)">「{{ item }}」</button></div>
       </div>
       <div class="drifts" aria-hidden="true"><p v-for="item in drifts" :key="item.id" class="drift">{{ item.text }}</p></div>
@@ -450,7 +452,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
       <div v-if="!canChat" class="setup-notice"><span>为 {{ character.name }} 连接一个真实模型，开始第一次对话。<template v-if="recommended">这台电脑上的 {{ recommended.label }} 已经登录，可以直接用它思考。</template></span><button v-if="recommended" class="primary" :disabled="configuring" @click="pickBrain(recommended)">用 {{ recommended.label }} 思考</button><button @click="settingsOpen = true">配置模型</button></div>
       <form class="composer" @submit.prevent="send()">
-        <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么，或交给 ${character.name} 一件事…（@claude、@codex 可以派给其他 agent）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
+        <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么…（@claude、@codex 派活）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
           <label><input v-model="autoSpeak" type="checkbox">朗读</label>
