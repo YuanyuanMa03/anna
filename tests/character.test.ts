@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { unpackAvatar, validateAvatarFiles } from 'mesh-avatar'
 import { describe, expect, it } from 'vitest'
-import { fitStage } from '../packages/character/manifest'
+import { characters, companion, fitStage } from '../packages/character/manifest'
 
 describe('model containment', () => {
   it.each([[500, 350, 2100, 3300, 0.86], [340, 260, 1000, 1000, 0.9], [700, 800, 500, 2800, 0.9]])('keeps the full model inside the stage', (w, h, mw, mh, factor) => {
@@ -11,33 +13,20 @@ describe('model containment', () => {
   })
 })
 
-describe('companions', () => {
-  it('has two women and three men, each with a card, a voice and a working model path', async () => {
-    const { characters } = await import('../packages/character/manifest')
-    expect(characters.filter(item => item.gender === 'female')).toHaveLength(2)
-    expect(characters.filter(item => item.gender === 'male')).toHaveLength(3)
-    expect(new Set(characters.map(item => item.name)).size).toBe(characters.length)
-    for (const item of characters) {
-      expect(item.persona).toContain(item.name.replace(/（.*/, ''))
-      expect(item.modelPath).toMatch(/^\.\/characters\/[a-z]+\/.+\.model3\.json$/)
-    }
+describe('the cast', () => {
+  it('is Anna alone, with a card, a voice and both her forms', () => {
+    expect(characters.map(item => item.name)).toEqual(['Anna'])
+    const [anna] = characters
+    expect(anna.persona).toContain('Anna')
+    expect(anna.modelPath).toMatch(/^\.\/characters\/haru\/.+\.model3\.json$/)
+    expect(anna.body.path).toBe('./anna-body/anna.mavatar')
   })
-  it('falls back to Anna for unknown or missing ids', async () => {
-    const { companion } = await import('../packages/character/manifest')
-    expect(companion('natori').name).toBe('名执尽')
-    expect(companion('ren').name).toBe('Anna')
-    expect(companion(undefined).id).toBe('haru')
-    expect(companion('hiyori').name).toBe('Anna')
+  it('falls back to Anna for anyone who has left or was never here', () => {
+    for (const id of ['hiyori', 'mark', 'mao', 'natori', 'chitose', 'ren', undefined])
+      expect(companion(id).name).toBe('Anna')
   })
-  it('maps standard parameter names onto Cubism 2-era and renamed parameters', async () => {
-    const { companion, paramId } = await import('../packages/character/manifest')
-    const chitose = companion('chitose')
-    expect(paramId(chitose, 'ParamEyeLOpen')).toBe('PARAM_EYE_L_OPEN')
-    expect(paramId(chitose, 'ParamBodyAngleX')).toBe('PARAM_BODY_ANGLE_X')
-    expect(paramId(chitose, 'ParamBrowLForm')).toBe('PARAM_BROW_L_FORM')
-    expect(paramId(chitose, 'ParamBrowLY')).toBe('PARAM_BROW_L_Y')
-    expect(paramId(chitose, 'ParamEyeBallX')).toBe('PARAM_EYE_BALL_X')
-    expect(paramId(companion('mao'), 'ParamMouthOpenY')).toBe('ParamA')
-    expect(paramId(companion('haru'), 'ParamMouthOpenY')).toBe('ParamMouthOpenY')
+  it('ships her body in the repository, as a complete archive', () => {
+    const files = unpackAvatar(readFileSync(new URL('../assets/anna-body/anna.mavatar', import.meta.url)))
+    expect(validateAvatarFiles(files)).toEqual([])
   })
 })

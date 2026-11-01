@@ -2,10 +2,10 @@
 import type { CompanionForm } from '../../../../packages/character/manifest'
 import type { Command, RuntimeSnapshot } from '../../../../packages/shared/contracts'
 import { computed } from 'vue'
-import { characters, companion } from '../../../../packages/character/manifest'
+import { companion } from '../../../../packages/character/manifest'
 import { modeOrder, modes } from '../../../../packages/permissions/modes'
 
-const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string, form?: CompanionForm, bodyMissing?: boolean, bodyFailure?: string }>()
+const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string, form?: CompanionForm, bodyFailure?: string }>()
 const emit = defineEmits<{ command: [command: Command], close: [], form: [form: CompanionForm] }>()
 const current = computed(() => companion(props.snapshot.settings.characterId))
 const rules = computed(() => [
@@ -22,14 +22,8 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
     <section class="sheet capabilities" role="dialog" aria-modal="true" aria-label="外观与能力">
       <div class="sheet-heading"><div><span class="eyebrow">COMPOSABLE SOUL</span><h2>外观与能力</h2></div><button class="icon-button" aria-label="关闭外观与能力" @click="emit('close')">×</button></div>
 
-      <h3>伙伴</h3>
-      <div class="character-cards" role="group" aria-label="选择伙伴">
-        <button v-for="item in characters" :key="item.id" :aria-label="`选择 ${item.name}`" :aria-pressed="snapshot.settings.characterId === item.id" class="character-card" :class="[{ selected: snapshot.settings.characterId === item.id }]" :disabled="locked" :title="item.persona" @click="emit('command', { type: 'character', id: item.id })"><img :src="item.thumbnailPath" :alt="item.model"><span><strong>{{ item.name }}<i :class="item.gender">{{ item.gender === 'female' ? '♀' : '♂' }}</i></strong><small>{{ item.tagline }}</small></span></button>
-      </div>
-      <p class="small muted">每位伙伴有自己的名字、性格和说话方式；诚实、权限和记忆这些底线大家都一样，换人后对话和记忆会延续。伙伴的二次元形象来自 Live2D 官方样例模型，使用前请阅读随附许可证。</p>
-
-      <div v-if="current.body && !bodyMissing" class="plugin-row form-row">
-        <div><h3>{{ current.name }} 的形态</h3><p>本体由 {{ current.name }} 自己的原画做成：会看着你，你打字时低头听，摸摸头会害羞，太久没人理会犯困。二次元是 Live2D 样例形象。</p><span v-if="bodyFailure" role="alert">这台电脑上显示不了本体（{{ bodyFailure }}），先用二次元形象。</span></div>
+      <div v-if="current.body" class="plugin-row form-row">
+        <div><h3>{{ current.name }} 的形态</h3><p>本体由 {{ current.name }} 自己的原画做成：会看着你，你打字时低头听，摸摸头会害羞，太久没人理会犯困。二次元是 Live2D 官方样例模型，使用前请阅读随附许可证。</p><span v-if="bodyFailure" role="alert">这台电脑上显示不了本体（{{ bodyFailure }}），先用二次元形象。</span></div>
         <div class="segmented" role="group" :aria-label="`${current.name} 的形态`">
           <button :aria-pressed="form === 'body'" @click="emit('form', 'body')">本体</button>
           <button :aria-pressed="form === 'anime'" @click="emit('form', 'anime')">二次元</button>
@@ -60,13 +54,13 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
         <li v-for="item in rules" :key="item.kind + item.rule"><span class="badge">{{ item.kind }}</span><code>{{ item.rule }}</code><button class="link" @click="emit('command', { type: 'rule-remove', rule: item.rule })">删除</button></li>
       </ul>
 
-      <div class="plugin-row"><div><h3>长期记忆</h3><p>伙伴们共用的记忆：你的偏好与约定，跨会话、换伙伴都生效。</p></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.memoryEnabled" @click="emit('command', { type: 'memory', enabled: !snapshot.settings.memoryEnabled })">{{ snapshot.settings.memoryEnabled ? '关闭记忆' : '开启记忆' }}</button></div>
-      <p v-if="!snapshot.memories.length" class="small muted">还没有记忆。可以直接对伙伴说“记住……”。</p>
+      <div class="plugin-row"><div><h3>长期记忆</h3><p>{{ current.name }} 记得你的偏好与约定，跨会话都生效。</p></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.memoryEnabled" @click="emit('command', { type: 'memory', enabled: !snapshot.settings.memoryEnabled })">{{ snapshot.settings.memoryEnabled ? '关闭记忆' : '开启记忆' }}</button></div>
+      <p v-if="!snapshot.memories.length" class="small muted">还没有记忆。可以直接对 {{ current.name }} 说“记住……”。</p>
       <ul class="rule-list">
         <li v-for="item in snapshot.memories" :key="item.id"><span>{{ item.text }}<small v-if="item.by" class="muted"> · {{ item.by }} 记下</small></span><button class="link" @click="emit('command', { type: 'memory-forget', id: item.id })">忘记</button></li>
       </ul>
 
-      <div class="plugin-row"><div><h3>审阅派出的活</h3><p>用 @claude、@codex 派活后，伙伴会亲自检查改动（能很快跑完的测试也会跑），再告诉你结果能不能放心用。每次多一轮模型调用；大脑换成 Claude Code 或 Codex 时不审阅。</p></div><button :aria-pressed="snapshot.settings.reviewDelegations" @click="emit('command', { type: 'review', enabled: !snapshot.settings.reviewDelegations })">{{ snapshot.settings.reviewDelegations ? '不再审阅' : '开启审阅' }}</button></div>
+      <div class="plugin-row"><div><h3>审阅派出的活</h3><p>用 @claude、@codex 派活后，{{ current.name }} 会亲自检查改动（能很快跑完的测试也会跑），再告诉你结果能不能放心用。每次多一轮模型调用；大脑换成 Claude Code 或 Codex 时不审阅。</p></div><button :aria-pressed="snapshot.settings.reviewDelegations" @click="emit('command', { type: 'review', enabled: !snapshot.settings.reviewDelegations })">{{ snapshot.settings.reviewDelegations ? '不再审阅' : '开启审阅' }}</button></div>
 
       <div class="plugin-row"><div><h3>Anna Status</h3><p>读取版本、内核、模型、权限与插件。</p><span>{{ snapshot.plugins.includes('anna-status') ? '实际已加载' : '未加载' }}</span></div><button :disabled="locked || !snapshot.hasKey" :aria-pressed="snapshot.settings.statusEnabled" @click="emit('command', { type: 'plugin', enabled: !snapshot.settings.statusEnabled })">{{ snapshot.settings.statusEnabled ? '禁用状态工具' : '启用状态工具' }}</button></div>
       <p class="muted small">大脑：{{ snapshot.kernel.label }}（可在“模型与设置”里换成 Claude Code 或 Codex）· 系统：{{ snapshot.platform.os }} / {{ snapshot.platform.shell }}<br>插件：{{ snapshot.plugins.join('、') || '未启动' }}<br>实际工具注册表：{{ snapshot.tools.join('、') || '无' }}<br>运行时：{{ snapshot.state }}</p>

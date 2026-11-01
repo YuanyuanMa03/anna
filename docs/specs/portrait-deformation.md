@@ -19,3 +19,11 @@ This preserves the frontal portrait's shape rather than treating its cheeks and 
 - On a neutral face grid at the same angles (14, -10, 6), the maximum relative length change of 10-pixel segments on her face fell from 20.8% to under 0.5%: her face moves as one piece. Hair is not on that grid and still stretches a little when she tilts, which keeps it alive.
 - `tests/body-rig.test.ts` checks, on synthetic geometry, that distances on the face hold within half a percent in the installed kernel, that the whole face still moves for a nod and a turn, that the source rig is not touched, and that following is the same at 30 and 120 fps.
 - Live conversation, audio alignment and how it looks over minutes of watching are not established by these checks.
+||||||| parent of d45e570 (feat: Anna is the only one here, and her body is in the open)
+Local evidence is under ignored `artifacts/body-stability/`, using the actual private avatar archive and installed patched runtime. No illustration, archive or review screenshot is committed.
+
+- `comparison.png`: actual WebGL renders, before/after rest, two pointer extremes and a controlled speech peak. These are deterministic renderer probes, not a live provider/voice acceptance test.
+- `strain.json`: maximum relative length change of 10-pixel horizontal/vertical segments on a neutral face grid. With the same angles (14, -10, 6), the original binding measured 20.796%; the stable binding measured approximately 1.35e-14. This excludes expression, jaw, hair physics and neck deformation, and does not measure perceived comfort.
+- Unit regression uses explicitly synthetic geometry to check skull distances in the installed kernel, source-rig immutability, eye/mouth registration, frame-rate consistency and abrupt pointer reversals. The kernel probe is deliberately pinned to this library version; upgrading it requires reviewing the patch and probe.
+
+Validation: typecheck, lint, production build and 482 unit tests passed; 19 optional tests skipped. The current development desktop is still served from the `anna-body` worktree. Live provider conversation, audio alignment and subjective animation acceptance are not established by these checks.

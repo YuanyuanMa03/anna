@@ -55,15 +55,8 @@ let clock: number | undefined
 const character = computed(() => companion(snapshot.value?.settings.characterId))
 /** Her own body (a mesh avatar of her original art) or the Live2D anime form; a per-machine preference. */
 const form = ref<CompanionForm>(readForm())
-/** The body archive is not committed or published: a build without it offers no choice and never tries to load it. */
-const bodyMissing = ref(!__ANNA_BODY__)
 const bodyFailure = ref('')
-const usesBody = computed(() => Boolean(character.value.body) && form.value === 'body' && !bodyMissing.value && !bodyFailure.value)
-function bodyUnavailable(reason?: string) {
-  if (reason)
-    bodyFailure.value = reason
-  else bodyMissing.value = true
-}
+const usesBody = computed(() => Boolean(character.value.body) && form.value === 'body' && !bodyFailure.value)
 function readForm() {
   try { return localStorage.getItem('anna.form') === 'anime' ? 'anime' : 'body' }
   catch { return 'body' }
@@ -97,9 +90,7 @@ const connection = computed(() => {
     return snapshot.value?.credential === 'rejected' ? '密钥被拒绝' : snapshot.value?.credential === 'unverified' ? '已就绪 · 未验证' : snapshot.value?.settings.kernel.startsWith('acp:') ? '已连接 · 未实测' : '已连接'
   return state === 'starting' ? '正在连接' : state === 'error' ? '连接出错' : '未连接'
 })
-/** After a companion switch, earlier replies belong to someone else: the newcomer greets instead of repeating them. */
-const repliesFrom = ref(0)
-const lastReply = computed(() => messages.value.slice(repliesFrom.value).reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
+const lastReply = computed(() => [...messages.value].reverse().find(message => message.role === 'assistant' && !message.note)?.text ?? '')
 const subtitle = computed(() => {
   if (running.value)
     return stream.value
@@ -215,7 +206,7 @@ function fromMouth() {
 }
 
 async function run(command: Command) {
-  const ownsBusy = !['character', 'approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
+  const ownsBusy = !['approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
   if (ownsBusy)
     busy.value = true
   error.value = ''
@@ -347,11 +338,6 @@ watch(() => snapshot.value?.result?.taskId, () => {
   if (result?.ok && result.status === 'completed' && result.changes.length)
     play('celebrate')
 })
-watch(() => character.value.id, (_, previous) => {
-  if (previous)
-    repliesFrom.value = messages.value.length
-  window.setTimeout(() => play('greet'), 1200)
-})
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); timers.forEach(timer => window.clearTimeout(timer)); speechSynthesis.cancel() })
 </script>
@@ -389,7 +375,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <section class="scene" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
+        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyFailure = $event" />
         <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
@@ -467,7 +453,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
         <div class="sheet-heading"><h2>{{ drawer === 'history' ? '对话记录' : drawer === 'changes' ? '这次的改动' : '工作过程' }}</h2><button class="icon-button" aria-label="关闭抽屉" @click="drawer = undefined">×</button></div>
         <div v-if="drawer === 'history'" ref="history" class="messages">
           <p v-if="!messages.length" class="muted">还没有对话。</p>
-          <article v-for="(message, index) in messages" :key="index" class="message" :class="[message.role, { note: message.note, delegated: message.delegation }]"><span>{{ message.role === 'user' ? (message.origin === 'weixin' ? '你 · 微信' : '你') : message.delegation ? `${message.delegation.label}${message.delegation.provider ? ` · ${message.delegation.provider}` : ''} · ${message.delegation.steps} 步` : '伙伴' }}</span><p v-if="message.role === 'user' || message.note">{{ message.text }}</p><details v-else-if="message.delegation" class="delegation-block" :open="index === messages.length - 1"><summary>{{ message.delegation.status === 'completed' ? '完成' : message.delegation.status === 'aborted' ? '已停下' : '没有完成' }} · {{ message.delegation.task.slice(0, 60) }}</summary><div class="rich" v-html="renderMarkdown(message.text)" /></details><div v-else class="rich" v-html="renderMarkdown(message.text)" /></article>
+          <article v-for="(message, index) in messages" :key="index" class="message" :class="[message.role, { note: message.note, delegated: message.delegation }]"><span>{{ message.role === 'user' ? (message.origin === 'weixin' ? '你 · 微信' : '你') : message.delegation ? `${message.delegation.label}${message.delegation.provider ? ` · ${message.delegation.provider}` : ''} · ${message.delegation.steps} 步` : character.name }}</span><p v-if="message.role === 'user' || message.note">{{ message.text }}</p><details v-else-if="message.delegation" class="delegation-block" :open="index === messages.length - 1"><summary>{{ message.delegation.status === 'completed' ? '完成' : message.delegation.status === 'aborted' ? '已停下' : '没有完成' }} · {{ message.delegation.task.slice(0, 60) }}</summary><div class="rich" v-html="renderMarkdown(message.text)" /></details><div v-else class="rich" v-html="renderMarkdown(message.text)" /></article>
           <p class="small muted">{{ snapshot.restored ? '会话已从上次恢复' : '新会话' }} · {{ snapshot.sessionId ?? '' }}</p>
         </div>
         <div v-else-if="drawer === 'changes'" class="tool-events">
@@ -492,7 +478,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
     <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
-    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? 'body' : 'anime'" :body-missing="bodyMissing" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" />
+    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? 'body' : 'anime'" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
 </template>
