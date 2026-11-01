@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import type { Command, ModelSettings, RuntimeSnapshot } from '../../../packages/shared/contracts'
 import { computed, reactive, ref } from 'vue'
+import { brainChoices } from '../../../packages/agents/brains'
 import { companion } from '../../../packages/character/manifest'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
 const model = reactive<ModelSettings>({ ...props.snapshot.settings.model })
 const key = ref('')
-const installed = (id: string) => props.snapshot.agents.detected.find(agent => agent.id === id)
-const brains = computed(() => [
-  { id: 'pi' as const, label: 'pi', note: '内置 · 使用下面配置的模型', available: true },
-  { id: 'claude-code' as const, label: 'Claude Code', note: installed('claude')?.installed ? `v${installed('claude')?.version ?? '?'}${installed('claude')?.loggedIn === false ? ' · 未登录' : ''}` : '未安装', available: Boolean(installed('claude')?.installed) },
-  { id: 'codex' as const, label: 'Codex', note: installed('codex')?.installed ? `v${installed('codex')?.version ?? '?'}${installed('codex')?.loggedIn === false ? ' · 未登录' : ''}` : '未安装', available: Boolean(installed('codex')?.installed) },
-])
+/** The same choices as the brain chip; pi stays selectable without a model, since its model is set up right below. */
+const brains = computed(() => brainChoices({ detected: props.snapshot.agents.detected, current: props.snapshot.settings.kernel, hasKey: props.snapshot.hasKey }).map(choice => ({ ...choice, available: choice.state === 'ready' || choice.state === 'needs-key' })))
 function save() { emit('command', { type: 'configure', model: { ...model }, key: key.value }); key.value = '' }
 function selectProvider() {
   if (model.provider === 'deepseek-official') { model.baseURL = 'https://api.deepseek.com'; model.model = 'deepseek-flash'; model.api = 'openai-completions' }

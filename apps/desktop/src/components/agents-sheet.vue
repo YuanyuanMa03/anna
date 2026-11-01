@@ -18,7 +18,7 @@ watch(() => props.snapshot.agents.pendingImport, (pending) => {
 const agents = computed(() => props.snapshot.agents)
 const name = computed(() => companion(props.snapshot.settings.characterId).name)
 const delegates = computed(() => agents.value.detected.filter(agent => agent.tier === 'delegate'))
-const switchOnly = computed(() => agents.value.detected.filter(agent => agent.tier === 'switch'))
+const recognised = computed(() => agents.value.detected.filter(agent => agent.tier !== 'delegate'))
 function install(agent: AgentStatus) {
   confirmInstall.value = undefined
   installing.value = agent.id
@@ -64,7 +64,7 @@ function install(agent: AgentStatus) {
 
         <h3>仅识别（暂不能派活）</h3>
         <ul class="agent-list compact">
-          <li v-for="agent in switchOnly" :key="agent.id"><strong>{{ agent.label }}</strong><span class="badge" :class="{ ok: agent.installed }">{{ agent.installed ? `已安装${agent.version ? ` v${agent.version}` : ''}` : '未安装' }}</span></li>
+          <li v-for="agent in recognised" :key="agent.id"><strong>{{ agent.label }}</strong><span class="badge" :class="{ ok: agent.installed }">{{ agent.installed ? `已安装${agent.version ? ` v${agent.version}` : ''}` : '未安装' }}</span></li>
         </ul>
       </template>
       <p class="small muted">密钥保存在{{ snapshot.platform.secrets === 'file' ? '只有你能读的本地文件里（这台电脑没有系统钥匙串）' : '系统钥匙串加密存储里' }}。</p>

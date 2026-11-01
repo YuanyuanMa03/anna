@@ -1,10 +1,12 @@
 /**
- * The agents Anna recognises, mirroring cc-switch's app list (https://github.com/farion1231/cc-switch, MIT).
+ * The agents Anna recognises, mirroring cc-switch's app list (https://github.com/farion1231/cc-switch, MIT) and the
+ * agents of the Agent Client Protocol registry (https://github.com/agentclientprotocol/registry).
  * `delegate` agents have a documented headless JSON stream Anna can drive; `switch` agents are only detected
- * and can have their provider switched.
+ * and can have their provider switched (cc-switch's apps); `detect` agents are other local agents Anna recognises.
  */
 export type AgentId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi' | 'claude-desktop' | 'grok' | 'openclaw' | 'hermes' | 'mcode'
-export type AgentTier = 'delegate' | 'switch'
+  | 'kimi' | 'omp' | 'dsh' | 'agy' | 'qwen' | 'cursor' | 'copilot' | 'goose' | 'droid' | 'auggie' | 'codebuddy' | 'qoder' | 'cline' | 'kilo'
+export type AgentTier = 'delegate' | 'switch' | 'detect'
 
 export interface AgentDescriptor {
   id: AgentId
@@ -123,7 +125,63 @@ export const catalog: AgentDescriptor[] = [
     configFiles: ['config.yaml'],
     install: 'npm i -g @minimax-ai/code@latest',
   },
+  // cc-switch's newer apps: config locations from its *_config.rs, install and update commands from its misc.rs.
+  {
+    id: 'kimi',
+    label: 'Kimi Code',
+    tier: 'switch',
+    binaries: ['kimi'],
+    configDir: '.kimi-code',
+    configFiles: ['config.toml'],
+    install: 'npm i -g @moonshot-ai/kimi-code@latest',
+    update: ['upgrade', '--yes'],
+  },
+  {
+    id: 'omp',
+    label: 'Oh My Pi',
+    tier: 'switch',
+    binaries: ['omp'],
+    configDir: '.omp/agent',
+    configFiles: ['models.yml', 'config.yml'],
+    install: 'curl -fsSL https://omp.sh/install | sh',
+    update: ['update'],
+  },
+  {
+    id: 'dsh',
+    label: 'DeepSeek Harness',
+    tier: 'switch',
+    binaries: ['dsh'],
+    configDir: '.dsh',
+    configFiles: ['profiles'],
+    install: 'npm i -g @deepseek-ai/dsh@latest --engine-strict',
+  },
+  {
+    id: 'agy',
+    label: 'Antigravity CLI',
+    tier: 'switch',
+    binaries: ['agy'],
+    configDir: '.gemini/antigravity-cli',
+    configFiles: ['settings.json'],
+    install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+    update: ['update'],
+  },
+  // Other local agents in the ACP registry. Only the executable is certain for some; their config files stay empty.
+  { id: 'qwen', label: 'Qwen Code', tier: 'detect', binaries: ['qwen'], configDir: '.qwen', configFiles: ['settings.json'], install: 'npm i -g @qwen-code/qwen-code@latest' },
+  { id: 'cursor', label: 'Cursor CLI', tier: 'detect', binaries: ['cursor-agent'], configDir: '.cursor', configFiles: ['cli-config.json'], install: 'curl https://cursor.com/install -fsS | bash' },
+  { id: 'copilot', label: 'GitHub Copilot CLI', tier: 'detect', binaries: ['copilot'], configDir: '.copilot', configFiles: ['config.json'], install: 'npm i -g @github/copilot@latest' },
+  { id: 'goose', label: 'Goose', tier: 'detect', binaries: ['goose'], configDir: { win32: 'AppData/Roaming/Block/goose/config', default: '.config/goose' }, configFiles: ['config.yaml'] },
+  { id: 'droid', label: 'Factory Droid', tier: 'detect', binaries: ['droid'], configDir: '.factory', configFiles: [], install: 'npm i -g droid@latest' },
+  { id: 'auggie', label: 'Auggie', tier: 'detect', binaries: ['auggie'], configDir: '.augment', configFiles: [], install: 'npm i -g @augmentcode/auggie@latest' },
+  { id: 'codebuddy', label: 'CodeBuddy Code', tier: 'detect', binaries: ['codebuddy'], configDir: '.codebuddy', configFiles: [], install: 'npm i -g @tencent-ai/codebuddy-code@latest' },
+  { id: 'qoder', label: 'Qoder CLI', tier: 'detect', binaries: ['qodercli'], configDir: '.qoder', configFiles: [], install: 'npm i -g @qoder-ai/qodercli@latest' },
+  { id: 'cline', label: 'Cline', tier: 'detect', binaries: ['cline'], configDir: '.cline', configFiles: [], install: 'npm i -g cline@latest' },
+  { id: 'kilo', label: 'Kilo', tier: 'detect', binaries: ['kilo'], configDir: '.kilocode', configFiles: [], install: 'npm i -g @kilocode/cli@latest' },
 ]
+
+/** Anna runs an install command herself only when it is a plain global npm install; pipes and other package managers need a shell. */
+export function autoInstallable(install: string) {
+  return /^npm i(?:nstall)? -g [@\w/.-]+(?: --[\w-]+)*$/.test(install)
+}
 
 export function configDirOf(agent: AgentDescriptor, platform: NodeJS.Platform) {
   return typeof agent.configDir === 'string' ? agent.configDir : agent.configDir[platform] ?? agent.configDir.default!

@@ -1,3 +1,4 @@
+import type { AgentTier } from '../agents/catalog'
 import type { CharacterId } from '../character/manifest'
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
@@ -48,7 +49,7 @@ export interface CustomProvider { app: 'claude' | 'codex' | 'gemini', name: stri
 export interface AgentStatus {
   id: string
   label: string
-  tier: 'delegate' | 'switch'
+  tier: AgentTier
   installed: boolean
   path?: string
   version?: string

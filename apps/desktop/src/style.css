@@ -350,3 +350,13 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .link-confirm dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 }
 .link-confirm dt { color: #8a769b }
 .link-confirm dd { margin: 0; overflow-wrap: anywhere }
+
+/* ── The brain picker: who she thinks with, one click away ──────────────── */
+.brain-list { min-width: 248px }
+.brain-list .menu-title { font-size: 10px; letter-spacing: 2px; color: #a58eb5; padding: 6px 12px 4px }
+.brain-list button { flex-direction: column; align-items: flex-start; gap: 2px }
+.brain-list button small { margin: 0; background: none; color: var(--muted); padding: 0; font-size: 11px }
+.brain-list button[aria-pressed=true] { background: #f1eaf7 }
+.brain-list button[aria-pressed=true] strong::after { content: ' ✓'; color: var(--accent) }
+.brain-list button[data-state=missing] strong, .brain-list button[data-state=signed-out] strong { color: var(--muted) }
+.brain-list .more { font-size: 12px; color: var(--accent); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px }
