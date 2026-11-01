@@ -12,14 +12,13 @@ import process from 'node:process'
 
 const root = resolve(import.meta.dirname, '..')
 const releases = process.env.ANNA_ASSETS_BASE ?? 'https://github.com/YuanyuanMa03/anna/releases/download'
-// v1: Haru, Mark and Cubism Core (plus Hiyori, who left the cast). v2: Mao, Natori and Chitose.
+// Haru (Anna's anime form) and Cubism Core. The archive also carries models of companions who have left the cast.
 const archives = [
   { url: `${releases}/assets-v1/anna-character-assets.zip`, sha256: '5520b11b621dcc9c9c7d1d9d1f87d4accdeb1bc58f74d25bd56f36fc54ea7bef' },
-  { url: `${releases}/assets-v2/anna-character-assets-v2.zip`, sha256: '56bd1ce1919123384b2884cb5e634f1d06b83b296f234ffc345e5573217b9644' },
 ]
 const inventory = JSON.parse(await readFile(join(root, 'docs/asset-inventory.json'), 'utf8'))
-// The v1 archive still carries Hiyori. Everything under assets/ ships with the app and the website, so she must not stay.
-const retired = [join(root, 'assets/characters/hiyori'), join(root, 'assets/licenses/Hiyori-ReadMe.txt')]
+// Everything under assets/ ships with the app and the website, so whoever left the cast must not stay, here or from an earlier download.
+const retired = ['hiyori', 'mark', 'mao', 'natori', 'chitose'].flatMap(name => [join(root, 'assets/characters', name), join(root, 'assets/licenses', `${name}-ReadMe.txt`), join(root, 'assets/licenses', `${name[0].toUpperCase()}${name.slice(1)}-ReadMe.txt`)])
 const retire = () => Promise.all(retired.map(path => rm(path, { recursive: true, force: true })))
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')

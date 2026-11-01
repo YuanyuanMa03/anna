@@ -7,7 +7,7 @@ import { Live2DModel } from 'pixi-live2d-display/cubism4'
 import { Application, Point, ShaderSystem, Ticker } from 'pixi.js'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { applyStance, approach, Director, gestureForModeChange, gestureOffset, poses, restingPose, stances } from '../../../packages/character/director'
-import { fitStage, paramId } from '../../../packages/character/manifest'
+import { fitStage } from '../../../packages/character/manifest'
 
 /** `clearance` is how far her head and hair extend sideways from her mouth, in viewport pixels, when the stage knows it. */
 export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number }, clearance?: number }
@@ -69,31 +69,30 @@ function perform() {
   if (!model)
     return
   const core = model.internalModel.coreModel as unknown as Core
-  const id = (name: string) => paramId(props.character, name)
   const now = performance.now()
   const t = now / 1000
   const tempo = stances[props.mode].tempo
   const extra = gestureOffset(gesture, now)
   playing.value = extra ? gesture!.kind : ''
-  core.addParameterValueById(id('ParamAngleX'), pose.headX + (extra?.headX ?? 0))
-  core.addParameterValueById(id('ParamAngleY'), pose.headY + Math.sin(t * 5.2 * tempo) * pose.bob + (extra?.headY ?? 0))
-  core.addParameterValueById(id('ParamAngleZ'), pose.headZ + (extra?.headZ ?? 0))
-  core.addParameterValueById(id('ParamBodyAngleX'), pose.body)
-  core.addParameterValueById(id('ParamEyeBallX'), Math.sin(t * 7) * pose.scan)
+  core.addParameterValueById('ParamAngleX', pose.headX + (extra?.headX ?? 0))
+  core.addParameterValueById('ParamAngleY', pose.headY + Math.sin(t * 5.2 * tempo) * pose.bob + (extra?.headY ?? 0))
+  core.addParameterValueById('ParamAngleZ', pose.headZ + (extra?.headZ ?? 0))
+  core.addParameterValueById('ParamBodyAngleX', pose.body)
+  core.addParameterValueById('ParamEyeBallX', Math.sin(t * 7) * pose.scan)
   const brow = pose.brow + (extra?.brow ?? 0)
   const smile = Math.max(-1, Math.min(1, pose.smile + (extra?.smile ?? 0)))
   for (const name of ['ParamBrowLY', 'ParamBrowRY'])
-    core.addParameterValueById(id(name), brow)
+    core.addParameterValueById(name, brow)
   for (const name of ['ParamBrowLForm', 'ParamBrowRForm'])
-    core.addParameterValueById(id(name), -Math.abs(brow) * 0.6 + Math.max(0, smile) * 0.3)
-  core.setParameterValueById(id('ParamMouthForm'), smile)
+    core.addParameterValueById(name, -Math.abs(brow) * 0.6 + Math.max(0, smile) * 0.3)
+  core.setParameterValueById('ParamMouthForm', smile)
   for (const name of ['ParamEyeLSmile', 'ParamEyeRSmile'])
-    core.setParameterValueById(id(name), Math.max(0, smile - 0.4))
-  core.setParameterValueById(id('ParamCheek'), Math.max(0, smile - 0.6))
+    core.setParameterValueById(name, Math.max(0, smile - 0.4))
+  core.setParameterValueById('ParamCheek', Math.max(0, smile - 0.6))
   for (const name of ['ParamEyeLOpen', 'ParamEyeROpen'])
-    core.multiplyParameterValueById(id(name), pose.eyeOpen)
+    core.multiplyParameterValueById(name, pose.eyeOpen)
   if (props.speaking)
-    core.setParameterValueById(id('ParamMouthOpenY'), 0.25 + Math.abs(Math.sin(t * 11)) * 0.45 + Math.sin(t * 23) * 0.08)
+    core.setParameterValueById('ParamMouthOpenY', 0.25 + Math.abs(Math.sin(t * 11)) * 0.45 + Math.sin(t * 23) * 0.08)
 }
 
 async function load() {

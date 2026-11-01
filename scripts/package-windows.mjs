@@ -4,7 +4,6 @@ import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/pro
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
-import { assertNoBody } from './body-guard.mjs'
 
 async function main() {
   if (process.platform !== 'win32')
@@ -14,7 +13,6 @@ async function main() {
   const runtime = join(app, 'resources/app')
   const pnpm = args => execFileSync('pnpm.cmd', args, { stdio: 'inherit', shell: true })
   pnpm(['build'])
-  assertNoBody()
   await mkdir(output, { recursive: true })
   await rm(app, { recursive: true, force: true })
   await cp(dirname(electron), app, { recursive: true })
