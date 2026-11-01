@@ -20,6 +20,7 @@ import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
 import { forgetMyAvatar, readMyAvatar, saveMyAvatar } from './my-avatar'
+import { tour, tourPrompts } from './online'
 import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -112,7 +113,7 @@ function chooseForm(next: CompanionForm) {
 const typedAt = ref(0)
 const listening = computed(() => Boolean(input.value.trim()) && now.value - typedAt.value < 3000)
 /** What a newcomer can say to her: greet her first, then ask, then hand her something to do. */
-const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
+const suggestions = computed(() => import.meta.env.VITE_ANNA_WEB ? tourPrompts() : [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
 /** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
 const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey, sandbox: snapshot.value.platform.sandbox.available, acp: snapshot.value.platform.acp }) : [])
@@ -360,7 +361,8 @@ onMounted(async () => {
   await run({ type: 'snapshot' })
   if (snapshot.value)
     anna.value = snapshot.value.anna
-  await run({ type: 'weixin-status' })
+  if (!import.meta.env.VITE_ANNA_WEB)
+    await run({ type: 'weixin-status' })
   if (canChat.value)
     await run({ type: 'connect' })
 })
@@ -390,6 +392,21 @@ watch(() => snapshot.value?.result?.taskId, () => {
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
 onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); timers.forEach(timer => window.clearTimeout(timer)); speechSynthesis.cancel() })
+const web = Boolean(import.meta.env.VITE_ANNA_WEB)
+// Online demo: say so up front when the free model quota has run out, rather than letting a message fail.
+const quotaOut = ref(false)
+async function checkQuota() {
+  try {
+    quotaOut.value = Boolean((await (await fetch('./api/quota')).json()).out)
+  }
+  catch {}
+}
+if (web) {
+  void checkQuota()
+  const quotaTimer = window.setInterval(() => { void checkQuota() }, 60000)
+  onBeforeUnmount(() => window.clearInterval(quotaTimer))
+  watch(() => error.value || snapshot.value?.error, () => { void checkQuota() })
+}
 </script>
 
 <template>
@@ -413,7 +430,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
           <nav v-if="menuOpen" ref="menuList" class="menu-list" aria-label="更多">
             <button @click="openFromMenu(() => drawer = 'history')">对话记录</button>
             <button @click="openFromMenu(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
-            <button @click="openFromMenu(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
+            <button v-if="!web" @click="openFromMenu(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
             <button @click="openFromMenu(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="delegates">{{ delegates }}</small></button>
             <button @click="openFromMenu(() => makerOpen = true)">创造我的 {{ character.name }}</button>
             <button @click="openFromMenu(() => pluginsOpen = true)">外观与能力</button>
@@ -440,6 +457,14 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <div class="drifts" aria-hidden="true"><p v-for="item in drifts" :key="item.id" class="drift">{{ item.text }}</p></div>
 
       <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
+        <div v-if="web && !messages.length && !running" class="card tour-card">
+          <span class="eyebrow">Anna 不只是会聊天</span>
+          <dl><template v-for="item in tour.online" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
+          <span class="eyebrow">桌面版还能做</span>
+          <dl class="desktop-only"><template v-for="item in tour.desktop" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
+          <a class="link" href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>
+        </div>
+
         <div v-if="needsTrust" class="card trust-card" role="alert">
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>
@@ -484,6 +509,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <svg class="stage-overlay" aria-hidden="true"><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
+      <p v-if="web" class="web-notice">在线体验 · 每位访客有独立的电脑账号和示例项目，闲置 2 小时后清理，请勿输入敏感信息。喜欢她的话，<a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a>，或者到 <a href="https://github.com/YuanyuanMa03/anna" target="_blank" rel="noopener">GitHub ↗</a> 点个 Star。</p>
+      <div v-if="web && quotaOut" class="setup-notice quota-notice" role="status"><span>在线体验今天的免费模型额度用完了，明天再来吧。等不及的话，可以下载桌面版，接上你自己的模型。</span><a href="https://anna.mayuanyuan.top/#download" target="_blank" rel="noopener">下载桌面版 ↗</a></div>
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>
       <div v-if="update && ['available', 'downloading', 'ready', 'error'].includes(update.state)" class="setup-notice update-notice"><span>{{ update.state === 'available' ? `Anna ${update.version} 可以更新了${update.notes ? `：${update.notes}` : ''}` : update.state === 'downloading' ? `正在下载 Anna ${update.version}…` : update.message }}</span><button v-if="update.state === 'available'" @click="run({ type: 'update-install' })">{{ update.manual ? '下载新安装包' : '更新并重启' }}</button></div>
       <div v-if="error || snapshot.error" class="error" role="alert"><span>{{ error || snapshot.error }}</span><button v-if="snapshot.credential === 'rejected'" @click="settingsOpen = true">去设置</button></div>
@@ -530,7 +557,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />
-    <AvatarMaker v-if="makerOpen" :name="character.name" :can-ask="canChat && !running && Boolean(snapshot?.workspace.trusted) && mode !== 'plan'" @close="makerOpen = false" @made="madeAvatar" @ask="askForAvatar" />
+    <AvatarMaker v-if="makerOpen" :name="character.name" :can-ask="canChat && !running && Boolean(snapshot?.workspace.trusted) && mode !== 'plan' && !web" @close="makerOpen = false" @made="madeAvatar" @ask="askForAvatar" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
 </template>

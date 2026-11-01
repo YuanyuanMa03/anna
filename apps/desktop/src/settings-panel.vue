@@ -6,6 +6,7 @@ import { companion } from '../../../packages/character/manifest'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
+const web = Boolean(import.meta.env.VITE_ANNA_WEB)
 const model = reactive<ModelSettings>({ ...props.snapshot.settings.model })
 const key = ref('')
 /** The same choices as the brain chip; pi stays selectable without a model, since its model is set up right below. */
@@ -27,8 +28,9 @@ function selectProvider() {
       <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用你在“外部 agent”里给它们选的服务商（没选就用它们自己的登录），会开始一个新会话；共同记忆、状态和派活这些自带工具通过本机的 MCP 服务交给它们，照样经过权限把关。</p>
       <template v-if="snapshot.settings.kernel === 'pi'">
         <h3>pi 的模型</h3>
-        <p class="muted">pi coding agent 运行在独立的核心进程里。密钥通过系统凭据加密保存，只在请求模型时使用。</p>
-        <form @submit.prevent="save">
+        <p v-if="web" class="muted">在线体验已经替你接好了 ModelScope 免费推理（{{ snapshot.settings.model.model }}），Claude Code 和 Codex 用更大的 Qwen 模型；某个模型的免费额度用完时，会自动换下一个。密钥只在服务端，你和你运行的任何程序都读不到。想用自己的模型和服务商，请下载桌面版。</p>
+        <p v-else class="muted">pi coding agent 运行在独立的核心进程里。密钥通过系统凭据加密保存，只在请求模型时使用。</p>
+        <form v-if="!web" @submit.prevent="save">
           <label>模型提供商<select v-model="model.provider" @change="selectProvider"><option value="deepseek-official">DeepSeek · 官方 API（pi 内置目录）</option><option value="custom">自定义 · 兼容 OpenAI / Anthropic 的端点</option></select></label>
           <template v-if="model.provider === 'custom'">
             <label>API 协议<select v-model="model.api"><option value="anthropic-messages">Anthropic Messages</option><option value="openai-completions">OpenAI Chat Completions</option><option value="openai-responses">OpenAI Responses</option></select></label>
