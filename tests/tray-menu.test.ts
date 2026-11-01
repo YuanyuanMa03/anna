@@ -2,7 +2,7 @@ import type { RuntimeSnapshot } from '../packages/shared/contracts'
 import { expect, it } from 'vitest'
 import { trayTemplate } from '../apps/desktop/tray-menu'
 
-const snapshot = (agents: Partial<RuntimeSnapshot['agents']>) => ({ settings: { characterId: 'mark' }, agents: { detected: [], providers: {}, global: {}, presets: {}, mine: {}, universal: [], speed: {}, usage: {}, ccSwitch: false, ...agents } }) as unknown as RuntimeSnapshot
+const snapshot = (agents: Partial<RuntimeSnapshot['agents']>) => ({ settings: { characterId: 'haru' }, agents: { detected: [], providers: {}, global: {}, presets: {}, mine: {}, universal: [], speed: {}, usage: {}, ccSwitch: false, ...agents } }) as unknown as RuntimeSnapshot
 
 it('before the core answers: open and quit only', () => {
   expect(trayTemplate(undefined).map(item => item.label ?? item.type)).toEqual(['打开 Anna', 'separator', '退出 Anna'])
@@ -17,7 +17,7 @@ it('per app with providers: who uses which (radio), global switch to providers w
   expect(template.map(item => item.label ?? item.type)).toEqual(['打开 Anna', 'separator', 'Codex：DeepSeek', 'separator', '退出 Anna'])
   const codex = template[2]!.submenu!
   // The companion on stage does the choosing; Mark here.
-  expect(codex[0]).toEqual({ label: '马克君用哪个', enabled: false })
+  expect(codex[0]).toEqual({ label: 'Anna用哪个', enabled: false })
   expect(codex.filter(item => item.type === 'radio').map(item => [item.label, item.checked, item.run])).toEqual([
     ['它自己的登录', false, { type: 'agent-provider', agent: 'codex' }],
     ['DeepSeek', true, { type: 'agent-provider', agent: 'codex', provider: 'DeepSeek' }],

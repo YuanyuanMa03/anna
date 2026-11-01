@@ -126,13 +126,12 @@ it('the companion decides to delegate with anna_delegate: asks first in ask mode
   const { host, workspace } = await setup([
     { tools: [{ name: 'anna_delegate', args: { agent: 'claude', task: '创建 done.txt' } }] },
     { text: 'Claude Code 已经替你创建好了 done.txt。' },
-  ], 'ask', { review: false, characterId: 'mark' })
+  ], 'ask', { review: false })
   const sent = host.execute({ type: 'send', text: '找个合适的 agent 帮我创建 done.txt' })
   const ask = await approve(host)
   expect(ask).toMatchObject({ toolName: 'anna_delegate', reason: expect.stringContaining('Claude Code') })
-  // The card speaks for whoever is on stage, not for Anna.
-  expect(ask.reason).toContain('马克君')
-  expect(ask.reason).not.toContain('Anna')
+  // The card speaks in her name.
+  expect(ask.reason).toContain('Anna')
   const write = await approve(host)
   expect(write.toolName).toBe('write')
   await sent
@@ -224,7 +223,7 @@ it.each([['claude-code', 'claude'], ['codex', 'codex']] as const)('with %s as th
   await mkdir(workspace)
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel, characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel, characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
     sandbox: { available: false, reason: 'test' },
@@ -257,7 +256,7 @@ it('with Claude Code as the brain, the companion can still hand work to Codex th
   const workspace = join(data, 'project')
   await mkdir(workspace)
   process.env.ANNA_FAKE_LOG = join(data, 'fake.log')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     agents: { locate: agent => ({ command: process.execPath, prefix: [fake, agent] }) },

@@ -12,13 +12,12 @@ describe('settings', () => {
     try {
       const store = new SettingsStore(dir)
       await store.load()
-      store.value.characterId = 'mark'
       store.value.workspaces['/w'] = { trusted: true, mode: 'auto', rules: { allow: ['Bash(pnpm test)'], ask: [], deny: [] } }
       await store.save()
       const restored = new SettingsStore(dir)
       await restored.load()
       expect(restored.value).toEqual(store.value)
-      expect(JSON.parse(await readFile(join(dir, 'character.json'), 'utf8'))).toEqual({ characterId: 'mark' })
+      expect(JSON.parse(await readFile(join(dir, 'character.json'), 'utf8'))).toEqual({ characterId: 'haru' })
       expect(await readFile(join(dir, 'settings.json'), 'utf8')).not.toContain('apiKey')
     }
     finally { await rm(dir, { recursive: true, force: true }) }
@@ -34,8 +33,8 @@ describe('settings', () => {
     expect(JSON.parse(await readFile(join(dir, 'settings.json'), 'utf8')).version).toBe(2)
     expect(migrate({ characterId: 'haru', statusEnabled: true, workEnabled: false, workspace: '/p', model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).workspaces['/p']!.mode).toBe('plan')
   })
-  it('moves people who had Hiyori over to Anna, who is now Haru', () => {
-    expect(migrate({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).characterId).toBe('haru')
+  it.each(['hiyori', 'mark', 'mao', 'natori', 'chitose'])('moves people who had %s over to Anna', (characterId) => {
+    expect(migrate({ version: 2, kernel: 'pi', characterId, statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).characterId).toBe('haru')
   })
   const withBrain = (kernel: string) => ({ version: 2, kernel, characterId: 'haru', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } })
   it.each(['pi', 'claude-code', 'codex', 'acp:gemini'])('accepts %s as her brain', (kernel) => {

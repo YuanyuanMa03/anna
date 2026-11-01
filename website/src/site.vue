@@ -59,22 +59,12 @@ const tasks: { actor: 'anna' | 'claude', steps: Step[] }[] = [
 const mode = ref<PermissionMode>('ask')
 const taskIndex = ref(0)
 const task = computed(() => tasks[taskIndex.value]!)
-const characterIndex = ref(0)
-const character = computed(() => characters[characterIndex.value]!)
+const character = characters[0]
 
-// ── Cast: the five companions as cut-outs captured from the app, standing on one baseline ──
-// `top` is how much of the stage each model fills, `size` the cut-out's own pixels, `overlap` how far it tucks in
-// behind its left neighbour (Mao's wand reaches far to the left).
-const cast = [
-  { id: 'natori', top: 0.913, size: [434, 900], z: 1, overlap: 0 },
-  { id: 'mao', top: 0.896, size: [898, 900], z: 3, overlap: 0.36 },
-  { id: 'haru', top: 0.941, size: [293, 900], z: 6, overlap: 0.07 },
-  { id: 'chitose', top: 0.927, size: [651, 900], z: 2, overlap: 0.12 },
-  { id: 'mark', top: 0.72, size: [581, 879], z: 4, overlap: 0.14 },
-] as const
+// ── Anna as a cut-out captured from the app ──
+const cast = [{ id: 'haru', top: 0.941, size: [293, 900], z: 6, overlap: 0 }] as const
 const castRow = ref<HTMLElement>()
-function meet(id: string) {
-  characterIndex.value = Math.max(0, characters.findIndex(item => item.id === id))
+function meet() {
   document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })
 }
 // On a phone the cast scrolls sideways; start with Anna in the middle.
@@ -95,7 +85,7 @@ let answer: ((allow: boolean) => void) | undefined
 let run = 0
 
 const changes = computed(() => entries.value.filter(entry => entry.status === 'done' && entry.step.change).map(entry => entry.step.change!))
-const bubble = computed(() => line.value || t.value.demo.lines.idle(t.value.cast.people[character.value.id].name))
+const bubble = computed(() => line.value || t.value.demo.lines.idle(t.value.cast.people[character.id].name))
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 function reset() {
@@ -245,7 +235,7 @@ const year = new Date().getFullYear()
 
     <section class="cast wrap" :aria-label="t.cast.label">
       <div ref="castRow" class="cast-row">
-        <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'haru' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet(item.id)">
+        <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'haru' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet()">
           <img :src="`/media/companions/${item.id}.webp`" alt="" :width="item.size[0]" :height="item.size[1]">
           <span class="tag"><b>{{ t.cast.people[item.id].name }}</b><small>{{ t.cast.people[item.id].tagline }}</small></span>
         </button>
@@ -290,9 +280,6 @@ const year = new Date().getFullYear()
           <div class="model"><CharacterStage :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
           <div class="bubble" aria-live="polite"><span>{{ character.name }} · Anna</span><p>{{ bubble }}</p></div>
           <div class="ribbon"><b>{{ modes[mode].name[lang] }}</b>{{ modes[mode].stance[lang] }}</div>
-          <div class="picker" :aria-label="t.demo.characters">
-            <button v-for="(item, index) in characters" :key="item.id" :aria-pressed="characterIndex === index" :title="item.name" @click="characterIndex = index"><img :src="item.thumbnailPath" :alt="item.name"></button>
-          </div>
         </div>
         <div class="demo-panel">
           <div class="mode-switch" role="radiogroup" :aria-label="t.nav.modes">

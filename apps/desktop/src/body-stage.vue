@@ -11,11 +11,8 @@ import { followBodyLook, stabilizeBodyRig } from '../../../packages/character/bo
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
 const props = withDefaults(defineProps<{ body: NonNullable<Companion['body']>, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
-/**
- * `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` means the body cannot
- * be shown here: without a reason the archive is not on this machine (it is not committed), with one it failed to load.
- */
-const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason?: string] }>()
+/** `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` says why the body cannot be shown. */
+const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason: string] }>()
 const element = ref<HTMLDivElement>()
 const canvas = ref<HTMLCanvasElement>()
 const state = ref('loading')
@@ -186,14 +183,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', returned)
   director.update(props.phase, performance.now())
   try {
-    const response = await fetch(props.body.path).catch(() => undefined)
-    // The dev server answers a missing file with its HTML page, not a 404.
-    if (!response?.ok || response.headers.get('content-type')?.includes('text/html')) {
-      if (!disposed)
-        emit('unavailable')
-      return
-    }
-    const opened = await openAvatar(await response.arrayBuffer())
+    const opened = await openAvatar(props.body.path)
     if (disposed) {
       opened.release()
       return

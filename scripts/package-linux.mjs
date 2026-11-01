@@ -4,7 +4,6 @@ import { chmod, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'node
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
-import { assertNoBody } from './body-guard.mjs'
 
 /** Portable Linux build: a directory with the `anna` launcher and the `anna-bin` Electron binary, packed as tar.gz. Sandbox needs bubblewrap, socat and ripgrep. */
 async function main() {
@@ -15,7 +14,6 @@ async function main() {
   const runtime = join(app, 'resources/app')
   const pnpm = args => execFileSync('pnpm', args, { stdio: 'inherit' })
   pnpm(['build'])
-  assertNoBody()
   await mkdir(output, { recursive: true })
   await rm(app, { recursive: true, force: true })
   await cp(dirname(electron), app, { recursive: true, verbatimSymlinks: true })
