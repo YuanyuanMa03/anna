@@ -47,7 +47,7 @@ describe('settings', () => {
     expect(() => validateModel({ provider: 'custom', model: 'test-model', api: 'anthropic-messages', baseURL })).toThrow()
   })
   it('chooses a data directory per platform', () => {
-    expect(dataDirectory('darwin', {}, '/AppData', '/Users/a')).toBe('/Users/a/.local/share/anna-dsh')
+    expect(dataDirectory('darwin', {}, '/Users/a/Library/Application Support', '/Users/a')).toBe('/Users/a/Library/Application Support/Anna')
     expect(dataDirectory('linux', { XDG_DATA_HOME: '/xdg' }, '/AppData', '/home/a')).toBe('/xdg/anna')
     expect(dataDirectory('linux', {}, '/AppData', '/home/a')).toBe('/home/a/.local/share/anna')
     expect(dataDirectory('win32', {}, 'C:\\Users\\a\\AppData\\Roaming', 'C:\\Users\\a')).toContain('Anna')

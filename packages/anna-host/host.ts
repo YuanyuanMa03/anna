@@ -227,7 +227,7 @@ export class Host {
    * the default workspace (`workspace`) is the one folder here tools may use.
    */
   private protectedPaths() {
-    return ['credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
+    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
