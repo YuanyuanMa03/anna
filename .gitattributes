@@ -1,0 +1,4 @@
+# A CRLF checkout on Windows would break these: pnpm applies the patch to LF files, and the scripts run on Unix shells.
+*.patch text eol=lf
+*.sh text eol=lf
+pnpm-lock.yaml text eol=lf
