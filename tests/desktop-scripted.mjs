@@ -46,6 +46,11 @@ const desktop = await _electron.launch({ executablePath, args: [...chromium, ...
 if (process.env.ANNA_TEST_VERBOSE)
   desktop.process().stderr.on('data', chunk => process.stderr.write(`[app] ${chunk}`))
 const snapshot = async page => (await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))).snapshot
+/** Opens one of the places behind the corner menu. */
+async function menu(page, name) {
+  await page.getByRole('button', { name: '更多', exact: true }).click()
+  await page.locator('.menu-list').getByRole('button', { name }).click()
+}
 async function until(page, predicate, label, timeout = 20000) {
   const deadline = Date.now() + timeout
   for (;;) {
@@ -85,7 +90,7 @@ try {
       await page.waitForTimeout(2600)
       await page.mouse.dblclick(hair.x, hair.y)
       await page.locator('.body-stage[data-motion="wink"]').waitFor({ timeout: 3000 })
-      await page.getByRole('button', { name: '外观与能力', exact: true }).click()
+      await menu(page, '外观与能力')
       await page.locator('.form-row').getByRole('button', { name: '二次元', exact: true }).click()
       await page.locator('.model-canvas[data-renderer="live2d"][data-state="ready"]').waitFor({ timeout: 20000 })
       await page.locator('.form-row').getByRole('button', { name: '本体', exact: true }).click()
@@ -159,7 +164,7 @@ try {
   evidence.checks.push('Interruption is not an error; the next turn works')
 
   // Delegate to an external agent: the collaborator card appears, Anna supervises, the result lands in the history.
-  await page.getByRole('button', { name: /外部 agent/ }).click()
+  await menu(page, /外部 agent/)
   await page.locator('.agents .agent-list li[data-agent="claude"]').waitFor()
   await page.screenshot({ path: 'artifacts/scripted-agents.png' })
   // Providers, cc-switch style: add DeepSeek for Codex from the presets, let Anna use it, rename it, delete it.

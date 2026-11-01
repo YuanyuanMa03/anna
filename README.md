@@ -37,7 +37,7 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 Anna is also the name of a home. She was the first to move in, and four friends live there with her: two women and
 three men in all (Anna, Mao, Natori, Chitose, Mark), all from Live2D's free samples. Each has their own name,
 personality and way of talking, and none of them is a copy of Anna; honesty and permissions are the same for all of them.
-Their words come out of their mouth in a speech bubble, approval and delivery cards come out of their hand,
+Their words float beside their face and fade, approval and delivery cards come out of their hand,
 and whenever Claude Code or Codex does a job, whether the companion handed it over or you sent it with `@claude` or
 `@codex`, the companion takes the result back, checks the changes with its own tools (and quick tests when there are
 some), and tells you whether you can rely on it. Reviewing an `@` job costs one model turn; you can turn it off under
@@ -242,7 +242,7 @@ packages/kernels/      AgentKernel seam; pi kernel; Claude Code / Codex as the b
 packages/agents/       detection, provider presets and switching, launch args, protocol decoders
 packages/permissions/  modes, rules, path resolution, command classes, policy engine, sandbox
 packages/anna-host/    task queue, approvals, presence, checkpoints, memory, settings
-packages/character/    character manifest, stage director, bubble Markdown
+packages/character/    character manifest, stage directors, caption layout, Markdown
 packages/weixin/       WeChat ClawBot (iLink) channel
 packages/shared/       contracts, process RPC, vault, updater, platform paths
 plugins/anna-persona/  Anna's persona prompt
