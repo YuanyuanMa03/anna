@@ -54,9 +54,9 @@ export function migrate(raw: Record<string, unknown>): Settings {
     const { workEnabled: _work, sessionId: _session, ...rest } = value
     value = { ...rest, version: 2, workspaces }
   }
-  // Hiyori left the cast; Haru took over as Anna.
-  if (value.characterId === 'hiyori')
-    value.characterId = 'haru'
+  // Everyone but Anna has left the cast (Hiyori in 0.5, the others in 0.6).
+  if (!characters.some(character => character.id === value.characterId))
+    value.characterId = characters[0].id
   return v.parse(settingsSchema, value) as Settings
 }
 

@@ -206,7 +206,7 @@ export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'providers' } | 
   | { type: 'update', state: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error' | 'current', version?: string, notes?: string, message?: string }
   | { type: 'collaborator', agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }
 export type Command = { type: 'snapshot' } | { type: 'send', text: string }
-  | { type: 'character', id: CharacterId } | { type: 'plugin', enabled: boolean }
+  | { type: 'plugin', enabled: boolean }
   | { type: 'configure', model: ModelSettings, key: string } | { type: 'connect' }
   | { type: 'restart' } | { type: 'stop' } | { type: 'new-session' }
   | { type: 'workspace', path: string }

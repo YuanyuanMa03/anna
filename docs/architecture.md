@@ -100,7 +100,7 @@ agent works, Anna switches to a "supervising" pose.
 Anna has a second form, her own body: a mesh avatar of her original art (`apps/desktop/src/body-stage.vue`). It takes
 the same props and events as the Live2D stage. The Director still decides which phase she performs; `character/body.ts`
 turns that phase, the person's presence and touches into motions, expressions and gaze for the mesh-avatar runtime.
-The archive is not committed or published, so public builds show only the Live2D form; see `packages/character/README.md`.
+The archive is in the repository, and every build carries it; see `packages/character/README.md`.
 
 ## Linux: Chromium sandbox
 

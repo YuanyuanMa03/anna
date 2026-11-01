@@ -183,12 +183,6 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .plugin-row button { font-size: 11px; white-space: nowrap; padding: 8px }
 .segmented { display: flex; flex-shrink: 0; gap: 4px }
 .segmented button[aria-pressed=true] { background: #ece3f5; border-color: #cdbbe0 }
-.character-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
-.character-card { display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; border-radius: 16px; min-width: 0 }
-.character-card.selected { border-color: #aa95bd; background: #f0e9f7 }
-.character-card img { width: 40px; height: 54px; object-fit: cover; object-position: left center; border-radius: 10px }
-.character-card strong { display: block; font-size: 13px; font-weight: 500 }
-.character-card small { display: block; font-size: 9px; color: #a18dac; margin-top: 3px }
 .weixin-sheet { text-align: center }
 .weixin-sheet .sheet-heading { text-align: left }
 .weixin-qr { width: 260px; max-width: 100%; border-radius: 16px }
@@ -294,8 +288,6 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 @keyframes tether-flow { to { stroke-dashoffset: -18 } }
 .speaker small { letter-spacing: 0; color: var(--muted) }
 @media (prefers-reduced-motion: reduce) { .tether { animation: none } }
-.character-card strong i { font-style: normal; font-size: 11px; margin-left: 5px; color: #c37fa3 }
-.character-card strong i.male { color: #6f8fc4 }
 
 /* External agents: tabs, and the providers section (cc-switch in Anna) */
 .sheet.agents { width: 640px }
