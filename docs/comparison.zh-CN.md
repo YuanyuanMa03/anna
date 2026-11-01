@@ -58,10 +58,10 @@ Anna 自己就是 agent。她把活交给 Claude Code 或 Codex 时，会把结�
 
 ## Anna 强在哪里
 
-- **换了大脑，还是同一个她。** 不管是 pi、Claude Code 还是 Codex 在思考，样子、性情和那本共用的日记都不变。换伙伴、换大脑，话都接得上。
+- **换了大脑，还是同一个她。** 不管是 pi、Claude Code 还是 Codex 在思考，样子、性情和那本共用的日记都不变。换大脑后记忆还在，对话从头开始。
 - **自己动手，也会督工。** 派出去的活会回到她手里：她看改动、跑一遍很快的测试，再告诉你能不能放心用。
-- **看得见的安全。** Claude Code 格式的四种权限模式，macOS 和 Linux 上真正的系统沙箱，每次任务前的快照，
-  以及带 diff 和一键撤销的交付卡；别的 agent 做的改动也一样。
+- **看得见的安全。** Claude Code 格式的四种权限模式，macOS 和 Linux 上真正的系统沙箱，她的工具改的每个文件都有检查点，派活前给工作区拍快照，
+  还有带 diff 和一键撤销的交付卡。
 - **诚实是规矩，不是心情。** 不编造工具结果，没跑过的测试就说没跑过。日记里每一行都写着是谁记的，伙伴之间不抢彼此的话。
 - **服务商和路由都在里面。** cc-switch 的预设，为只支持 Chat Completions 的服务商在本机转换格式，备用服务商的故障切换和熔断，
   还有让终端里的 agent 也走 Anna 的全局路由。
@@ -74,7 +74,7 @@ Anna 自己就是 agent。她把活交给 Claude Code 或 Codex 时，会把结�
 - **Windows 上还没有命令沙箱。**
 - **界面只有中文。** 英文界面和英文人格在路线图上。
 - **派活不分 worktree。** 派出去的活和你共用一个工作区；Crystal 已经示范了该怎么做。
-- **角色都是 Live2D 的样例。** Anna 还没有一个专门为她画的模型。
+- **本体只有一张画。** 一张正面原画，所以她只能小幅转头，手也不会动。二次元形态用的是 Live2D 样例。
 - **非商业许可证。** PolyForm Noncommercial 让个人可以免费用她，也让公司比用上面那些 MIT、Apache、AGPL 项目更难接纳她。
 - **只有一个维护者。** 上面大多数项目背后都有社区。
 
@@ -89,6 +89,6 @@ Anna 自己就是 agent。她把活交给 Claude Code 或 Codex 时，会把结�
 - **[cc-switch](https://github.com/farion1231/cc-switch)**：教会她找到你电脑上已经装好的 agent，也借给她服务商预设和导入链接的格式。
 - **[Project AIRI](https://github.com/moeru-ai/airi)**：示范了在她所用的 Web 技术栈上怎样渲染 Live2D，也是她衡量“一个角色做得好不好”的标尺。
 - **[openclaw-weixin](https://github.com/Tencent/openclaw-weixin)**：为她打开了微信的门。
-- **Live2D 官方免费样例**：伙伴们的样子，遵循 Live2D 自己的条款（见 [NOTICE.md](../NOTICE.md)）。
+- **Live2D 官方免费样例**：她的二次元形态，遵循 Live2D 自己的条款（见 [NOTICE.md](../NOTICE.md)）。
 
 接下来值得借鉴的：Clawd on Desk 的手机端批准和所有会话的总览，以及 Crystal 的每个任务一个 worktree。
