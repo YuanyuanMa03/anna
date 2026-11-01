@@ -63,13 +63,14 @@ They are more complete as tools, and they are tools: panels, not someone.
 ## Where Anna is strong
 
 - **She is one person across every brain.** Her face, her heart and the shared diary stay the same whether pi,
-  Claude Code or Codex is thinking. Switch companions or brains and the conversation carries on.
+  Claude Code or Codex is thinking. Change brains and her memory stays; the conversation starts anew.
 - **She does the work herself, and supervises when she doesn't.** Delegated jobs come back to her; she reads the
   changes, runs the quick tests, and tells you whether to rely on them.
 - **Safety you can see.** Four permission modes in Claude Code's format, a real OS sandbox on macOS and Linux, a
-  snapshot before every task, and a delivery card with the diff and one-click undo, including for other agents' work.
+  checkpoint of every file her tools change, a snapshot of the workspace before a delegated job, and a delivery card with
+  the diff and one-click undo.
 - **Honesty as a rule, not a mood.** No invented tool results; a test she did not run is a test she says she did not
-  run. Memory says who wrote each line, and companions do not take credit for each other's words.
+  run. Memory says who wrote each line, and she does not take credit for what another agent did.
 - **Providers and routing built in.** cc-switch's presets, local format conversion for Chat Completions providers,
   backups with failover and a circuit breaker, and global routing for the agents you run in a terminal.
 
@@ -84,7 +85,7 @@ They are more complete as tools, and they are tools: panels, not someone.
 - **No command sandbox on Windows yet.**
 - **The interface speaks Chinese only.** An English UI and persona are on the roadmap.
 - **No worktree per task.** Delegated jobs share the workspace; Crystal shows how it should be done.
-- **The cast are Live2D samples.** Anna does not yet have a model drawn for her.
+- **Her body is one drawing.** A single frontal portrait, so she turns only a little and has no hands that move. Her anime form is a Live2D sample.
 - **A noncommercial license.** PolyForm Noncommercial keeps Anna free for people, and also makes her harder to adopt
   inside companies than the MIT, Apache or AGPL projects above.
 - **One maintainer.** Most of the projects above have a community behind them.
@@ -102,7 +103,7 @@ They are more complete as tools, and they are tools: panels, not someone.
 - **[Project AIRI](https://github.com/moeru-ai/airi)** showed how to render Live2D on the web stack she uses, and is the
   standard she measures a character against.
 - **[openclaw-weixin](https://github.com/Tencent/openclaw-weixin)** opened the door to WeChat.
-- **Live2D's free samples** are the faces of the cast, under Live2D's own terms (see [NOTICE.md](../NOTICE.md)).
+- **Live2D's free samples** gave her the anime form, under Live2D's own terms (see [NOTICE.md](../NOTICE.md)).
 
 Things worth borrowing next: Clawd on Desk's approvals from a phone and its overview of every live session, and
 Crystal's worktree per task.

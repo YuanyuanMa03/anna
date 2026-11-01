@@ -36,7 +36,7 @@ describe('brand voice', () => {
   it('shows the slogan in the Linux menu and says plainly what the package is', () => {
     const deb = read('scripts/package-deb.mjs')
     expect(deb).toContain(`Comment=${slogan.en.replace(/\.$/, '')}\n`)
-    expect(deb).toContain('Description: Live2D desktop companion who codes alongside you')
+    expect(deb).toContain('Description: A desktop companion who codes alongside you')
   })
 
   it('names the app window plainly', () => {
