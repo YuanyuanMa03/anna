@@ -6,11 +6,13 @@ import type { SandboxStatus } from '../permissions/sandbox'
 import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
 import type { DelegationOutcome } from './delegator'
+import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
+import { avatarFolder, avatarTask } from '../character/avatar-task'
 import { companion } from '../character/manifest'
 import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
@@ -757,6 +759,10 @@ export class Host {
       case 'stop':
         await this.stopWork()
         return this.snapshot()
+      case 'avatar-job':
+        await mkdir(join(this.workspacePath, avatarFolder), { recursive: true })
+        await writeFile(join(this.workspacePath, avatarFolder, 'source.png'), Buffer.from(command.image, 'base64'))
+        return this.execute({ type: 'send', text: avatarTask })
       case 'send':
         if (this.current && this.current.origin === 'desktop' && this.kernel?.capabilities.steering) {
           const text = command.text.trim()

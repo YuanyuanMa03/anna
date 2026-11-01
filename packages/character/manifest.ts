@@ -1,7 +1,7 @@
 /** A moment on stage that a model's own motion can play: meeting the user, handing something over, a win. */
 export type MotionCue = 'greet' | 'present' | 'celebrate' | 'review'
-/** How she appears: her own body, or her Live2D anime form. */
-export type CompanionForm = 'body' | 'anime'
+/** How she appears: her own body, her Live2D anime form, or the look the person made for her. */
+export type CompanionForm = 'body' | 'anime' | 'mine'
 /** Image-pixel geometry for her own body. */
 export interface Box { x0: number, y0: number, x1: number, y1: number }
 export interface Ellipse { cx: number, cy: number, rx: number, ry: number }
