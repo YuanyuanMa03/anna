@@ -138,14 +138,14 @@ describe('body aim', () => {
   })
   it('keeps the head and eyes inside their range for a far pointer', () => {
     const params = aim('person', {}, { dx: -9000, dy: 9000, reach: 600 })
-    expect(params.gazeX).toBe(-1)
-    expect(params.gazeY).toBe(-1)
-    expect(Math.abs(params.angleX)).toBeLessThanOrEqual(30)
-    expect(Math.abs(params.angleY)).toBeLessThanOrEqual(30)
+    expect(params.gazeX).toBe(-0.55)
+    expect(params.gazeY).toBe(-0.4)
+    expect(Math.abs(params.angleX)).toBeLessThanOrEqual(6)
+    expect(Math.abs(params.angleY)).toBeLessThanOrEqual(4)
   })
   it('adds the beat head offset to a fixed look', () => {
     const params = aim({ x: 0, y: 0 }, { z: -7 })
-    expect(params).toMatchObject({ gazeX: 0, gazeY: 0, angleZ: -7 })
+    expect(params).toMatchObject({ gazeX: 0, gazeY: 0, angleZ: -3 })
   })
 })
 
