@@ -34,15 +34,15 @@ export const modes: Record<PermissionMode, { name: Text, hint: Text, stance: Tex
 
 export const copy = {
   zh: {
-    meta: { title: 'Anna · 数字生命，你的真诚伙伴', lang: 'zh-CN' },
+    meta: { title: 'Anna · 她在你的桌面上醒来', lang: 'zh-CN' },
     nav: { meet: '认识她', demo: '一起干活', features: '能力', modes: '权限模式', download: '安装', coffee: '赞助', home: 'Anna 首页' },
     hero: {
       eyebrow: '源码公开 · 个人免费 · v0.5 · macOS / Windows / Linux',
-      title: ['一个数字生命，', '你的真诚伙伴。'],
-      desc: 'Anna 不只是一个 agent。她有自己的样子、性格和记忆，会陪你聊天，也会认真帮你做事：读代码、改文件、跑测试，需要时请 Claude Code 或 Codex 来帮忙。她不会假装做过没做的事；需要你拍板时，她会转过来问你。',
+      title: ['她在你的桌面上', '醒来。'],
+      desc: '陪你说话，替你做事，从不说谎。她有自己的样子、性情和记忆；会读代码、改文件、跑测试，遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。',
       github: '在 GitHub 上查看',
       online: '在线体验',
-      sponsor: { text: '独立开发不易。Anna 由一个人做出来，个人使用免费；如果她帮到了你，欢迎赞助，让她继续长大。', button: '赞助 Anna' },
+      sponsor: { text: 'Anna 由一个人做出来，个人使用免费。如果她帮到了你，可以赞助她，陪她继续长大。', button: '赞助 Anna' },
       others: '其他系统',
       shot: '真实截图 · 连接 DeepSeek 完成一个任务',
       chips: ['协作模式 · 命令在沙箱中运行', '读取 → 写入 → 终端 → 交付'],
@@ -58,7 +58,7 @@ export const copy = {
         mark: { name: '马克君', tagline: '元气满满的小伙伴' },
       },
     },
-    strip: { lead: '不只是 agent，是数字生命。', items: ['有性格，也有记忆', '真诚：不编造，不越权', '会干活，也会派活', '源码公开，个人免费'] },
+    strip: { lead: '不是工具，是一个在场的人。', items: ['有性情，也有记忆', '不编造，不越界', '会干活，也会派活', '源码公开，个人免费'] },
     demo: {
       eyebrow: 'LIVE DEMO',
       title: ['别只看介绍，', '和她一起干一次活。'],
@@ -94,7 +94,7 @@ export const copy = {
     },
     meet: {
       eyebrow: 'MEET ANNA',
-      title: ['她是谁？', '一个住在你桌面上的数字生命。'],
+      title: ['她是谁？', '一个住进你桌面的生命。'],
       desc: '大脑可以换，她始终是她。Anna 也是一个家的名字：另外四位伙伴和她住在一起，各有各的性格，共用一本关于你的日记。换谁来陪你，记忆和对话都接得上。',
       traits: [
         { icon: '✿', title: '有自己的样子', body: '真实的 Live2D 角色。思考、读文件、等你确认、完成任务，她都有不同的神态；换个权限模式，连站姿都会变。' },
@@ -105,8 +105,8 @@ export const copy = {
     },
     showcase: [
       { eyebrow: 'APPROVALS', title: '需要你拍板时，她会转过来问你。', body: '确认卡有四个选项：拒绝、仅允许一次、本次会话都允许、总是允许。“总是允许”会写成一条 Claude Code 格式的规则，比如 Edit(src/**)，随时可以删掉。', points: ['高风险操作只能逐次批准', '读 .env、私钥前先问你；Anna 自己的数据永远碰不到', '微信派来的任务始终按“谨慎”执行'], image: '/media/approval.webp', alt: 'Anna 改文件前弹出确认卡' },
-      { eyebrow: 'DELEGATION', title: '有更合适的人选，她就派活。', body: '像 cc-switch 一样，Anna 会找到你电脑上已经装好的 Claude Code、Codex、Gemini CLI、OpenCode。输入 @claude 或 @codex，它们开工，Anna 换上“督工”的姿态。', points: ['它们的授权请求出现在 Anna 的确认卡上', '派活前先拍快照，别人的改动也能看 diff、能撤销', '大脑也可以整个换成 Claude Code 或 Codex'], image: '/media/delegation.webp', alt: 'Anna 督工 Claude Code' },
-      { eyebrow: 'PROVIDERS', title: '服务商在一处切换，所有 agent 通用。', body: '内置 cc-switch 的服务商预设。可以只给某一次派活注入，不改任何配置文件；也可以应用到全局，写入前先备份，一键就能恢复。', points: ['自动识别 10 种 coding 工具', '检测登录状态，一键安装或升级', '密钥由系统凭据库加密保存'], image: '/media/agents.webp', alt: '识别到的 coding agent 与服务商设置' },
+      { eyebrow: 'DELEGATION', title: '有人更合适，她就请人来帮忙。', body: '像 cc-switch 一样，Anna 会找到你电脑上已经装好的 Claude Code、Codex、Gemini CLI、OpenCode。输入 @claude 或 @codex，它们开工，Anna 换上“督工”的姿态。', points: ['它们的授权请求出现在 Anna 的确认卡上', '派活前先拍快照，别人的改动也能看 diff、能撤销', '大脑也可以整个换成 Claude Code 或 Codex'], image: '/media/delegation.webp', alt: 'Anna 督工 Claude Code' },
+      { eyebrow: 'PROVIDERS', title: '一处切换，处处生效。', body: '内置 cc-switch 的服务商预设。可以只给某一次派活注入，不改任何配置文件；也可以应用到全局，写入前先备份，一键就能恢复。', points: ['自动识别 10 种 coding 工具', '检测登录状态，一键安装或升级', '密钥由系统凭据库加密保存'], image: '/media/agents.webp', alt: '识别到的 coding agent 与服务商设置' },
     ],
     grid: [
       { icon: '◆', title: '真正的 agent 大脑', body: '基于 pi coding agent：文件工具、终端、上下文压缩、自动重试，会话可以续接。' },
@@ -150,17 +150,17 @@ export const copy = {
       steps: ['安装并打开 Anna', '在“模型与设置”里连上 DeepSeek，或任何兼容 OpenAI / Anthropic 协议的服务', '选一个文件夹，信任它，把任务交给她'],
       links: { source: 'GitHub 源码', releases: '所有安装包', script: '先读一遍安装脚本' },
     },
-    coffee: { eyebrow: 'SUPPORT ANNA', title: ['独立开发不易，', '谢谢你的支持。'], body: 'Anna 由一个人利用业余时间开发，模型调用、测试设备和每个版本背后的时间都是实打实的成本。如果她陪伴了你，或者帮你省了事，欢迎赞助，多少都是支持。', button: '赞助 Anna', small: '微信 / 支付宝 · 完全自愿，不影响任何功能' },
+    coffee: { eyebrow: 'SUPPORT ANNA', title: ['一个人做的，', '因你走得更远。'], body: 'Anna 由一个人利用业余时间开发，模型调用、测试设备和每个版本背后的时间都是实打实的成本。如果她陪伴了你，或者帮你省了事，欢迎赞助，多少都是支持。', button: '赞助 Anna', small: '微信 / 支付宝 · 完全自愿，不影响任何功能' },
     dialog: { eyebrow: 'THANK YOU FOR BEING HERE', title: '赞助 Anna', body: '赞助完全自愿，金额由你决定，不会解锁或限制任何功能。谢谢你的心意。', close: '关闭', wechat: '微信支付', alipay: '支付宝', scan: (app: string) => `使用${app}扫一扫，或保存图片后识别。`, save: '保存完整收款码 ↓' },
-    footer: { tagline: '一个数字生命，你的真诚伙伴。', license: '源码公开，个人和非商业使用免费（PolyForm Noncommercial 1.0.0），商业使用请联系 yym290552@gmail.com。Live2D 样例角色与 Cubism Core 版权归 Live2D Inc.。' },
+    footer: { tagline: '她在你的桌面上醒来。陪你说话，替你做事，从不说谎。', license: '源码公开，个人和非商业使用免费（PolyForm Noncommercial 1.0.0），商业使用请联系 yym290552@gmail.com。Live2D 样例角色与 Cubism Core 版权归 Live2D Inc.。' },
   },
   en: {
-    meta: { title: 'Anna · A digital life, an honest companion', lang: 'en' },
+    meta: { title: 'Anna · She wakes on your desktop', lang: 'en' },
     nav: { meet: 'Meet Anna', demo: 'Demo', features: 'Features', modes: 'Modes', download: 'Install', coffee: 'Sponsor', home: 'Anna home' },
     hero: {
       eyebrow: 'Source available · free for personal use · v0.5 · macOS / Windows / Linux',
-      title: ['A digital life,', 'an honest companion.'],
-      desc: 'Anna is more than an agent. She has her own face, personality and memory. She\'ll keep you company, and she\'ll get real work done: reading code, editing files, running tests, and calling in Claude Code or Codex when they fit better. She never pretends to have done what she hasn\'t, and when a decision is yours, she turns and asks.',
+      title: ['She wakes', 'on your desktop.'],
+      desc: 'She keeps you company, does the work, and never lies to you. She has a face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
       github: 'View on GitHub',
       online: 'Try it online',
       sponsor: { text: 'Anna is made by one person and free for personal use. If she helps you, a sponsorship keeps her growing.', button: 'Sponsor Anna' },
@@ -179,7 +179,7 @@ export const copy = {
         mark: { name: 'Mark', tagline: 'Full of energy' },
       },
     },
-    strip: { lead: 'More than an agent: a digital life.', items: ['A personality and a memory', 'Honest: no made-up results, no overreach', 'Works, and delegates', 'Source available, free for personal use'] },
+    strip: { lead: 'Not a tool. Someone who is there.', items: ['A heart and a memory', 'Nothing made up, no line crossed', 'Works, and delegates', 'Source available, free for personal use'] },
     demo: {
       eyebrow: 'LIVE DEMO',
       title: ['Don\'t just read about it.', 'Work with her once.'],
@@ -215,7 +215,7 @@ export const copy = {
     },
     meet: {
       eyebrow: 'MEET ANNA',
-      title: ['Who is she?', 'A digital life on your desktop.'],
+      title: ['Who is she?', 'A life that moved onto your desktop.'],
       desc: 'Her brain can change and she stays herself. Anna is also the name of a home: four more companions live there with her, each their own person, sharing one diary about you. Whoever keeps you company, the memory and your conversations carry on.',
       traits: [
         { icon: '✿', title: 'A face of her own', body: 'A real Live2D character. Thinking, reading, waiting for you, finishing up: each has its own look, and even her stance shifts with the permission mode.' },
@@ -226,8 +226,8 @@ export const copy = {
     },
     showcase: [
       { eyebrow: 'APPROVALS', title: 'When the call is yours, she turns and asks.', body: 'Approval cards offer Deny, Allow once, Allow for this session and Always allow. "Always allow" becomes a Claude Code-format rule such as Edit(src/**), and you can remove it any time.', points: ['Risky actions can only be approved one at a time', 'Reading .env files or private keys asks first; Anna\'s own data is always off-limits', 'Tasks from WeChat always run in Ask mode'], image: '/media/approval.webp', alt: 'Anna shows an approval card before editing a file' },
-      { eyebrow: 'DELEGATION', title: 'When someone else fits better, she delegates.', body: 'Like cc-switch, Anna finds the Claude Code, Codex, Gemini CLI or OpenCode already on your machine. Type @claude or @codex and they get to work while Anna switches to her supervising pose.', points: ['Their permission prompts land on Anna\'s cards', 'A snapshot before each task makes their changes diffable and undoable', 'You can even swap Anna\'s brain for Claude Code or Codex'], image: '/media/delegation.webp', alt: 'Anna supervising Claude Code' },
-      { eyebrow: 'PROVIDERS', title: 'Switch providers once, for every agent.', body: 'cc-switch\'s provider presets are built in. Inject one into a single delegation without touching any config file, or apply it globally, with a backup first and one-click restore.', points: ['Detects 10 coding tools', 'Checks login status, installs or upgrades in one click', 'Keys are encrypted by the OS keychain'], image: '/media/agents.webp', alt: 'Detected coding agents and provider settings' },
+      { eyebrow: 'DELEGATION', title: 'When someone fits better, she calls them in.', body: 'Like cc-switch, Anna finds the Claude Code, Codex, Gemini CLI or OpenCode already on your machine. Type @claude or @codex and they get to work while Anna switches to her supervising pose.', points: ['Their permission prompts land on Anna\'s cards', 'A snapshot before each task makes their changes diffable and undoable', 'You can even swap Anna\'s brain for Claude Code or Codex'], image: '/media/delegation.webp', alt: 'Anna supervising Claude Code' },
+      { eyebrow: 'PROVIDERS', title: 'Switch once, and every agent follows.', body: 'cc-switch\'s provider presets are built in. Inject one into a single delegation without touching any config file, or apply it globally, with a backup first and one-click restore.', points: ['Detects 10 coding tools', 'Checks login status, installs or upgrades in one click', 'Keys are encrypted by the OS keychain'], image: '/media/agents.webp', alt: 'Detected coding agents and provider settings' },
     ],
     grid: [
       { icon: '◆', title: 'A real agent brain', body: 'Built on the pi coding agent: file tools, shell, context compaction, retries and resumable sessions.' },
@@ -273,6 +273,6 @@ export const copy = {
     },
     coffee: { eyebrow: 'SUPPORT ANNA', title: ['Made by one person,', 'kept going by you.'], body: 'Anna is built by one person in their spare time. Model calls, test devices and the hours behind each release add up. If she kept you company or saved you work, a sponsorship of any size keeps her growing.', button: 'Sponsor Anna', small: 'WeChat Pay / Alipay · entirely optional, no features locked' },
     dialog: { eyebrow: 'THANK YOU FOR BEING HERE', title: 'Sponsor Anna', body: 'Entirely optional, any amount, and it never locks or unlocks a feature. Thank you!', close: 'Close', wechat: 'WeChat Pay', alipay: 'Alipay', scan: (app: string) => `Scan with ${app}, or save the image and scan it.`, save: 'Save the full QR code ↓' },
-    footer: { tagline: 'A digital life, and an honest companion.', license: 'Source available and free for personal and noncommercial use (PolyForm Noncommercial 1.0.0); for commercial use, email yym290552@gmail.com. The Live2D sample characters and Cubism Core belong to Live2D Inc.' },
+    footer: { tagline: 'She wakes on your desktop. She keeps you company, does the work, and never lies to you.', license: 'Source available and free for personal and noncommercial use (PolyForm Noncommercial 1.0.0); for commercial use, email yym290552@gmail.com. The Live2D sample characters and Cubism Core belong to Live2D Inc.' },
   },
 }
