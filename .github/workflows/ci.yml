@@ -12,17 +12,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-15, ubuntu-24.04, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          version: 10.33.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Linux sandbox and display dependencies
@@ -41,7 +39,7 @@ jobs:
       - name: Scripted desktop acceptance (Linux, virtual display)
         if: runner.os == 'Linux'
         run: xvfb-run -a pnpm test:scripted
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: acceptance-${{ matrix.os }}
@@ -52,13 +50,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          version: 10.33.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
@@ -88,7 +84,7 @@ jobs:
           ANNA_PACKAGED_APP: /home/runner/.local/share/anna-app
           ANNA_EXPECT_SANDBOX: '1'
         run: xvfb-run -a pnpm test:scripted
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: acceptance-linux-package

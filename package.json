@@ -4,6 +4,13 @@
   "version": "0.5.1",
   "private": true,
   "packageManager": "pnpm@10.33.0",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.21.0",
+      "onFail": "download"
+    }
+  },
   "scripts": {
     "dev:desktop": "node scripts/dev.mjs",
     "assets": "node scripts/fetch-assets.mjs",
@@ -53,7 +60,6 @@
     "typescript": "5.9.3",
     "vite": "7.1.9",
     "vitest": "3.2.4",
-    "vue-tsc": "3.1.1",
-    "wrangler": "^4.151.1"
+    "vue-tsc": "3.1.1"
   }
 }
