@@ -62,7 +62,7 @@ const task = computed(() => tasks[taskIndex.value]!)
 const character = characters[0]
 
 // ── Anna as a cut-out captured from the app ──
-const cast = [{ id: 'haru', top: 0.941, size: [293, 900], z: 6, overlap: 0 }] as const
+const cast = [{ id: 'haru', top: 0.98, size: [1048, 900], z: 6, overlap: 0 }] as const
 const castRow = ref<HTMLElement>()
 function meet() {
   document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })
@@ -236,7 +236,7 @@ const year = new Date().getFullYear()
     <section class="cast wrap" :aria-label="t.cast.label">
       <div ref="castRow" class="cast-row">
         <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'haru' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet()">
-          <img :src="`/media/companions/${item.id}.webp`" alt="" :width="item.size[0]" :height="item.size[1]">
+          <img src="/media/anna.webp" alt="" :width="item.size[0]" :height="item.size[1]">
           <span class="tag"><b>{{ t.cast.people[item.id].name }}</b><small>{{ t.cast.people[item.id].tagline }}</small></span>
         </button>
       </div>
