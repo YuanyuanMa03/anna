@@ -162,7 +162,7 @@ export interface TaskResult {
   undone?: boolean
 }
 export interface ToolActivity { name: string, phase: 'call' | 'result', callId: string, text: string, isError?: boolean }
-export interface PlatformInfo { os: string, shell: 'bash' | 'powershell', sandbox: { available: boolean, reason?: string }, secrets: 'system' | 'file' }
+export interface PlatformInfo { os: string, shell: 'bash' | 'powershell', sandbox: { available: boolean, reason?: string }, acp: boolean, secrets: 'system' | 'file' }
 
 export interface RuntimeSnapshot {
   state: 'unconfigured' | 'stopped' | 'starting' | 'ready' | 'running' | 'error'

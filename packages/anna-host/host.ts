@@ -45,6 +45,9 @@ export interface HostOptions {
   notes?: string
 }
 
+/** ACP brains stay off until one real agent has run as her brain: only protocol fakes have so far. */
+const acpEnabled = () => process.env.ANNA_ACP === '1'
+
 /**
  * One host owns one kernel, one serial task queue, and the permission policy around it.
  * Desktop and remote channels feed the same queue; the kernel never sees credentials beyond its model key.
@@ -125,6 +128,9 @@ export class Host {
 
   async initialize() {
     await this.store.load()
+    // Connecting at start would hang on an agent that never answers, with no way left to choose another brain.
+    if (this.store.value.kernel.startsWith('acp:') && !acpEnabled())
+      this.store.value.kernel = 'pi'
     await this.store.character()
     await this.memory.load()
     await this.journal.load()
@@ -175,7 +181,7 @@ export class Host {
   }
 
   private platform(): PlatformInfo {
-    return { os: process.platform, shell: process.platform === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, secrets: this.secretsMode }
+    return { os: process.platform, shell: process.platform === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
   }
 
   snapshot(full = true): RuntimeSnapshot {
@@ -994,14 +1000,29 @@ export class Host {
           await this.connect(key)
       }
       else if (command.type === 'kernel') {
-        if (!kernelFor(command.id).available)
+        if (!kernelFor(command.id).available || (command.id.startsWith('acp:') && !acpEnabled()))
           throw new Error('这个内核暂不可用')
+        const { kernel: kernelBefore, sessionFile: sessionBefore } = this.store.value
         await this.close()
         this.store.value.kernel = command.id
         delete this.store.value.sessionFile
         await this.store.save()
-        if (this.canConnect(key))
-          await this.connect(key)
+        try {
+          if (this.canConnect(key))
+            await this.connect(key)
+          else this.state = 'unconfigured'
+        }
+        catch (error) {
+          // A brain that cannot start is not her brain: she goes back to the one she had, with its conversation.
+          this.store.value.kernel = kernelBefore
+          if (sessionBefore)
+            this.store.value.sessionFile = sessionBefore
+          await this.store.save()
+          if (this.canConnect(key))
+            await this.connect(key).catch(() => {})
+          else this.state = 'unconfigured'
+          throw error
+        }
       }
       else if (command.type === 'character') {
         const previous = companion(this.store.value.characterId)

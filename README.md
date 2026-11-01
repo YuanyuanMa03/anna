@@ -175,10 +175,11 @@ writes a Claude Code-format rule to the workspace. Tasks that come in over WeCha
 | Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | ✅ ACP | sandboxed, asked calls via her gate | built from the protocol |
 
 The brain chip in the corner (「用 pi 思考 ▾」) lists every brain on this machine with what stands between it and thinking,
-and switches in one click; every installed agent that speaks the Agent Client Protocol (ACP) is listed as a brain too,
-running inside her sandbox, with the calls it asks about decided by her permission gate and any change it makes without
-asking stopping the turn (see [docs/kernels.md](docs/kernels.md#acp-brains); not yet run with a real agent). Someone
-without a model is offered a signed-in Claude Code or Codex instead.
+and switches in one click. Someone without a model is offered a signed-in Claude Code or Codex instead.
+
+Agents in the catalog that speak the Agent Client Protocol (ACP) can be her brain too, running inside her sandbox, but this
+is off by default: it has only run against protocol fakes, not a real agent. Set `ANNA_ACP=1` to try it (see
+[docs/kernels.md](docs/kernels.md#acp-brains)).
 
 Anna snapshots the workspace before each delegation, so whatever another agent changes can be diffed and undone too.
 See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new agent.

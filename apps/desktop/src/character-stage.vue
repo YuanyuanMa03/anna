@@ -234,11 +234,17 @@ watch(() => props.cue?.at, () => {
   else
     gesture = { kind: 'nod', start: performance.now() }
 })
+/** The stage fills the window: only a click on her opens the work, not one in the air around her. */
+function touch(event: MouseEvent) {
+  const rect = element.value?.getBoundingClientRect()
+  if (!model || !rect || model.getBounds().contains(event.clientX - rect.left, event.clientY - rect.top))
+    emit('poke')
+}
 onBeforeUnmount(() => { generation++; window.removeEventListener('pointermove', track); observer?.disconnect(); model?.destroy({ children: true, texture: true, baseTexture: true }); model = undefined; app?.destroy(true, { children: true }); app = undefined })
 </script>
 
 <template>
-  <div ref="element" class="model-canvas" data-renderer="live2d" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" @click="emit('poke')">
+  <div ref="element" class="model-canvas" data-renderer="live2d" :data-character="character.id" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" @click="touch">
     <p v-if="state === 'loading'" class="stage-loading" role="status">正在唤醒 {{ character.name }}…</p>
     <p v-if="error" class="stage-error" role="alert">模型加载失败：{{ error }}</p>
   </div>

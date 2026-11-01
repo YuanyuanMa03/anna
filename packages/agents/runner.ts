@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname } from 'node:path'
 import process from 'node:process'
 import { decoderFor } from './adapters'
+import { unwrapCmdShim } from './windows-shim'
 
 export interface RunOptions {
   agent: DelegateAgent
@@ -34,10 +35,13 @@ export function runAgent(options: RunOptions): Promise<RunResult> {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
     writeFileSync(path, text, { mode: 0o600 })
   }
-  const child = spawn(command, [...(options.prefix ?? []), ...launch.args], {
+  const script = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command)
+  const shim = script ? unwrapCmdShim(command) : undefined
+  const child = spawn(shim?.command ?? command, [...(shim?.prefix ?? []), ...(options.prefix ?? []), ...launch.args], {
     cwd,
     windowsHide: true,
-    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command),
+    // Node refuses a .cmd without a shell. Only a wrapper that is not npm's own shim still gets one.
+    shell: script && !shim,
     env: { ...process.env, ...launch.env, PATH: [dirname(command), process.env.PATH].filter(Boolean).join(delimiter), NO_COLOR: '1' },
     stdio: ['pipe', 'pipe', 'pipe'],
   })

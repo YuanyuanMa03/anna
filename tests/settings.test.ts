@@ -37,6 +37,13 @@ describe('settings', () => {
   it('moves people who had Hiyori over to Anna, who is now Haru', () => {
     expect(migrate({ version: 2, kernel: 'pi', characterId: 'hiyori', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } }).characterId).toBe('haru')
   })
+  const withBrain = (kernel: string) => ({ version: 2, kernel, characterId: 'haru', statusEnabled: true, memoryEnabled: true, workspaces: {}, model: { provider: 'custom', model: 'm', baseURL: 'https://e.example', api: 'openai-completions' } })
+  it.each(['pi', 'claude-code', 'codex', 'acp:gemini'])('accepts %s as her brain', (kernel) => {
+    expect(migrate(withBrain(kernel)).kernel).toBe(kernel)
+  })
+  it.each(['gpt', 'acp:', 'acp:../../bin/sh'])('refuses %s as her brain', (kernel) => {
+    expect(() => migrate(withBrain(kernel))).toThrow()
+  })
   it.each(['http://example.com', 'https://user:secret@example.com', 'https://example.com?key=secret'])('refuses credential-bearing or cleartext endpoints', (baseURL) => {
     expect(() => validateModel({ provider: 'custom', model: 'test-model', api: 'anthropic-messages', baseURL })).toThrow()
   })

@@ -67,6 +67,8 @@ it; see the known limits in [permissions.md](permissions.md#known-limits).
 
 ## ACP brains
 
+Off by default: no real agent has run as her brain yet, only protocol fakes, and reading the agents' sources suggests real ones will be stopped early (a search with no path, a tool reported before it asks). Set `ANNA_ACP=1` to list them in the picker.
+
 Any catalogued agent with `acp` arguments can be Anna's brain through the Agent Client Protocol
 (https://agentclientprotocol.com): Gemini CLI, OpenCode, Grok Build, MiniMax Code, Kimi Code, Qwen Code, Cursor CLI,
 GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline and Kilo. The arguments come from the
@@ -90,8 +92,8 @@ implements `AgentKernel`:
   - A tool call that starts without having asked is checked when it is reported (`in_progress` or `completed`): a
     change (edit, shell, anything unknown) stops the turn at once with a message to switch the agent's own approvals to
     asking; a read, search or fetch goes through her gate and stops the turn if the gate says no. Either way the call
-    may already have run: a change can be undone with the workspace checkpoint, and a read has already reached the
-    agent. A call the agent never reports is limited by the sandbox alone.
+    may already have run. Nothing was checkpointed for it, because it never asked, so a change it made stays made; a read
+    has already reached the agent. A call the agent never reports is limited by the sandbox alone.
 - Abort sends `session/cancel`, and an open permission question is answered `cancelled`. An error answering the first
   prompt usually means the agent is not logged in; the message says so, with the end of the agent's stderr.
 
