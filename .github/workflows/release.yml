@@ -16,21 +16,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             key: darwin-arm64
             script: package:mac
             installer: package:dmg
             artifact: |
               dist/macos/Anna-*-mac-arm64.zip
               dist/macos/Anna-mac-arm64.dmg
-          - os: windows-latest
+          - os: windows-2025
             key: win32-x64
             script: package:windows
             installer: package:windows-installer
             artifact: |
               dist/windows/Anna-*-windows-x64.zip
               dist/windows/Anna-Setup-windows-x64.exe
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             key: linux-x64
             script: package:linux
             installer: package:deb
@@ -42,13 +42,11 @@ jobs:
     env:
       HAS_SIGNING: ${{ secrets.ANNA_SIGNING_P12 != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          version: 10.33.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Download the Live2D character assets
@@ -112,17 +110,17 @@ jobs:
           ls -l /etc/apparmor.d/anna-deb || true
           sudo apt-get remove -y -q anna
           test ! -e /opt/Anna/anna && test ! -e /etc/apparmor.d/anna-deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.key }}
           path: ${{ matrix.artifact }}
   publish:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: release
       - name: Write latest.json
@@ -133,7 +131,7 @@ jobs:
           cp website/public/latest.json release/latest.json
       # A draft: the mac files are swapped for a locally signed build and latest.json is signed before anyone sees the
       # release; publishing it (and making it Latest) is a manual step.
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           draft: true
           files: |

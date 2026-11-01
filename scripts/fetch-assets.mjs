@@ -51,11 +51,11 @@ try {
       throw new Error(`Checksum mismatch: ${url} does not match the published assets`)
     const archive = join(work, 'assets.zip')
     await writeFile(archive, bytes)
-    // bsdtar reads zip on macOS and Windows; GNU tar on Linux does not.
+    // bsdtar reads zip on macOS and Windows; GNU tar on Linux does not, nor the one Git Bash puts first on Windows' PATH.
     if (process.platform === 'linux')
       execFileSync('unzip', ['-oq', archive, '-d', root], { stdio: 'inherit' })
     else
-      execFileSync('tar', ['-xf', archive, '-C', root], { stdio: 'inherit' })
+      execFileSync(process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar', ['-xf', archive, '-C', root], { stdio: 'inherit' })
   }
 }
 finally {
