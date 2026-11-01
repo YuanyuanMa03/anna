@@ -1,5 +1,6 @@
 /* eslint-disable antfu/no-top-level-await, no-console -- This executable acceptance script owns its process lifecycle. */
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -104,6 +105,31 @@ try {
     await page.locator('.model-canvas[data-renderer="mesh"][data-state="ready"]').waitFor({ timeout: 20000 })
     await page.getByRole('button', { name: '关闭外观与能力' }).click()
     evidence.checks.push('Her body: a pat on the hair makes her shy, a double click winks, and the anime form switches in and back')
+    // The person makes their own Anna from a picture: five marks, and she stands there; a reload keeps her.
+    await menu(page, '创造我的 Anna')
+    await page.locator('.avatar-maker input[type=file]').setInputFiles(join(root, 'artwork/anna-body/source.png'))
+    await page.locator('.mark-area img').waitFor()
+    const picture = await page.locator('.mark-area img').boundingBox()
+    for (const [x, y] of [[778, 298], [885, 316], [816, 394], [816, 445], [840, 35]])
+      await page.mouse.click(picture.x + x * picture.width / 1672, picture.y + y * picture.height / 941)
+    await page.getByRole('button', { name: '做成我的 Anna' }).click()
+    await page.locator('.body-stage[data-avatar="mine"][data-state="ready"]').waitFor({ timeout: 30000 })
+    await page.reload()
+    await page.locator('.body-stage[data-avatar="mine"][data-state="ready"]').waitFor({ timeout: 30000 })
+    evidence.checks.push('Make your own: a picture and five marks become her, and a reload keeps it')
+    // A finished archive works too, a broken one says why, and forgetting it brings her own body back.
+    await menu(page, '创造我的 Anna')
+    await page.locator('.avatar-maker input[type=file]').setInputFiles({ name: 'broken.mavatar', mimeType: 'application/zip', buffer: Buffer.from('not an archive') })
+    await page.locator('.avatar-maker .error').waitFor()
+    await page.locator('.avatar-maker input[type=file]').setInputFiles(join(root, 'assets/anna-body/anna.mavatar'))
+    await page.locator('.avatar-maker').waitFor({ state: 'detached' })
+    await page.locator('.body-stage[data-avatar="mine"][data-state="ready"]').waitFor({ timeout: 30000 })
+    await menu(page, '外观与能力')
+    await page.getByRole('button', { name: '删掉我做的' }).click()
+    await page.locator('.body-stage[data-avatar="hers"][data-state="ready"]').waitFor({ timeout: 30000 })
+    assert.equal(await page.locator('.form-row').getByRole('button', { name: '我做的' }).count(), 0)
+    await page.getByRole('button', { name: '关闭外观与能力' }).click()
+    evidence.checks.push('Make your own: a .mavatar is taken as it is, a broken one is refused with a reason, and forgetting it goes back to her body')
   }
 
   // Pick the project folder: unknown folders wait for a trust decision before anything loads.

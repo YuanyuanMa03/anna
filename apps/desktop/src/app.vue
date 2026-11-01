@@ -4,6 +4,7 @@ import type { CaptionPlace } from '../../../packages/character/layout'
 import type { CompanionForm, MotionCue } from '../../../packages/character/manifest'
 import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
+import type { MyAvatar } from './my-avatar'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { brainChoices, recommendedBrain } from '../../../packages/agents/brains'
 import { captionPlace } from '../../../packages/character/layout'
@@ -14,9 +15,11 @@ import BodyStage from './body-stage.vue'
 import CharacterStage from './character-stage.vue'
 import AgentsSheet from './components/agents-sheet.vue'
 import ApprovalCard from './components/approval-card.vue'
+import AvatarMaker from './components/avatar-maker.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
+import { forgetMyAvatar, readMyAvatar, saveMyAvatar } from './my-avatar'
 import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -56,9 +59,47 @@ const character = computed(() => companion(snapshot.value?.settings.characterId)
 /** Her own body (a mesh avatar of her original art) or the Live2D anime form; a per-machine preference. */
 const form = ref<CompanionForm>(readForm())
 const bodyFailure = ref('')
-const usesBody = computed(() => Boolean(character.value.body) && form.value === 'body' && !bodyFailure.value)
+/** The look the person made for her, and whether it has been looked for yet, so the stage does not open on the wrong form. */
+const mine = ref<MyAvatar>()
+const avatarChecked = ref(false)
+const makerOpen = ref(false)
+const body = computed(() => form.value === 'mine' && mine.value ? mine.value : character.value.body)
+const usesBody = computed(() => form.value !== 'anime' && !bodyFailure.value && (form.value === 'body' || Boolean(mine.value)))
+/** Each new look gets a new stage: the runtime keeps what it has loaded. */
+const mineVersion = ref(0)
+void readMyAvatar().catch(() => undefined).then((saved) => {
+  mine.value = saved
+  if (!saved && form.value === 'mine')
+    form.value = 'body'
+  avatarChecked.value = true
+})
+function bodyUnavailable(reason: string) {
+  // Her own body is the way back from a look that will not show; the anime form is the way back from her body.
+  if (form.value === 'mine') {
+    notice.value = `你做的形象显示不了（${reason}），先换回她的本体。`
+    form.value = 'body'
+  }
+  else { bodyFailure.value = reason }
+}
+async function madeAvatar(avatar: MyAvatar) {
+  makerOpen.value = false
+  await saveMyAvatar(avatar).catch((cause: Error) => { notice.value = `这个形象没能保存，下次打开就没有了：${cause.message}` })
+  mine.value = avatar
+  mineVersion.value++
+  chooseForm('mine')
+  play('greet')
+}
+async function forgetAvatar() {
+  await forgetMyAvatar().catch(() => {})
+  mine.value = undefined
+  if (form.value === 'mine')
+    chooseForm('body')
+}
 function readForm() {
-  try { return localStorage.getItem('anna.form') === 'anime' ? 'anime' : 'body' }
+  try {
+    const saved = localStorage.getItem('anna.form')
+    return saved === 'anime' || saved === 'mine' ? saved : 'body'
+  }
   catch { return 'body' }
 }
 function chooseForm(next: CompanionForm) {
@@ -208,7 +249,7 @@ function fromMouth() {
 }
 
 async function run(command: Command) {
-  const ownsBusy = !['approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
+  const ownsBusy = !['avatar-job', 'approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
   if (ownsBusy)
     busy.value = true
   error.value = ''
@@ -237,6 +278,15 @@ function send(text = input.value) {
   }
   drift(body)
   void run({ type: 'send', text: body })
+}
+function askForAvatar(image: string) {
+  makerOpen.value = false
+  if (!running.value) {
+    tools.value = []
+    stream.value = ''
+    collaborator.value = undefined
+  }
+  void run({ type: 'avatar-job', image })
 }
 /** Opens one of the places behind the corner menu and closes the menu. */
 function openFromMenu(action: () => void) {
@@ -365,6 +415,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
             <button @click="openFromMenu(() => drawer = 'work')">工作过程<small v-if="callTools.length">{{ callTools.length }}</small></button>
             <button @click="openFromMenu(() => { weixinOpen = true; run({ type: weixin.phase === 'offline' ? 'weixin-login' : 'weixin-status' }) })"><i class="dot" :class="{ online: weixin.phase === 'connected' }" />微信</button>
             <button @click="openFromMenu(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="delegates">{{ delegates }}</small></button>
+            <button @click="openFromMenu(() => makerOpen = true)">创造我的 {{ character.name }}</button>
             <button @click="openFromMenu(() => pluginsOpen = true)">外观与能力</button>
             <button @click="openFromMenu(() => settingsOpen = true)">模型与设置</button>
           </nav>
@@ -375,8 +426,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <section class="scene" :data-form="usesBody ? 'body' : 'anime'" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <BodyStage v-if="usesBody" :key="character.id" :body="character.body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyFailure = $event" />
-        <CharacterStage v-else :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <BodyStage v-if="avatarChecked && usesBody" :key="form === 'mine' ? `mine-${mineVersion}` : form" :body="body!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
+        <CharacterStage v-else-if="avatarChecked" :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 
@@ -478,7 +529,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
     <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
-    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? 'body' : 'anime'" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" />
+    <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />
+    <AvatarMaker v-if="makerOpen" :name="character.name" :can-ask="canChat && !needsTrust" @close="makerOpen = false" @made="madeAvatar" @ask="askForAvatar" />
   </main>
   <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
 </template>

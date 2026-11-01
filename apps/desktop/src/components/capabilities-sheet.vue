@@ -5,8 +5,8 @@ import { computed } from 'vue'
 import { companion } from '../../../../packages/character/manifest'
 import { modeOrder, modes } from '../../../../packages/permissions/modes'
 
-const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string, form?: CompanionForm, bodyFailure?: string }>()
-const emit = defineEmits<{ command: [command: Command], close: [], form: [form: CompanionForm] }>()
+const props = defineProps<{ snapshot: RuntimeSnapshot, locked: boolean, error?: string, form?: CompanionForm, hasMine?: boolean, bodyFailure?: string }>()
+const emit = defineEmits<{ command: [command: Command], close: [], form: [form: CompanionForm], make: [], forget: [] }>()
 const current = computed(() => companion(props.snapshot.settings.characterId))
 const rules = computed(() => [
   ...props.snapshot.workspace.rules.deny.map(rule => ({ rule, kind: '禁止' })),
@@ -27,8 +27,10 @@ const isDefault = computed(() => !props.snapshot.settings.workspace)
         <div class="segmented" role="group" :aria-label="`${current.name} 的形态`">
           <button :aria-pressed="form === 'body'" @click="emit('form', 'body')">本体</button>
           <button :aria-pressed="form === 'anime'" @click="emit('form', 'anime')">二次元</button>
+          <button v-if="hasMine" :aria-pressed="form === 'mine'" @click="emit('form', 'mine')">我做的</button>
         </div>
       </div>
+      <div class="plugin-row"><div><h3>创造你的 {{ current.name }}</h3><p>给 {{ current.name }} 一张人物图或做好的 <code>.mavatar</code>，她就换成这个样子。性格和记忆不变。</p></div><div class="row-actions"><button @click="emit('make')">{{ hasMine ? '重新创造' : '开始创造' }}</button><button v-if="hasMine" @click="emit('forget')">删掉我做的</button></div></div>
 
       <div class="plugin-row">
         <div><h3>工作文件夹</h3><p>{{ snapshot.workspace.path }}</p><span>{{ isDefault ? 'Anna 自己的默认工作区（已信任）' : snapshot.workspace.trusted ? '已信任：加载项目说明（AGENTS.md），可使用协作与放手模式' : '未信任：不加载项目说明，只能使用规划和谨慎模式' }}</span></div>
