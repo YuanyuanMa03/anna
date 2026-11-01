@@ -65,9 +65,47 @@ In Auto mode, risky requests still go through Anna's gate and everything else is
 to Claude Code as deny rules through `--settings`. Codex's sandbox policies only limit writes, so Codex can still read
 it; see the known limits in [permissions.md](permissions.md#known-limits).
 
+## ACP brains
+
+Any catalogued agent with `acp` arguments can be Anna's brain through the Agent Client Protocol
+(https://agentclientprotocol.com): Gemini CLI, OpenCode, Grok Build, MiniMax Code, Kimi Code, Qwen Code, Cursor CLI,
+GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline and Kilo. The arguments come from the
+ACP registry (https://github.com/agentclientprotocol/registry). The brain id is `acp:<agent id>`; `kernels/acp/kernel.ts`
+implements `AgentKernel`:
+
+- One long-lived agent process and one ACP session (`initialize`, `session/new`). Each user message is a
+  `session/prompt`, and Anna's instructions open the first one. Her own tools are offered as an HTTP MCP server when the
+  agent takes one (`mcpCapabilities.http`).
+- `session/update` streams her words (`agent_message_chunk`), thoughts and tool calls; ACP tool kinds map onto Anna's
+  tool names (`execute` → `bash`, `edit`/`delete`/`move` → `edit`, `search` → `grep`).
+- Every `session/request_permission` goes to Anna's gate, which picks the agent's allow-once or reject-once option.
+  "Always" options are never picked, so each later call is asked again. A file call whose path is unknown is judged as
+  outside the workspace.
+- Anna offers no file system or terminal of her own (`clientCapabilities` false), so the agent uses its own tools. ACP
+  does not make an agent ask before every call, and its own settings (auto-accept, yolo) can skip asking. So:
+  - The whole agent process runs inside Anna's sandbox (`context.sandbox.wrap`): her data stays unreadable and
+    unwritable, writes are limited to the workspace, temp and package caches, and every network host goes through her
+    network approval. Wherever the sandbox is unavailable (Windows; Linux without bubblewrap, socat and ripgrep; a
+    failed self-test; `ANNA_DISABLE_SANDBOX=1`) no ACP brain is offered or started.
+  - A tool call that starts without having asked is checked when it is reported (`in_progress` or `completed`): a
+    change (edit, shell, anything unknown) stops the turn at once with a message to switch the agent's own approvals to
+    asking; a read, search or fetch goes through her gate and stops the turn if the gate says no. Either way the call
+    may already have run: a change can be undone with the workspace checkpoint, and a read has already reached the
+    agent. A call the agent never reports is limited by the sandbox alone.
+- Abort sends `session/cancel`, and an open permission question is answered `cancelled`. An error answering the first
+  prompt usually means the agent is not logged in; the message says so, with the end of the agent's stderr.
+
+Known limits: agents that keep their own state outside the workspace and caches may fail to write it inside the
+sandbox; in Plan mode the sandbox refuses all network, so an ACP brain cannot reach its model there; Anna's
+own tools reach only agents that accept HTTP MCP servers.
+
+Verified with a protocol-faithful fake (`tests/fixtures/fake-acp-agent.mjs`, unit tests and the desktop acceptance).
+None of the real agents has been run as her brain on a real machine yet; each needs that before it is called verified.
+
 ## Adding an agent
 
-1. Add an entry to `catalog.ts`. If cc-switch already supports the agent, match its entry.
+1. Add an entry to `catalog.ts`. If cc-switch already supports the agent, match its entry. If it speaks ACP, add its
+   `acp` arguments from the ACP registry and it can be her brain without an adapter.
 2. Record a real session into `tests/fixtures/agents/` with `scripts/record-agent.mjs`. The script removes personal
    details. If you can't record one, write a synthetic sample from the public protocol.
 3. Write the decoder, and replay the sample with `tests/agents-decoders.test.ts`.

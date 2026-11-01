@@ -1,6 +1,7 @@
 import type { Message, Origin } from '../../shared/contracts'
 import type { AgentKernel, KernelCapabilities, KernelContext, TurnOutcome } from '../types'
 import type { ToolServer } from './mcp'
+import type { TranscriptEntry } from './transcript'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -9,9 +10,9 @@ import { buildLaunch } from '../../agents/launch'
 import { failoverLine, openRoute } from '../../agents/route'
 import { runAgent } from '../../agents/runner'
 import { mcpServerName, serveTools } from './mcp'
+import { historyOf } from './transcript'
 
-type Entry = { kind: 'user', text: string, origin: Origin } | { kind: 'assistant', text: string, origin: Origin, aborted?: boolean } | { kind: string, data: unknown }
-interface Transcript { agentSessionId?: string, entries: Entry[] }
+interface Transcript { agentSessionId?: string, entries: TranscriptEntry[] }
 
 /**
  * An installed agent CLI (Claude Code or Codex) as Anna's brain. Each user message is one headless turn that resumes
@@ -125,24 +126,5 @@ export class ExternalKernel implements AgentKernel {
     this.toolServer = undefined
   }
 
-  history(): Message[] {
-    const out: Message[] = []
-    for (const entry of this.transcript.entries) {
-      if (entry.kind === 'user' || entry.kind === 'assistant') {
-        const message = entry as { kind: 'user' | 'assistant', text: string, origin: Origin }
-        if (message.text)
-          out.push({ role: message.kind, text: message.text, origin: message.origin })
-      }
-      else if (entry.kind === 'aborted') {
-        out.push({ role: 'assistant', text: '这一轮被中断了。随时可以继续。', note: true })
-      }
-      else if (entry.kind === 'delegation') {
-        const record = (entry as { data: { task: string, text: string, origin?: Origin, delegation: Message['delegation'], nested?: boolean } }).data
-        if (!record.nested)
-          out.push({ role: 'user', text: record.task, origin: record.origin ?? 'desktop' })
-        out.push({ role: 'assistant', text: record.text, origin: record.origin ?? 'desktop', delegation: record.delegation })
-      }
-    }
-    return out
-  }
+  history(): Message[] { return historyOf(this.transcript.entries) }
 }

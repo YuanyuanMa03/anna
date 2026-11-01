@@ -34,6 +34,18 @@ describe('brain choices', () => {
     expect(choices.map(choice => [choice.id, choice.state])).toEqual([['pi', 'ready'], ['codex', 'signed-out'], ['claude-code', 'missing']])
     expect(choices.map(choice => choice.hint)).toEqual(['', '先在终端登录', '去安装'])
   })
+  it('offers every installed agent that speaks ACP as a brain, and leaves out the ones not installed', () => {
+    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true, version: '0.66.0' }, { id: 'goose', installed: false }, { id: 'grok', installed: true }], current: 'acp:gemini', hasKey: true })
+    expect(choices.filter(choice => choice.id.startsWith('acp:')).map(choice => [choice.id, choice.label, choice.state, choice.current])).toEqual([
+      ['acp:gemini', 'Gemini CLI', 'ready', true],
+      ['acp:grok', 'Grok Build', 'ready', false],
+    ])
+    expect(choices.find(choice => choice.id === 'acp:gemini')?.note).toBe('v0.66.0 · ACP · 未实测')
+  })
+  it('offers no ACP brain on a machine without a sandbox, where none may run', () => {
+    const choices = brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: true, sandbox: false })
+    expect(choices.some(choice => choice.id.startsWith('acp:'))).toBe(false)
+  })
   it('treats an agent whose login it cannot check as ready', () => {
     const choices = brainChoices({ detected: [{ id: 'claude', installed: true, version: '2.0.0' }], current: 'claude-code', hasKey: false })
     expect(choices.find(choice => choice.id === 'claude-code')).toMatchObject({ state: 'ready', current: true })
@@ -43,6 +55,9 @@ describe('brain choices', () => {
 describe('recommended brain', () => {
   it('offers a newcomer without a model the first signed-in agent', () => {
     expect(recommendedBrain(brainChoices({ detected: [codex, claude], current: 'pi', hasKey: false }))?.id).toBe('claude-code')
+  })
+  it('never recommends an ACP agent, whose login it cannot check', () => {
+    expect(recommendedBrain(brainChoices({ detected: [{ id: 'gemini', installed: true }], current: 'pi', hasKey: false }))).toBeUndefined()
   })
   it('recommends nothing when pi already thinks or no agent is ready', () => {
     expect(recommendedBrain(brainChoices({ detected: [claude], current: 'pi', hasKey: true }))).toBeUndefined()

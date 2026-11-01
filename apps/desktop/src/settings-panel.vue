@@ -9,7 +9,7 @@ const emit = defineEmits<{ command: [command: Command], close: [] }>()
 const model = reactive<ModelSettings>({ ...props.snapshot.settings.model })
 const key = ref('')
 /** The same choices as the brain chip; pi stays selectable without a model, since its model is set up right below. */
-const brains = computed(() => brainChoices({ detected: props.snapshot.agents.detected, current: props.snapshot.settings.kernel, hasKey: props.snapshot.hasKey }).map(choice => ({ ...choice, available: choice.state === 'ready' || choice.state === 'needs-key' })))
+const brains = computed(() => brainChoices({ detected: props.snapshot.agents.detected, current: props.snapshot.settings.kernel, hasKey: props.snapshot.hasKey, sandbox: props.snapshot.platform.sandbox.available }).map(choice => ({ ...choice, available: choice.state === 'ready' || choice.state === 'needs-key' })))
 function save() { emit('command', { type: 'configure', model: { ...model }, key: key.value }); key.value = '' }
 function selectProvider() {
   if (model.provider === 'deepseek-official') { model.baseURL = 'https://api.deepseek.com'; model.model = 'deepseek-flash'; model.api = 'openai-completions' }

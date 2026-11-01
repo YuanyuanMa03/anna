@@ -12,7 +12,7 @@ import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/prom
 import { join } from 'node:path'
 import process from 'node:process'
 import { characters, companion } from '../character/manifest'
-import { kernels } from '../kernels/registry'
+import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
 import { modes, stricter, trustedRegistries } from '../permissions/modes'
 import { canonical, resolveToolPath } from '../permissions/paths'
@@ -197,7 +197,7 @@ export class Host {
       queue: this.tasks.map(task => task.text),
       result: this.result,
       model: this.kernel?.modelInfo,
-      kernel: { id: this.store.value.kernel, label: kernels[this.store.value.kernel].label },
+      kernel: { id: this.store.value.kernel, label: kernelFor(this.store.value.kernel).label },
       credential: this.store.value.kernel !== 'pi' ? undefined : this.keyRejected ? 'rejected' : this.store.value.modelVerified ? 'verified' : 'unverified',
       mode: this.effectiveMode('desktop'),
       workspace: { path: this.workspacePath, trusted: ws.trusted, rules: ws.rules, known: ws.known },
@@ -453,7 +453,7 @@ export class Host {
   /** Who signs a memory line: the companion on stage, with the brain when it isn't pi ("千岁（Claude Code）"). */
   private get memoryWriter() {
     const kernel = this.store.value.kernel
-    return kernel === 'pi' ? this.companionName : `${this.companionName}（${kernels[kernel].label}）`
+    return kernel === 'pi' ? this.companionName : `${this.companionName}（${kernelFor(kernel).label}）`
   }
 
   private async instructions() {
@@ -482,7 +482,7 @@ export class Host {
         this.sandboxStatus = { available: false, reason: `沙箱启动失败：${error.message}` }
       })
     }
-    const factory = this.options.kernel ?? kernels[this.store.value.kernel].create
+    const factory = this.options.kernel ?? kernelFor(this.store.value.kernel).create
     const kernel = factory({
       root: this.root,
       data: this.data,
@@ -994,7 +994,7 @@ export class Host {
           await this.connect(key)
       }
       else if (command.type === 'kernel') {
-        if (!kernels[command.id]?.available)
+        if (!kernelFor(command.id).available)
           throw new Error('这个内核暂不可用')
         await this.close()
         this.store.value.kernel = command.id

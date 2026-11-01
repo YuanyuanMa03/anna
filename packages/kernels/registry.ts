@@ -1,11 +1,15 @@
+import type { AgentId } from '../agents/catalog'
+import type { BrainId } from '../shared/contracts'
 import type { KernelFactory } from './types'
+import { catalog } from '../agents/catalog'
+import { AcpKernel } from './acp/kernel'
 import { ExternalKernel } from './external/kernel'
 import { createPiKernel } from './pi/kernel'
 
 /**
- * Available agent kernels. Adding Claude Code (Claude Agent SDK) or Codex (codex app-server) means writing an adapter
- * that implements AgentKernel, maps tool names to Anna's normalized ones, and calls `gate` before each tool
- * (Agent SDK: `canUseTool`; Codex: approval requests). See docs/kernels.md.
+ * Available agent kernels: pi, Claude Code and Codex through their own protocols, and any catalogued agent that speaks
+ * the Agent Client Protocol (`acp:<agent id>`). A new agent with its own protocol means an adapter that implements
+ * AgentKernel, maps tool names to Anna's normalized ones, and calls `gate` before each tool. See docs/kernels.md.
  */
 export const kernels = {
   'pi': { label: 'pi coding agent', create: (context => createPiKernel(context)) as KernelFactory, available: true },
@@ -14,3 +18,15 @@ export const kernels = {
 } as const
 
 export type KernelId = keyof typeof kernels
+
+/** The kernel behind a brain id; an ACP brain is available when its agent is catalogued with ACP arguments. */
+export function kernelFor(id: BrainId): { label: string, create: KernelFactory, available: boolean } {
+  if (!id.startsWith('acp:')) {
+    return kernels[id as KernelId] ?? { label: id, available: false, create: () => {
+      throw new Error(`没有名为 ${id} 的大脑`)
+    } }
+  }
+  const agent = id.slice(4) as AgentId
+  const entry = catalog.find(item => item.id === agent)
+  return { label: entry?.label ?? agent, create: context => new AcpKernel(context, agent), available: Boolean(entry?.acp) }
+}
