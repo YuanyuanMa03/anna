@@ -21,9 +21,11 @@ async function main() {
     assert(reply.ok)
     assert.equal(reply.snapshot.state, 'unconfigured')
     assert.deepEqual(reply.snapshot.messages, [])
-    // First run opens the model settings directly; closing it leaves the setup prompt on the stage.
-    await page.getByRole('dialog', { name: '模型与设置' }).waitFor()
-    await page.getByRole('button', { name: '关闭设置', exact: true }).click()
+    // First run: she is on stage with no model named, and the setup prompt says what to do next.
+    await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
+    assert.equal(await page.getByRole('dialog', { name: '模型与设置' }).count(), 0)
+    assert.equal((await page.locator('.connection').textContent()).trim(), '未连接')
+    await page.screenshot({ path: 'artifacts/unconfigured-stage.png' })
     await page.getByRole('button', { name: '配置模型', exact: true }).click()
     await page.getByRole('dialog', { name: '模型与设置' }).waitFor()
     assert.equal(await page.getByRole('textbox', { name: 'API Key', exact: true }).inputValue(), '')
