@@ -85,7 +85,8 @@ async function close(visitor: Visitor) {
   visitors.delete(visitor.id)
   byRelayToken.delete(visitor.relayToken)
   for (const client of visitor.clients) client.end()
-  await visitor.peer.call('shutdown').catch(() => {})
+  // A core that stopped answering (`kill -STOP` is within a visitor's reach) must not keep its processes and its uid.
+  await Promise.race([visitor.peer.call('shutdown').catch(() => {}), new Promise(resolve => setTimeout(resolve, 3000))])
   setTimeout(() => visitor.child.kill('SIGKILL'), 3000).unref()
   await new Promise(resolve => setTimeout(resolve, 500))
   // Stray processes the visitor started (a dev server, a delegated agent, anything that keeps forking) end with the
@@ -157,7 +158,9 @@ async function createVisitor(id: string): Promise<Visitor> {
       markReady()
     else broadcast(visitor, event)
   })
-  child.on('message', message => void visitor.peer.receive(message as Wire))
+  // The core runs as the visitor, so anything can arrive here: what it cannot read must not end everybody else's session.
+  child.on('message', message => void visitor.peer.receive(message as Wire).catch(() => {}))
+  child.on('error', fail)
   child.on('exit', () => {
     visitor.peer.fail('Anna 的会话已结束，请刷新页面。')
     fail(new Error('Anna 启动失败，请稍后刷新。'))

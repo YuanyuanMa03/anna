@@ -8,8 +8,12 @@ import { migrate } from '../packages/anna-host/settings'
 
 describe('online demo commands', () => {
   it('lets a visitor use Anna, including delegation, modes and approvals', () => {
-    for (const command of [{ type: 'send', text: '@codex 修一下测试' }, { type: 'mode', mode: 'auto' }, { type: 'approval', id: 'a', allow: true, scope: 'session' }, { type: 'kernel', id: 'claude-code' }, { type: 'undo', taskId: 't' }])
+    for (const command of [{ type: 'send', text: '@codex 修一下测试' }, { type: 'mode', mode: 'auto' }, { type: 'approval', id: 'a', allow: true, scope: 'session' }, { type: 'undo', taskId: 't' }])
       expect(validateCommand(command)).toEqual(command)
+  })
+  it('keeps her on one brain: another visitor could read an external brain\'s token and diary from its command line', () => {
+    for (const id of ['claude-code', 'codex', 'pi'])
+      expect(() => validateCommand({ type: 'kernel', id })).toThrow('桌面版')
   })
   it('keeps what reaches outside the visitor\'s home on the desktop', () => {
     for (const command of [{ type: 'configure', model: {}, key: 'k' }, { type: 'choose-workspace' }, { type: 'workspace', path: '/' }, { type: 'providers-export', includeKeys: true }, { type: 'provider-save', app: 'codex', name: 'x', baseUrl: 'http://169.254.169.254' }, { type: 'agent-install', agent: 'claude' }, { type: 'weixin-login' }])

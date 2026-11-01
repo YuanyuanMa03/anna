@@ -21,11 +21,13 @@ function selectProvider() {
   <div class="sheet-backdrop" @click.self="emit('close')">
     <section class="sheet" role="dialog" aria-modal="true" aria-label="模型与设置">
       <div class="sheet-heading"><div><span class="eyebrow">CONNECTION</span><h2>让 {{ companion(snapshot.settings.characterId).name }} 开始思考</h2></div><button aria-label="关闭设置" class="icon-button" @click="emit('close')">×</button></div>
-      <h3>{{ companion(snapshot.settings.characterId).name }} 的大脑</h3>
-      <div class="brain-options" role="radiogroup" :aria-label="`${companion(snapshot.settings.characterId).name} 的大脑`">
-        <button v-for="brain in brains" :key="brain.id" type="button" role="radio" :aria-checked="snapshot.settings.kernel === brain.id" :disabled="busy || !brain.available" @click="snapshot.settings.kernel !== brain.id && emit('command', { type: 'kernel', id: brain.id })"><strong>{{ brain.label }}</strong><small>{{ brain.note }}</small></button>
-      </div>
-      <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用你在“外部 agent”里给它们选的服务商（没选就用它们自己的登录），会开始一个新会话；共同记忆、状态和派活这些自带工具通过本机的 MCP 服务交给它们，照样经过权限把关。</p>
+      <template v-if="!web">
+        <h3>{{ companion(snapshot.settings.characterId).name }} 的大脑</h3>
+        <div class="brain-options" role="radiogroup" :aria-label="`${companion(snapshot.settings.characterId).name} 的大脑`">
+          <button v-for="brain in brains" :key="brain.id" type="button" role="radio" :aria-checked="snapshot.settings.kernel === brain.id" :disabled="busy || !brain.available" @click="snapshot.settings.kernel !== brain.id && emit('command', { type: 'kernel', id: brain.id })"><strong>{{ brain.label }}</strong><small>{{ brain.note }}</small></button>
+        </div>
+        <p class="muted small">换大脑后人格、记忆、权限模式和舞台都不变。Claude Code / Codex 使用你在“外部 agent”里给它们选的服务商（没选就用它们自己的登录），会开始一个新会话；共同记忆、状态和派活这些自带工具通过本机的 MCP 服务交给它们，照样经过权限把关。</p>
+      </template>
       <template v-if="snapshot.settings.kernel === 'pi'">
         <h3>pi 的模型</h3>
         <p v-if="web" class="muted">在线体验已经替你接好了 ModelScope 免费推理（{{ snapshot.settings.model.model }}），Claude Code 和 Codex 用更大的 Qwen 模型；某个模型的免费额度用完时，会自动换下一个。密钥只在服务端，你和你运行的任何程序都读不到。想用自己的模型和服务商，请下载桌面版。</p>

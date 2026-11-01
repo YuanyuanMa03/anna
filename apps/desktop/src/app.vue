@@ -416,7 +416,7 @@ if (web) {
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
       <div class="corner-actions">
         <div class="menu">
-          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ brains.find(choice => choice.current)?.label ?? snapshot.kernel.label }} 思考 ▾</button>
+          <button class="brain-chip" :disabled="web" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ brains.find(choice => choice.current)?.label ?? snapshot.kernel.label }} 思考 ▾</button>
           <div v-if="brainOpen" class="menu-backdrop" @click="brainOpen = false" />
           <nav v-if="brainOpen" ref="menuList" class="menu-list brain-list" :aria-label="`${character.name} 用谁来思考`">
             <span class="menu-title">{{ character.name }} 用谁来思考</span>

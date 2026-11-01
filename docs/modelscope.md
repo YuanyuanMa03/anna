@@ -48,19 +48,21 @@ remote URL), set the `ANNA_MODEL_API_KEY` secret, and deploy on free hardware on
 
 ## Limits
 
-A visitor session allows 8 messages and 30 model calls a minute (each call asks for one answer of at most 16384
-tokens), expires after 2 idle hours and ends after 4 hours however busy; the Studio holds 12 sessions, and session
+A visitor session allows 8 messages and 30 model calls a minute (each call asks for one answer, and a requested
+length is capped at 16384 tokens), expires after 2 idle hours and ends after 4 hours however busy; the Studio holds 12 sessions, and session
 creation is limited per client address (the rightmost `X-Forwarded-For` entry, the one the Studio's proxy added).
 
 Isolation, and where it stops:
 
 - A visitor's folder has a random name unrelated to the session token (folder paths show in `ps`), mode 0700, owned
   by the visitor's uid; the visitor's processes run with umask 077, so files they leave in `/tmp` are theirs alone.
-- uids rotate through 20001–29999 instead of being reused right away. Closing a session kills the uid's processes
-  until none are left and deletes its files in `/tmp`, `/var/tmp` and `/dev/shm`.
-- Anna's own (pi) shell commands run in the command sandbox. Claude Code and Codex, delegated or as the brain, run as
+- uids rotate through 20001–29999 instead of being reused right away. Closing a session kills the uid's processes,
+  retrying for a couple of seconds, and deletes its files in `/tmp`, `/var/tmp` and `/dev/shm`.
+- Anna's own (pi) shell commands run in the command sandbox. Claude Code and Codex, delegated, run as
   the visitor's user **outside** it, as on the desktop: they can reach the network (the Studio's egress), but not
   another visitor's files or the ModelScope key.
+- Switching her brain is desktop only: an external brain carries Anna's tool token and the diary on its command line,
+  which every other visitor can read from `ps`. A delegated run carries neither.
 - Global routing, provider backups and routing policies are desktop only: the routing server's port is shared by
   every visitor, and the relay is the only provider to route to.
 

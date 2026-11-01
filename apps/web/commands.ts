@@ -3,11 +3,12 @@ import { relayProvider } from './seed'
 /**
  * What a browser may ask a visitor's Anna to do. Everything a desktop user can do inside Anna is here, except what
  * reaches outside the visitor's sandboxed home: picking folders on the server, WeChat, updates, installing agents,
- * import/export files, providers with arbitrary endpoints (the Studio would make requests on a visitor's behalf), and
+ * import/export files, providers with arbitrary endpoints (the Studio would make requests on a visitor's behalf),
  * global routing, backups and routing policies (the routing server's port is shared by every visitor, and the relay is
- * the only provider there is to route to).
+ * the only provider there is to route to), and switching her brain (an external brain carries Anna's tool token and the
+ * diary on its command line, which every other visitor can read from `ps`; a delegated run carries neither).
  */
-const allowed = new Set(['snapshot', 'send', 'connect', 'restart', 'stop', 'new-session', 'plugin', 'trust', 'mode', 'approval', 'rule-remove', 'changes', 'undo', 'memory', 'memory-forget', 'review', 'agents-refresh', 'agent-provider', 'kernel'])
+const allowed = new Set(['snapshot', 'send', 'connect', 'restart', 'stop', 'new-session', 'plugin', 'trust', 'mode', 'approval', 'rule-remove', 'changes', 'undo', 'memory', 'memory-forget', 'review', 'agents-refresh', 'agent-provider'])
 const desktopOnly: Record<string, string> = {
   'configure': '在线体验的模型由服务端统一接到 ModelScope 免费推理，无需填写密钥。',
   'workspace': '在线体验使用你自己的独立工作区。',
@@ -15,6 +16,7 @@ const desktopOnly: Record<string, string> = {
   'weixin-login': '微信远程派活需要桌面版。',
   'weixin-status': '微信远程派活需要桌面版。',
   'agent-install': '在线体验已经装好了 Claude Code 和 Codex。',
+  'kernel': '在线体验只用一个大脑。想让 Claude Code 或 Codex 干活，就 @claude 或 @codex 派给它们；把大脑换成它们要用桌面版。',
 }
 
 export function validateCommand(value: unknown): Record<string, unknown> {
@@ -28,8 +30,6 @@ export function validateCommand(value: unknown): Record<string, unknown> {
     throw new Error('请输入 1–12000 字的消息。')
   if (type === 'mode' && !['plan', 'ask', 'edit', 'auto'].includes(String(c.mode)))
     throw new Error('未知权限模式。')
-  if (type === 'kernel' && !['pi', 'claude-code', 'codex'].includes(String(c.id)))
-    throw new Error('未知的大脑。')
   if (['plugin', 'memory', 'review', 'trust'].includes(type) && typeof (type === 'trust' ? c.trusted : c.enabled) !== 'boolean')
     throw new Error('无效的开关。')
   for (const field of ['id', 'rule', 'taskId', 'agent', 'provider', 'app']) {

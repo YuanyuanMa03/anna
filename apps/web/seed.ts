@@ -29,7 +29,7 @@ const demoProject: Record<string, string> = {
 - “跑一下测试，看看哪里坏了，然后修好它”
 - “找出项目里的 TODO，整理成清单”
 - “@codex 给 planner 加一个按难度排序的功能”（交给 Codex 去做，Anna 会检查它的改动）
-- “记住：我每周三下午有实验课”，然后换一个大脑问问她记不记得
+- “记住：我每周三下午有实验课”，然后开一段新对话问问她记不记得
 
 ## 运行
 
@@ -120,7 +120,7 @@ export const providerKeys = (token: string) => JSON.stringify({ [`claude:${relay
 /** What the brain is told about this edition, so it never offers what only the desktop app has. */
 export const onlineNotes = `## 在线体验版
 你现在运行在 ModelScope 创空间的在线体验版里，访客通过浏览器和你对话。
-- 这里没有微信远程派活、选择本机文件夹和自定义服务商。被问到时说明这些在桌面版里有，不要说你现在能用。
+- 这里没有微信远程派活、选择本机文件夹、自定义服务商和换大脑。被问到时说明这些在桌面版里有，不要说你现在能用。
 - 你的工作区是这位访客独立的示例项目（复习计划小工具）。回复里称它为“工作区”，不要写出它的完整路径。
 - 不要主动提 Live2D 样例模型的名字，也不要说出服务器上的路径或用户名。
 - 这里的 Claude Code 和 Codex 通过 Anna 的本地路由使用魔搭的 Qwen 模型。`

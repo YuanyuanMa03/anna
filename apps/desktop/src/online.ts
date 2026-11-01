@@ -42,11 +42,12 @@ export const tour = {
   online: [
     { title: '派活，再验收', body: '输入 @claude 或 @codex，把活交给 Claude Code、Codex。它们做完，Anna 会亲自核对改动，再告诉你能不能放心用。' },
     { title: 'Claude Code、Codex 跑在魔搭 Qwen 上', body: '它们在这里没有自己的账号：Anna 的本地路由把它们的请求转成 Qwen 能懂的格式（桌面版用同一套路由接你自己的服务商）。某个模型的免费额度用完，服务端会自动换下一个。' },
-    { title: '一本日记', body: '换了大脑，她还是记得你。每条都写明是谁记的。说一句「记住：…」，再换一个大脑问问她。' },
+    { title: '一本日记', body: '她记得你，每条都写明是谁记的。说一句「记住：…」，再开一段新对话问问她。' },
   ],
   desktop: [
     { title: '微信 ClawBot', body: '在手机微信里给 Anna 派活，她在电脑上做完，把结果发回微信。' },
     { title: 'cc-switch', body: '找到你电脑上的 Claude Code、Codex 等 coding agent，内置服务商预设，一键切换。' },
     { title: '全局路由', body: '你在终端里用的 Claude Code、Codex 也走 Anna 的路由和备用服务商。' },
+    { title: '换大脑', body: '把她的大脑换成 Claude Code 或 Codex，日记和权限都不变。' },
   ],
 }
