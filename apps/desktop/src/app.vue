@@ -83,6 +83,8 @@ const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
 const canChat = computed(() => Boolean(snapshot.value && (snapshot.value.hasKey || snapshot.value.settings.kernel !== 'pi')))
 const needsTrust = computed(() => Boolean(snapshot.value && snapshot.value.settings.workspace && !snapshot.value.workspace.known))
 const connected = computed(() => snapshot.value?.state === 'ready' || snapshot.value?.state === 'running')
+/** What the running brain reports, or the model pi is set up with; pi's settings say nothing about another brain, or before it has a key. */
+const modelName = computed(() => snapshot.value?.model?.id ?? (snapshot.value?.settings.kernel === 'pi' && snapshot.value.hasKey ? snapshot.value.settings.model.model : ''))
 /** Honest connection label: a saved key is only "connected" once a real reply came back. */
 const connection = computed(() => {
   const state = snapshot.value?.state
@@ -311,8 +313,6 @@ onMounted(async () => {
   await run({ type: 'weixin-status' })
   if (canChat.value)
     await run({ type: 'connect' })
-  else
-    settingsOpen.value = true
 })
 watch(() => messages.value.length, () => { void scrollHistory() })
 watch(input, () => { typedAt.value = Date.now() })
@@ -346,7 +346,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
     <header class="corner">
       <div class="brand">anna<span>v0.5</span></div>
-      <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : snapshot.settings.model.model"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }} · {{ snapshot.model?.id ?? snapshot.settings.model.model }}</span>
+      <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
       <div class="corner-actions">
         <div class="menu">
           <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ brains.find(choice => choice.current)?.label ?? snapshot.kernel.label }} 思考 ▾</button>

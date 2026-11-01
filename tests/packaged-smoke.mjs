@@ -8,7 +8,7 @@ import { _electron } from 'playwright'
 async function main() {
   const bundle = resolve(process.argv[2])
   const data = await mkdtemp(resolve('.data/packaged-smoke-'))
-  const source = join(homedir(), '.local/share/anna-dsh')
+  const source = join(homedir(), 'Library/Application Support/Anna')
   await copyFile(join(source, 'credential.bin'), join(data, 'credential.bin'))
   const settings = JSON.parse(await readFile(join(source, 'settings.json'), 'utf8'))
   delete settings.sessionId
