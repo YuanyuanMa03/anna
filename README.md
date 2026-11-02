@@ -24,6 +24,8 @@ and calls in Claude Code or Codex when they fit better. When a decision is yours
 
 Anna now has her own body and room. Create your own Anna from a portrait or a `.mavatar` file while keeping her personality and memory. This release also adds a brain picker and ACP kernel support, and fixes version display and memory attribution.
 
+**Updating from v0.5.1 or earlier:** install v0.6.0 manually once. The release signing key was replaced; older versions cannot verify updates signed by the new key. Folder and Keychain access may need to be authorized again.
+
 ## Meet Anna
 
 Most AI tools are either a chat box or an invisible process in a terminal. Anna is neither. She is a character who
