@@ -5,8 +5,6 @@ artifacts/
 .env*
 assets/characters/
 assets/live2dcubismcore.min.js
-# Anna's own body (a mesh avatar built from her original art) is not published; see packages/character/README.md.
-assets/anna-body/
 __pycache__/
 
 .DS_Store

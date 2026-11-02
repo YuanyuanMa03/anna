@@ -42,16 +42,16 @@ async function setup(options: { kernel?: string, characterId?: string, turn?: (c
   return { host, log, workspace }
 }
 
-it('"记住：…" is kept for sure, signed by the companion on stage, and the brain is told it is already kept', async () => {
-  const { host, log } = await setup({ characterId: 'chitose' })
+it('"记住：…" is kept for sure, signed by Anna, and the brain is told it is already kept', async () => {
+  const { host, log } = await setup()
   await host.execute({ type: 'send', text: '记住：我每周三下午有实验课' })
-  expect(host.snapshot().memories.map(item => [item.text, item.by])).toEqual([['我每周三下午有实验课', '千岁']])
+  expect(host.snapshot().memories.map(item => [item.text, item.by])).toEqual([['我每周三下午有实验课', 'Anna']])
   expect(log.notes.join('\n')).toContain('已经记进共同记忆')
   expect(log.notes.join('\n')).toContain('我每周三下午有实验课')
   await host.close()
 })
 
-it('a line a Claude Code brain stores through anna_memory names the companion and the brain', async () => {
+it('a line a Claude Code brain stores through anna_memory names Anna and the brain', async () => {
   const { host } = await setup({
     kernel: 'claude-code',
     turn: async (context) => { await context.tools.find(tool => tool.name === 'anna_memory')!.execute({ action: 'remember', text: '复习时喜欢番茄钟' }) },
@@ -105,7 +105,6 @@ it('with memory switched off, "记住：…" stores nothing', async () => {
 it('repeating a line already in the diary names whoever first wrote it', async () => {
   const { host, log } = await setup()
   await host.execute({ type: 'send', text: '记住：周五不复习' })
-  await host.execute({ type: 'character', id: 'mao' })
   await host.execute({ type: 'send', text: '记住：周五不复习' })
   expect(host.snapshot().memories.map(item => item.by)).toEqual(['Anna'])
   expect(log.notes.at(-1)).toContain('Anna 记下')

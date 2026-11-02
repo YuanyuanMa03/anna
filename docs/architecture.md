@@ -100,7 +100,7 @@ agent works, Anna switches to a "supervising" pose.
 Anna has a second form, her own body: a mesh avatar of her original art (`apps/desktop/src/body-stage.vue`). It takes
 the same props and events as the Live2D stage. The Director still decides which phase she performs; `character/body.ts`
 turns that phase, the person's presence and touches into motions, expressions and gaze for the mesh-avatar runtime.
-The archive is not committed or published, so public builds show only the Live2D form; see `packages/character/README.md`.
+The archive is in the repository, and every build carries it; see `packages/character/README.md`.
 
 ## Linux: Chromium sandbox
 
@@ -145,5 +145,7 @@ asserts that Chromium's sandbox is on.
 | `journal.json` | the last 40 tasks per workspace (request, status, changed files, collaborators, undo), briefed to a new session |
 | `pi-agent/auth.json` | always `{}`; keys stay in memory |
 
-The data directory is `~/.local/share/anna-dsh` on macOS (kept from earlier releases), `$XDG_DATA_HOME/anna` on Linux
-and `%APPDATA%\Anna` on Windows.
+The data directory is `~/Library/Application Support/Anna` on macOS, `%APPDATA%\Anna` on Windows and
+`$XDG_DATA_HOME/anna` on Linux. Releases up to 0.5 kept it in `~/.local/share/anna-dsh` on macOS: the first launch moves it
+(`anna-host/data-home.ts`) and leaves a link behind. Her memory, sessions and agent backups come along; her brain starts
+fresh, and the old model and key stay in `before-0.6/`.

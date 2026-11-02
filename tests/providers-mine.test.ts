@@ -276,7 +276,7 @@ it('export and import: keys only when asked for, names kept free, universal prov
 })
 
 it('the companion works providers with anna_providers: reads freely, switches only after the user says yes', async () => {
-  const { host, data } = await setup({ characterId: 'mark', script: [
+  const { host, data } = await setup({ script: [
     { tools: [{ name: 'anna_providers', args: { action: 'list' } }] },
     { tools: [{ name: 'anna_providers', args: { action: 'use', app: 'codex', name: 'DeepSeek' } }] },
     { tools: [{ name: 'anna_providers', args: { action: 'global', app: 'codex', name: 'DeepSeek' } }] },
@@ -287,7 +287,7 @@ it('the companion works providers with anna_providers: reads freely, switches on
   await vi.waitUntil(() => host.snapshot().approvals.length > 0, { timeout: 8000 })
   const card = host.snapshot().approvals[0]!
   expect(card).toMatchObject({ toolName: 'anna_providers', danger: false, details: 'Codex → DeepSeek' })
-  expect(card.reason).toContain('马克君')
+  expect(card.reason).toContain('Anna')
   await host.execute({ type: 'approval', id: card.id, allow: true })
   // The global switch rewrites Codex's own config: a risky card, declined here.
   await vi.waitUntil(() => host.snapshot().approvals[0]?.danger === true, { timeout: 8000 })
@@ -308,7 +308,7 @@ it('the companion works providers with anna_providers: reads freely, switches on
 })
 
 it('the companion sets the backup queue with anna_providers after the user says yes, and the list shows it', async () => {
-  const { host, data } = await setup({ characterId: 'mark', script: [
+  const { host, data } = await setup({ script: [
     { tools: [{ name: 'anna_providers', args: { action: 'backups', app: 'codex', names: ['Nope'] } }] },
     { tools: [{ name: 'anna_providers', args: { action: 'backups', app: 'codex', names: ['Kimi'] } }] },
     { tools: [{ name: 'anna_providers', args: { action: 'list' } }] },

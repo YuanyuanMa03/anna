@@ -184,7 +184,7 @@ it('everyday changes (companion, conversation, plugins) keep the terminal routed
   await host.execute({ type: 'agent-provider', agent: 'codex', provider: 'Chat A' })
   await host.execute({ type: 'provider-routing', app: 'codex', on: true })
   const routed = await readFile(join(configs.codex, 'config.toml'), 'utf8')
-  for (const command of [{ type: 'character', id: 'mark' }, { type: 'new-session' }, { type: 'memory', enabled: true }] as const) {
+  for (const command of [{ type: 'new-session' }, { type: 'memory', enabled: true }] as const) {
     await host.execute(command)
     expect(await readFile(join(configs.codex, 'config.toml'), 'utf8')).toBe(routed)
   }

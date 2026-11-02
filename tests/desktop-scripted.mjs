@@ -74,30 +74,36 @@ try {
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
-  // Anna's own body shows when its archive was in place at build time (it is not committed); otherwise her Live2D form.
+  // Anna's own body is what a fresh start shows; the anime form is one click away.
   if (!packaged) {
-    const body = existsSync(join(root, 'dist/renderer/anna-body/anna.mavatar'))
-    assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), body ? 'mesh' : 'live2d')
-    evidence.checks.push(`Stage: ${body ? 'her own body (mesh avatar)' : 'Live2D form, no body archive in this build'}`)
-    if (body) {
-      // Image pixels of her current art (1672 × 941; update with the art) to the window: a pat on her hair, then a
-      // double click once the 2.5 s poke window has passed, so its two clicks are not taken for pokes three and four.
-      const canvas = await page.locator('.body-stage canvas').boundingBox()
-      const at = (x, y) => ({ x: canvas.x + x * canvas.width / 1672, y: canvas.y + y * canvas.height / 941 })
-      const hair = at(840, 120)
-      await page.mouse.click(hair.x, hair.y)
-      await page.locator('.body-stage[data-motion="shy"][data-expression="shy"]').waitFor({ timeout: 3000 })
-      await page.waitForTimeout(2600)
-      await page.mouse.dblclick(hair.x, hair.y)
-      await page.locator('.body-stage[data-motion="wink"]').waitFor({ timeout: 3000 })
-      await menu(page, '外观与能力')
-      await page.locator('.form-row').getByRole('button', { name: '二次元', exact: true }).click()
-      await page.locator('.model-canvas[data-renderer="live2d"][data-state="ready"]').waitFor({ timeout: 20000 })
-      await page.locator('.form-row').getByRole('button', { name: '本体', exact: true }).click()
-      await page.locator('.model-canvas[data-renderer="mesh"][data-state="ready"]').waitFor({ timeout: 20000 })
-      await page.getByRole('button', { name: '关闭外观与能力' }).click()
-      evidence.checks.push('Her body: a pat on the hair makes her shy, a double click winks, and the anime form switches in and back')
-    }
+    assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), 'mesh')
+    evidence.checks.push('Stage: her own body (mesh avatar)')
+    // The room behind her really loads: a broken URL in a CSS background fails silently.
+    assert.equal(await page.evaluate(async () => {
+      const url = getComputedStyle(document.querySelector('.app-shell')).backgroundImage.match(/url\("([^"]*room[^"]*)"\)/)?.[1]
+      const room = new Image()
+      room.src = url
+      await room.decode()
+      return room.naturalWidth > 0
+    }), true)
+    evidence.checks.push('Stage: the room is behind her')
+    // Image pixels of her current art (1672 × 941; update with the art) to the window: a pat on her hair, then a
+    // double click once the 2.5 s poke window has passed, so its two clicks are not taken for pokes three and four.
+    const canvas = await page.locator('.body-stage canvas').boundingBox()
+    const at = (x, y) => ({ x: canvas.x + x * canvas.width / 1672, y: canvas.y + y * canvas.height / 941 })
+    const hair = at(840, 120)
+    await page.mouse.click(hair.x, hair.y)
+    await page.locator('.body-stage[data-motion="shy"][data-expression="shy"]').waitFor({ timeout: 3000 })
+    await page.waitForTimeout(2600)
+    await page.mouse.dblclick(hair.x, hair.y)
+    await page.locator('.body-stage[data-motion="wink"]').waitFor({ timeout: 3000 })
+    await menu(page, '外观与能力')
+    await page.locator('.form-row').getByRole('button', { name: '二次元', exact: true }).click()
+    await page.locator('.model-canvas[data-renderer="live2d"][data-state="ready"]').waitFor({ timeout: 20000 })
+    await page.locator('.form-row').getByRole('button', { name: '本体', exact: true }).click()
+    await page.locator('.model-canvas[data-renderer="mesh"][data-state="ready"]').waitFor({ timeout: 20000 })
+    await page.getByRole('button', { name: '关闭外观与能力' }).click()
+    evidence.checks.push('Her body: a pat on the hair makes her shy, a double click winks, and the anime form switches in and back')
   }
 
   // Pick the project folder: unknown folders wait for a trust decision before anything loads.

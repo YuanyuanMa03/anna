@@ -13,23 +13,21 @@ The renderer uses AIRI's Pixi 6 and pixi-live2d-display foundation. The Vue stag
 This project does not copy the AIRI monorepo or its agent runtime.
 
 Anna's own body is drawn by the mesh-avatar runtime (https://github.com/shinshin86/mesh-avatar-studio, MIT, © 2026 Yuki Shindo)
-from an archive built with Mesh Avatar Studio from her original art. Neither the archive nor the art is in this repository.
+from an archive built with Mesh Avatar Studio from her original art. The archive (`assets/anna-body/`) and the art
+(`artwork/anna-body/`) are part of this repository and under its license. The art was generated with AI tools, as was
+the room behind her (`assets/stage/`, `artwork/stage/`).
 
-Haru Greeter (Anna's look), Mark, Niziiro Mao, Natori Jin and Chitose are Live2D sample assets. Anna's license does not cover them.
-The companions' names, personalities and lines in `packages/character/manifest.ts` are Anna's own writing; the characters' designs belong to Live2D Inc.
-Their models, textures, motions, previews, and Cubism Core are not tracked in Git. `pnpm assets` downloads them from
-this repository's `assets-v1` and `assets-v2` releases and verifies each file against `docs/asset-inventory.json`.
-Their original ReadMe files and the Cubism Core license are in `assets/licenses/`.
+Haru Greeter (Anna's anime form) is a Live2D sample asset. Anna's license does not cover it.
+Anna's name, personality and lines in `packages/character/manifest.ts` are this project's own writing; the character's design belongs to Live2D Inc.
+The model, textures, motions, previews, and Cubism Core are not tracked in Git. `pnpm assets` downloads them from
+this repository's `assets-v1` release and verifies each file against `docs/asset-inventory.json`.
+The original ReadMe and the Cubism Core license are in `assets/licenses/`.
 If you redistribute Anna or build on it, review the Live2D Free Material License and the Cubism SDK terms yourself;
 a custom model is the safest choice for commercial use.
 
 Sources:
 
 - https://www.live2d.com/zh-CHS/learn/sample/haru-receptionist/
-- https://www.live2d.com/zh-CHS/learn/sample/mark/
-- https://www.live2d.com/zh-CHS/learn/sample/niziiro-mao/
-- https://www.live2d.com/zh-CHS/learn/sample/natori-jin/
-- https://www.live2d.com/zh-CHS/learn/sample/chitose/
 - https://www.live2d.com/learn/sample/model-terms/
 - https://www.live2d.com/eula/live2d-free-material-license-agreement_jp.html
 

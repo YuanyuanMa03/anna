@@ -36,7 +36,7 @@ h3 { font-size: 15px; font-weight: 500; margin: 18px 0 8px }
 p { line-height: 1.8 }
 code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-radius: 6px; padding: 1px 6px; margin: 2px 4px 2px 0; display: inline-block }
 
-.app-shell { height: 100dvh; min-height: 600px; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(ellipse at 34% 58%, #efe6f8 0, transparent 55%), radial-gradient(ellipse at 90% 10%, #f6eef3 0, transparent 40%), var(--bg); overflow: hidden }
+.app-shell { height: 100dvh; min-height: 600px; display: grid; grid-template-rows: auto 1fr auto; background: linear-gradient(to bottom, #2a1b3a8c 0, #2a1b3a1f 18%, transparent 34%, transparent 70%, #2a1b3a4d 100%), url('/stage/room.webp') center bottom / cover no-repeat, #3b2a4a; overflow: hidden }
 /* The corner bar stays out of her way: brand and connection on the left, her brain and one menu on the right. */
 .corner { display: flex; align-items: center; gap: 18px; padding: 14px 22px 4px; z-index: 5 }
 .corner-actions { margin-left: auto; display: flex; align-items: center; gap: 8px }
@@ -49,16 +49,18 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .menu-list { position: absolute; right: 0; top: calc(100% + 8px); z-index: 7; min-width: 168px; display: flex; flex-direction: column; padding: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow) }
 .menu-list button { border: 0; background: none; text-align: left; font-size: 13px; padding: 9px 12px; border-radius: 10px; display: flex; align-items: center }
 .menu-list button:hover { background: #f1eaf7 }
-.brand { font: italic 30px Georgia, serif; letter-spacing: -1.5px; color: #78618e; display: flex; align-items: baseline; gap: 9px }
-.brand span { font: 9px -apple-system, sans-serif; letter-spacing: 2px; color: #a898b4 }
-.connection { font-size: 11px; color: #8e7e9d; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.brand { font: italic 30px Georgia, serif; letter-spacing: -1.5px; color: #fff6ee; text-shadow: 0 1px 12px #2a1b3a99; display: flex; align-items: baseline; gap: 9px }
+.brand span { font: 9px -apple-system, sans-serif; letter-spacing: 2px; color: #e9dcea }
+.connection { font-size: 11px; color: #f3e9ef; text-shadow: 0 1px 8px #2a1b3ab3; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .connection i, .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #c6bbc9; margin-right: 7px; vertical-align: middle }
 .connection i.online, .dot.online { background: var(--good) }
 .connection i.bad { background: var(--bad) }
 /* She fills the window; everything else floats around her. */
 .scene { position: relative; min-height: 0 }
+/* The table her folded arms rest on: pinned to the stage's bottom, as she is, so the two meet at any window size. */
+.scene[data-form=body]::before { content: ''; position: absolute; left: 0; right: 0; bottom: -240px; height: 340px; pointer-events: none; background: radial-gradient(ellipse 34% 34px at 50% 52px, #1a0f0f73, transparent), radial-gradient(ellipse 60% 90px at 28% 0, #ffd2a04d, transparent), radial-gradient(ellipse 50% 70px at 78% 0, #e0c0ff33, transparent), linear-gradient(to bottom, #7a5240 0, #5d3b2d 22%, #3f2822 60%, #2c1c19 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 7px) }
 .stage { position: absolute; inset: 0 }
-.stage-halo { position: absolute; inset: 6% 22% 0; border-radius: 50%; background: radial-gradient(ellipse, #e5d8f080, transparent 66%); pointer-events: none; transition: background .8s }
+.stage-halo { position: absolute; inset: 6% 22% 0; border-radius: 50%; background: radial-gradient(ellipse, #fff1e04d, transparent 66%); pointer-events: none; transition: background .8s }
 [data-phase=waiting] .stage-halo { background: radial-gradient(ellipse, #f4dfc280, transparent 66%) }
 [data-phase=failed] .stage-halo { background: radial-gradient(ellipse, #f1d3dc90, transparent 66%) }
 [data-phase=done] .stage-halo { background: radial-gradient(ellipse, #d7ecdf90, transparent 66%) }
@@ -66,7 +68,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .model-canvas canvas { display: block; position: absolute }
 /* Her own body is framed by the stage itself: no flex centring, the cursor shows only over her outline. */
 .body-stage { display: block; cursor: default }
-.stage-loading, .stage-error { font-size: 12px; color: #9a87aa; z-index: 2; position: absolute; bottom: 60px }
+.stage-loading, .stage-error { font-size: 12px; color: #fff6ee; z-index: 2; position: absolute; bottom: 60px }
 .stage-error { background: #fff0f0; padding: 12px }
 .status-ribbon { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; max-width: 92%; padding: 7px 14px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font-size: 12px; box-shadow: var(--shadow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(8px) }
 .status-ribbon span { color: var(--muted); overflow: hidden; text-overflow: ellipsis }
@@ -83,12 +85,11 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 /* Only the words and the things to say take the pointer; the air around them belongs to her stage. */
 .speech .bubble, .speech .suggestions button { pointer-events: auto }
 .speech.left { text-align: right; align-items: flex-end }
-.speaker { font-size: 10px; letter-spacing: 3px; color: #a58eb5 }
-.bubble { position: relative; max-height: 42vh; overflow: auto; scrollbar-width: none; padding: 18px 2px 4px; text-shadow: 0 0 18px var(--bg), 0 0 6px var(--bg); mask-image: linear-gradient(to bottom, transparent 0, #000 34px) }
+.speaker { font-size: 10px; letter-spacing: 3px; color: #fff6ee; text-shadow: 0 1px 8px #2a1b3acc }
+.bubble { position: relative; max-height: 42vh; overflow: auto; scrollbar-width: none; padding: 12px 16px; border-radius: 18px; text-align: left; background: #fffaf6e0; box-shadow: 0 10px 34px #2a1b3a33; backdrop-filter: blur(14px) }
 .bubble::-webkit-scrollbar { display: none }
 .bubble p { margin: 0; font-size: 15px; line-height: 1.85 }
 .bubble .rich { font-size: 15px; color: #4a3d5c }
-.bubble .rich pre, .bubble .rich ul, .bubble .rich ol { text-align: left; text-shadow: none }
 .rich { font-size: 13.5px; line-height: 1.85; overflow-wrap: anywhere }
 .rich p { margin: 0 0 6px; white-space: pre-wrap }
 .rich h4 { font-size: 13.5px; font-weight: 600; margin: 10px 0 2px; color: #6a557f }
@@ -104,14 +105,14 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .typing i:nth-child(3) { animation-delay: .3s }
 /* For a newcomer: things to say to her, spoken options rather than buttons to find. */
 .suggestions { display: flex; flex-direction: column; gap: 4px; align-items: inherit; margin-top: 6px }
-.suggestions span { font-size: 10px; letter-spacing: 2px; color: #a58eb5 }
-.suggestions button { font-size: 13px; border: 0; background: none; padding: 4px 2px; color: var(--accent); text-shadow: 0 0 12px var(--bg) }
-.suggestions button:hover { background: none; color: #5e4783 }
+.suggestions span { font-size: 10px; letter-spacing: 2px; color: #fff6ee; text-shadow: 0 1px 8px #2a1b3acc }
+.suggestions button { font-size: 13px; border: 0; border-radius: 12px; padding: 6px 12px; color: #5e4783; background: #fffaf6c9; backdrop-filter: blur(10px) }
+.suggestions button:hover { background: #fffaf6f0; color: #5e4783 }
 
 /* Your words drift up from the whisper line toward her and fade. */
 .drifts { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 2; pointer-events: none }
 /* 2.6s here and in drift() in app.vue: the element is removed when the animation ends. */
-.drift { position: absolute; left: 50%; bottom: 8px; margin: 0; max-width: min(520px, 70vw); transform: translateX(-50%); font-size: 14px; color: #6d5a84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 14px var(--bg); animation: drift 2.6s cubic-bezier(.2,.7,.3,1) forwards }
+.drift { position: absolute; left: 50%; bottom: 8px; margin: 0; max-width: min(520px, 70vw); transform: translateX(-50%); font-size: 14px; color: #fff6ee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 10px #2a1b3ae6; animation: drift 2.6s cubic-bezier(.2,.7,.3,1) forwards }
 @keyframes drift { from { opacity: 0; transform: translate(-50%, 0) } 15% { opacity: 1 } to { opacity: 0; transform: translate(-50%, -38vh) scale(.92) } }
 
 /* What she holds out to you floats at her right hand. */
@@ -183,12 +184,6 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .plugin-row button { font-size: 11px; white-space: nowrap; padding: 8px }
 .segmented { display: flex; flex-shrink: 0; gap: 4px }
 .segmented button[aria-pressed=true] { background: #ece3f5; border-color: #cdbbe0 }
-.character-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
-.character-card { display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; border-radius: 16px; min-width: 0 }
-.character-card.selected { border-color: #aa95bd; background: #f0e9f7 }
-.character-card img { width: 40px; height: 54px; object-fit: cover; object-position: left center; border-radius: 10px }
-.character-card strong { display: block; font-size: 13px; font-weight: 500 }
-.character-card small { display: block; font-size: 9px; color: #a18dac; margin-top: 3px }
 .weixin-sheet { text-align: center }
 .weixin-sheet .sheet-heading { text-align: left }
 .weixin-qr { width: 260px; max-width: 100%; border-radius: 16px }
@@ -294,8 +289,6 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 @keyframes tether-flow { to { stroke-dashoffset: -18 } }
 .speaker small { letter-spacing: 0; color: var(--muted) }
 @media (prefers-reduced-motion: reduce) { .tether { animation: none } }
-.character-card strong i { font-style: normal; font-size: 11px; margin-left: 5px; color: #c37fa3 }
-.character-card strong i.male { color: #6f8fc4 }
 
 /* External agents: tabs, and the providers section (cc-switch in Anna) */
 .sheet.agents { width: 640px }

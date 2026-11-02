@@ -91,7 +91,7 @@ describe.skipIf(!brains.length)('real Claude Code / Codex as the brain, with Ann
     const data = await mkdtemp(join(tmpdir(), `anna-real-tools-${agent}-`))
     const workspace = join(data, 'project')
     await mkdir(workspace)
-    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: agent === 'claude' ? 'claude-code' : 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: agent === 'claude' ? 'claude-code' : 'codex', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
     const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' } })
     await host.initialize()
     if (realProvider)
@@ -202,7 +202,7 @@ describe.skipIf(!wanted.includes('codex'))('real Codex through Anna\'s local rou
     await new Promise<void>(resolve => upstream.listen(0, '127.0.0.1', resolve))
     const previousHome = process.env.CODEX_HOME
     process.env.CODEX_HOME = join(data, 'codex-home')
-    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
     const secrets: Record<string, string> = {}
     const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
     try {
@@ -282,7 +282,7 @@ describe.skipIf(!chatKey)('real Codex through Anna\'s routing to a real Chat pro
     await mkdir(join(data, 'codex-home'))
     const previousHome = process.env.CODEX_HOME
     process.env.CODEX_HOME = join(data, 'codex-home')
-    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'codex', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
     const secrets: Record<string, string> = {}
     const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
     try {
@@ -346,7 +346,7 @@ describe.skipIf(!chatKey)('real Claude Code through Anna\'s routing to a real Ch
     await mkdir(workspace)
     const previousConfig = process.env.CLAUDE_CONFIG_DIR
     process.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
-    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
     const secrets: Record<string, string> = {}
     const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
     try {
@@ -449,7 +449,7 @@ describe.skipIf(!wanted.includes('claude'))('real Claude Code through Anna\'s lo
     const upstream = await fakeChat(tools => tools.find(name => name.includes('anna_memory')) ? { name: tools.find(name => name.includes('anna_memory'))!, input: { action: 'remember', text: '最喜欢的茶是龙井' } } : undefined, '记好了，你最喜欢龙井。')
     const previousConfig = process.env.CLAUDE_CONFIG_DIR
     process.env.CLAUDE_CONFIG_DIR = join(data, 'claude-config')
-    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'mark', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
+    await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'claude-code', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'ask', rules: { allow: [], ask: [], deny: [] } } } }))
     const secrets: Record<string, string> = {}
     const host = new Host(resolve('.'), data, { read: async () => '', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, secrets: { read: async () => secrets.providers ?? '', write: async (value) => { secrets.providers = value } } })
     try {
