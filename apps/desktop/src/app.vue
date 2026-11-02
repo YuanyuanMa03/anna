@@ -6,6 +6,7 @@ import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message,
 import type { Anchors } from './character-stage.vue'
 import type { MyAvatar } from './my-avatar'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { version } from '../../../package.json'
 import { brainChoices, recommendedBrain } from '../../../packages/agents/brains'
 import { captionPlace } from '../../../packages/character/layout'
 import { companion } from '../../../packages/character/manifest'
@@ -395,7 +396,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
 <template>
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
     <header class="corner">
-      <div class="brand">anna<span>v0.5</span></div>
+      <div class="brand">anna<span>v{{ version }}</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
       <div class="corner-actions">
         <div class="menu">
