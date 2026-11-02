@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
@@ -16,6 +16,8 @@ async function main() {
   const desktop = await _electron.launch({ executablePath: packaged ? process.platform === 'win32' ? `${packaged}/Anna.exe` : `${packaged}/Contents/MacOS/Anna` : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_CDP: '' } })
   try {
     const page = await desktop.firstWindow()
+    const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+    assert.equal((await page.locator('.brand span').textContent()).trim(), `v${version}`)
     await page.getByRole('button', { name: '配置模型', exact: true }).waitFor()
     const reply = await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))
     assert(reply.ok)
