@@ -10,7 +10,7 @@ import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt, voiceAt
 import { followBodyLook, stabilizeBodyRig } from '../../../packages/character/body-rig'
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
-const props = withDefaults(defineProps<{ body: NonNullable<Companion['body']>, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
+const props = withDefaults(defineProps<{ body: Pick<NonNullable<Companion['body']>, 'crop' | 'hands'> & { path?: string, archive?: Blob }, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
 /** `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` says why the body cannot be shown. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason: string] }>()
 const element = ref<HTMLDivElement>()
@@ -183,7 +183,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', returned)
   director.update(props.phase, performance.now())
   try {
-    const opened = await openAvatar(props.body.path)
+    const opened = await openAvatar(props.body.archive ?? props.body.path!)
     if (disposed) {
       opened.release()
       return
@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="element" class="model-canvas body-stage" data-renderer="mesh" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :data-motion="motion" :data-expression="expression" @click="event => touch(event, false)" @dblclick="event => touch(event, true)">
+  <div ref="element" class="model-canvas body-stage" data-renderer="mesh" :data-avatar="body.archive ? 'mine' : 'hers'" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :data-motion="motion" :data-expression="expression" @click="event => touch(event, false)" @dblclick="event => touch(event, true)">
     <canvas ref="canvas" :style="{ left: `${placement.left}px`, top: `${placement.top}px`, width: `${placement.width}px`, height: `${placement.height}px` }" />
     <p v-if="state === 'loading'" class="stage-loading" role="status">正在唤醒 {{ name }}…</p>
   </div>

@@ -6,11 +6,13 @@ import type { SandboxStatus } from '../permissions/sandbox'
 import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
 import type { DelegationOutcome } from './delegator'
+import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
+import { avatarFolder, avatarTask } from '../character/avatar-task'
 import { companion } from '../character/manifest'
 import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
@@ -454,6 +456,27 @@ export class Host {
     }
   }
 
+  /** The picture a person hands her goes where her tools can reach it: only as far as her permissions would let her go herself. */
+  private async placeAvatarPicture(image: string) {
+    if (this.current || this.mutating)
+      throw new Error('我手上还有事，做完再把图交给我。')
+    if (!this.workspaceSettings().trusted)
+      throw new Error('先信任这个工作文件夹，再把图交给我。')
+    if (this.effectiveMode('desktop') === 'plan')
+      throw new Error('规划模式只能看不能改，先切到别的模式，再把图交给我。')
+    const picture = Buffer.from(image, 'base64')
+    if (picture.length > 64 * 1024 * 1024 || !picture.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47])))
+      throw new Error('这不是一张能用的 PNG 图片。')
+    const folder = join(this.workspacePath, avatarFolder)
+    await mkdir(folder, { recursive: true })
+    // A project can hold links: the picture must land in this folder, not wherever one points.
+    if (await realpath(folder) !== join(await realpath(this.workspacePath), avatarFolder))
+      throw new Error(`${avatarFolder} 是一个链接，不能把图放进去。`)
+    const path = join(folder, 'source.png')
+    await rm(path, { force: true })
+    await writeFile(path, picture)
+  }
+
   /** Who is talking, as the UI and the diary name her. */
   private get companionName() { return companion(this.store.value.characterId).name }
   /** Who signs a memory line: Anna, with the brain when it isn't pi ("Anna（Claude Code）"). */
@@ -760,6 +783,9 @@ export class Host {
       case 'stop':
         await this.stopWork()
         return this.snapshot()
+      case 'avatar-job':
+        await this.placeAvatarPicture(command.image)
+        return this.execute({ type: 'send', text: avatarTask })
       case 'send':
         if (this.current && this.current.origin === 'desktop' && this.kernel?.capabilities.steering) {
           const text = command.text.trim()
