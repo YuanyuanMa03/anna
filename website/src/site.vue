@@ -2,6 +2,7 @@
 import type { AnnaPhase, PermissionMode } from '../../packages/shared/contracts'
 import type { Lang } from './copy'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import BodyStage from '../../apps/desktop/src/body-stage.vue'
 import CharacterStage from '../../apps/desktop/src/character-stage.vue'
 import { characters } from '../../packages/character/manifest'
 import { copy, modeOrder, modes } from './copy'
@@ -202,7 +203,7 @@ const year = new Date().getFullYear()
 
 <template>
   <header class="nav">
-    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.5</span></a>
+    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.6.0</span></a>
     <nav :aria-label="t.nav.home">
       <a href="#meet">{{ t.nav.meet }}</a>
       <a href="#demo">{{ t.nav.demo }}</a>
@@ -252,7 +253,7 @@ const year = new Date().getFullYear()
       <figure class="hero-shot">
         <div class="window">
           <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.hero.shot }}</span></div>
-          <img src="/media/work.webp" :alt="t.hero.shot" width="1600" height="858" loading="lazy">
+          <img src="/media/desktop-v060.webp" :alt="t.hero.shot" width="1600" height="773" loading="lazy">
         </div>
         <figcaption class="chip chip-a"><i class="mode-dot edit" />{{ t.hero.chips[0] }}</figcaption>
         <div class="chip chip-b">{{ t.hero.chips[1] }}</div>
@@ -277,7 +278,7 @@ const year = new Date().getFullYear()
       <div class="demo-shell" :data-mode="mode" :data-phase="phase">
         <div class="demo-stage">
           <div class="halo" />
-          <div class="model"><CharacterStage :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
+          <div class="model"><BodyStage v-if="character.body" :body="character.body" :name="character.name" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /><CharacterStage v-else :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
           <div class="bubble" aria-live="polite"><span>{{ character.name }} · Anna</span><p>{{ bubble }}</p></div>
           <div class="ribbon"><b>{{ modes[mode].name[lang] }}</b>{{ modes[mode].stance[lang] }}</div>
         </div>
