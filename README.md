@@ -5,7 +5,7 @@
 **She wakes on your desktop.**
 
 She keeps you company, does the work, and never lies to you.<br>
-A Live2D character with a face, a heart and a memory of her own, who reads your code, edits files, runs tests,<br>
+A character with a face, a heart and a memory of her own, who reads your code, edits files, runs tests,<br>
 and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.
 
 [![CI](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml/badge.svg)](https://github.com/YuanyuanMa03/anna/actions/workflows/ci.yml)
@@ -25,8 +25,9 @@ and calls in Claude Code or Codex when they fit better. When a decision is yours
 Most AI tools are either a chat box or an invisible process in a terminal. Anna is neither. She is a character who
 lives on your desktop, works alongside you, and stays the same Anna whichever brain she runs on.
 
-- ✿ **A face of her own.** A real Live2D character. Thinking, reading, waiting for you and finishing up each have
-  their own look, and even her stance changes with the permission mode.
+- ✿ **A face of her own.** Her own body, drawn from her original art: she looks at you, looks down while you type and
+  blushes when you pat her head. Thinking, reading, waiting for you and finishing up each have their own look, and even
+  her stance changes with the permission mode.
 - ♡ **A personality.** Kind, rational and honest. She has her own opinions and respects your final call: warm and
   brief in small talk, conclusion first at work.
 - ❋ **She remembers you.** Long-term memory keeps your habits and preferences. You can see everything she remembers
@@ -34,17 +35,16 @@ lives on your desktop, works alongside you, and stays the same Anna whichever br
 - ✓ **Honest with you.** No made-up tool results: a test she didn't run is a test she says she didn't run. Anything
   beyond her permissions, she asks first.
 
-Anna is also the name of a home. She was the first to move in, and four friends live there with her: two women and
-three men in all (Anna, Mao, Natori, Chitose, Mark), all from Live2D's free samples. Each has their own name,
-personality and way of talking, and none of them is a copy of Anna; honesty and permissions are the same for all of them.
-Their words float beside their face and fade, approval and delivery cards come out of their hand,
-and whenever Claude Code or Codex does a job, whether the companion handed it over or you sent it with `@claude` or
-`@codex`, the companion takes the result back, checks the changes with its own tools (and quick tests when there are
-some), and tells you whether you can rely on it. Reviewing an `@` job costs one model turn; you can turn it off under
-“外观与能力” (Appearance & capabilities), and it is skipped when the brain itself is Claude Code or Codex. The companions
-share one diary about you (long-term memory) and one work log, so when you switch companions or brains, the memory and
-your conversations carry on. When one brings up something another said or did, they say whose it was instead of taking
-credit.
+She has two forms, her own body and a Live2D anime form, and you switch between them under “外观与能力” (Appearance &
+capabilities). You can also make her your own: under 更多 → 创造我的 Anna, give her a picture and five clicks, or a finished
+`.mavatar`, and she takes that look. Her personality and memory stay the same.
+
+Her words float beside her face and fade, approval and delivery cards come out of her hand, and whenever Claude Code or
+Codex does a job, whether she handed it over or you sent it with `@claude` or `@codex`, she takes the result back, checks
+the changes with her own tools (and quick tests when there are some), and tells you whether you can rely on it. Reviewing
+an `@` job costs one model turn; you can turn it off under “外观与能力”, and it is skipped when the brain itself is Claude
+Code or Codex. Her diary about you (long-term memory) and her work log stay with her when she changes brains. When she
+brings up something another agent did, she says whose it was instead of taking credit.
 
 ## What she can do
 
@@ -54,7 +54,7 @@ credit.
 - 🤝 **She delegates.** Anna finds the coding agents already installed on your machine, the way
   [cc-switch](https://github.com/farion1231/cc-switch) does. Type `@claude fix the flaky test` and Claude Code does
   the job, while its permission prompts land on *Anna's* approval cards.
-- 🛡️ **Claude Code-style permission modes.** Plan, Ask, Edit and Auto, each with its own Live2D stance. Rules use
+- 🛡️ **Claude Code-style permission modes.** Plan, Ask, Edit and Auto, each with its own stance. Rules use
   the Claude Code format and matching (`Bash(pnpm test *)`, `Edit(src/**)`), and Anna's own keys and data are always off-limits.
 - 📦 **An OS sandbox for real.** Shell commands run under Seatbelt (macOS) or bubblewrap (Linux) through
   Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime). They can write only to the workspace,
@@ -64,7 +64,7 @@ credit.
   searchable, or your own; universal providers (one gateway for all three); a speed test across a provider's
   addresses; balances and Coding Plan quotas; import links (cc-switch's format) and export / import. Use a provider
   for delegations and for Claude Code or Codex as Anna's brain, or switch the agent's own config globally with backup
-  and one-click restore, from the panel, the tray, or by asking the companion. Codex gets a model catalog for
+  and one-click restore, from the panel, the tray, or by asking her. Codex gets a model catalog for
   third-party models, and runs on DeepSeek, which speaks its Responses API natively; providers that only speak Chat
   Completions reach Claude Code and Codex through Anna's local routing, which converts the format on this machine and
   keeps the real key to itself. Give Claude Code or Codex backup providers and a failing one is swapped out mid-task,
@@ -189,7 +189,7 @@ See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new ag
 ```mermaid
 flowchart LR
   subgraph Renderer["Renderer · Vue + Pixi"]
-    Stage["Live2D stage<br/>director: poses, stances, gestures"]
+    Stage["Stage: her body or Live2D form<br/>director: poses, stances, gestures"]
     Cards["Approval · delivery · agent cards"]
   end
   subgraph Main["Electron main"]
@@ -229,9 +229,14 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm assets          # download the Live2D models (not in Git, see NOTICE.md)
+pnpm assets          # download her Live2D model (not in Git, see NOTICE.md)
 pnpm dev:desktop
 ```
+
+You only need [pnpm](https://pnpm.io/installation), on macOS, Windows or Linux, Intel or ARM. It switches itself to the
+pinned 10.33.0 and downloads the pinned Node 24.21.0, the version inside Electron 44, so every machine builds with the same
+tools. Her data lives in `~/Library/Application Support/Anna` on macOS, `%APPDATA%\Anna` on Windows and
+`$XDG_DATA_HOME/anna` on Linux. A brand-new install has no model chosen: pick a brain from the chip in the corner.
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
@@ -284,7 +289,7 @@ she still falls short, and which projects she learned from are in [docs/comparis
 - [ ] MCP and skills sync across agents; usage statistics
 - [x] Anna's own tools (memory, delegation) when Claude Code or Codex is the brain
 - [ ] A command sandbox on Windows
-- [ ] Phoneme-level lip sync and a custom Live2D model
+- [ ] Phoneme-level lip sync
 
 ## Contributing
 
@@ -311,8 +316,8 @@ Anna's source is public and free for personal and noncommercial use under the
 company needs a commercial license: see [COMMERCIAL.md](COMMERCIAL.md). Versions up to v0.4.1 were released under MIT
 and keep that license.
 
-The Live2D sample characters (Haru, Mark, Niziiro Mao, Natori, Chitose) and Cubism Core are **not** covered by
-Anna's license. They are downloaded separately and remain under Live2D's own terms; see [NOTICE.md](NOTICE.md).
+The Live2D sample character behind her anime form (Haru) and Cubism Core are **not** covered by Anna's license. They are
+downloaded separately and remain under Live2D's own terms; see [NOTICE.md](NOTICE.md).
 
 <div align="center">
 

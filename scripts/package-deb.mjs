@@ -96,8 +96,8 @@ async function main() {
     'Depends: libgtk-3-0 | libgtk-3-0t64, libnss3, libasound2 | libasound2t64, libsecret-1-0, libnotify4, xdg-utils',
     // Anna runs terminal commands in a bubblewrap sandbox, which needs these.
     'Recommends: bubblewrap, socat, ripgrep',
-    'Description: Live2D desktop companion who codes alongside you',
-    ' Anna is a Live2D companion who chats with you and gets real work done:',
+    'Description: A desktop companion who codes alongside you',
+    ' Anna is a companion who chats with you and gets real work done:',
     ' reading code, editing files and running tests, with Claude Code-style',
     ' permission modes and a system sandbox.',
     '',
