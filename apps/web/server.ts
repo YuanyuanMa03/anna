@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AnnaEvent, Command } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
+import type { RelayLimit } from './guards'
 import { Buffer } from 'node:buffer'
 import { execFile, fork } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { validateCommand } from './commands'
-import { capRelayBody, clientAddress, sessionDirectory, staticFile, UidPool } from './guards'
+import { allowsNewSession, capRelayBody, clientAddress, ClientSlots, idleLimit, RelayBudget, sessionDirectory, staticFile, UidPool } from './guards'
 import { providerKeys, seedVisitor } from './seed'
 
 /**
@@ -38,16 +39,30 @@ const root = resolve(process.env.ANNA_ROOT ?? '.')
 const publicDir = resolve(process.env.ANNA_PUBLIC_DIR ?? 'dist/web')
 const sessionRoot = resolve(process.env.ANNA_WEB_DATA ?? '/tmp/anna-web-sessions')
 const maxSessions = Number(process.env.ANNA_MAX_SESSIONS ?? 12)
+/** A third of the slots: room for several tabs or a few people behind one address, short of locking everyone else out. */
+const maxPerClient = Number(process.env.ANNA_MAX_SESSIONS_PER_CLIENT ?? 4)
+/** Proxies with public addresses in front of the Studio. Check after a deploy: /healthz says who it takes you for. */
+const publicProxies = Number(process.env.ANNA_PUBLIC_PROXIES ?? 0)
+const clientSlots = new ClientSlots(maxPerClient)
+const relayBudget = new RelayBudget({
+  perMinute: Number(process.env.ANNA_RELAY_PER_MINUTE ?? 120),
+  perClientPerDay: Number(process.env.ANNA_RELAY_PER_CLIENT_DAY ?? 500),
+  perDay: Number(process.env.ANNA_RELAY_PER_DAY ?? 1500),
+})
+const relayRefusals: Record<RelayLimit, string> = {
+  'minute': '在线体验现在有点忙，请稍等一分钟。',
+  'client-day': '这个网络今天的在线体验额度用完了，明天再来，或下载桌面版接上自己的模型。',
+  'day': '在线体验今天的免费模型额度用完了，请明天再来，或下载桌面版接上自己的模型。',
+}
 const relayPort = Number(process.env.ANNA_RELAY_PORT ?? 7870)
 const relay = `http://127.0.0.1:${relayPort}/v1`
 const coreScript = join(dirname(fileURLToPath(import.meta.url)), 'web-core.js')
 const asRoot = process.getuid?.() === 0
-const ttl = 2 * 60 * 60 * 1000
 /** However busy, a session ends after this long, so nobody holds a slot all day by keeping it touched. */
 const maxAge = 4 * 60 * 60 * 1000
 const run = promisify(execFile)
 
-interface Visitor { id: string, created: number, child: ChildProcess, peer: RpcPeer, clients: Set<ServerResponse>, data: string, uid?: number, touched: number, sends: number[], relayToken: string, relayCalls: number[], ready: Promise<void>, closed?: boolean }
+interface Visitor { id: string, client: string, releaseSlot: () => void, created: number, child: ChildProcess, peer: RpcPeer, clients: Set<ServerResponse>, data: string, uid?: number, touched: number, sends: number[], relayToken: string, relayCalls: number[], ready: Promise<void>, closed?: boolean }
 const visitors = new Map<string, Visitor>()
 const byRelayToken = new Map<string, Visitor>()
 const sessionsByIP = new Map<string, number[]>()
@@ -84,6 +99,7 @@ async function close(visitor: Visitor) {
   visitor.closed = true
   visitors.delete(visitor.id)
   byRelayToken.delete(visitor.relayToken)
+  visitor.releaseSlot()
   for (const client of visitor.clients) client.end()
   // A core that stopped answering (`kill -STOP` is within a visitor's reach) must not keep its processes and its uid.
   await Promise.race([visitor.peer.call('shutdown').catch(() => {}), new Promise(resolve => setTimeout(resolve, 3000))])
@@ -107,7 +123,7 @@ async function close(visitor: Visitor) {
     uids.release(visitor.uid)
 }
 
-async function createVisitor(id: string): Promise<Visitor> {
+async function createVisitor(id: string, client: string, releaseSlot: () => void): Promise<Visitor> {
   const data = sessionDirectory(sessionRoot)
   const relayToken = randomBytes(24).toString('hex')
   const uid = asRoot ? uids.take() : undefined
@@ -152,7 +168,7 @@ async function createVisitor(id: string): Promise<Visitor> {
   let markReady!: () => void
   let fail!: (error: Error) => void
   const ready = new Promise<void>((resolve, reject) => { markReady = resolve; fail = reject })
-  const visitor: Visitor = { id, created: Date.now(), child, data, uid, clients: new Set(), touched: Date.now(), sends: [], relayToken, relayCalls: [], ready, peer: undefined as unknown as RpcPeer }
+  const visitor: Visitor = { id, client, releaseSlot, created: Date.now(), child, data, uid, clients: new Set(), touched: Date.now(), sends: [], relayToken, relayCalls: [], ready, peer: undefined as unknown as RpcPeer }
   visitor.peer = new RpcPeer(message => child.send(message), {}, (event: AnnaEvent | { type: 'core', status: string }) => {
     if (event.type === 'core')
       markReady()
@@ -177,7 +193,7 @@ async function createVisitor(id: string): Promise<Visitor> {
 
 function clientIP(request: IncomingMessage) {
   const forwarded = request.headers['x-forwarded-for']
-  return clientAddress(typeof forwarded === 'string' ? forwarded : undefined, request.socket.remoteAddress)
+  return clientAddress(typeof forwarded === 'string' ? forwarded : undefined, request.socket.remoteAddress, publicProxies)
 }
 
 async function readBody(request: IncomingMessage, limit: number) {
@@ -198,14 +214,17 @@ const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', 'http://anna.local')
     const token = typeof request.headers['x-anna-session'] === 'string' ? request.headers['x-anna-session'] : ''
+    // `client` is who the limits take the caller for, told to the caller alone: from two networks it shows whether they tell clients apart.
     if (url.pathname === '/healthz')
-      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, isolation: asRoot ? 'per-visitor user' : 'process' })
+      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, clients: new Set([...visitors.values()].map(visitor => visitor.client)).size, client: clientIP(request), isolation: asRoot ? 'per-visitor user' : 'process' })
     // Public on purpose: the page shows the notice before anyone types, and it reveals nothing but a yes or no.
     if (url.pathname === '/api/quota' && request.method === 'GET')
-      return json(response, 200, { out: quotaOut() })
+      return json(response, 200, { out: quotaOut() || relayBudget.out(clientIP(request)) })
     if (url.pathname === '/api/session' && request.method === 'POST') {
       if (/^[a-f0-9]{64}$/.test(token) && visitors.has(token))
         return json(response, 200, { session: token })
+      if (!allowsNewSession(typeof request.headers['sec-fetch-site'] === 'string' ? request.headers['sec-fetch-site'] : undefined))
+        return json(response, 403, { ok: false, error: '请从 Anna 在线体验的页面打开。' })
       if (!modelKey)
         return json(response, 503, { ok: false, error: '在线体验的模型还没有配置好，请稍后再来。' })
       if (visitors.size + starting >= maxSessions)
@@ -214,10 +233,17 @@ const server = createServer(async (request, response) => {
       const recent = (sessionsByIP.get(ip) ?? []).filter(t => Date.now() - t < 60000)
       if (recent.length >= 6)
         return json(response, 429, { ok: false, error: '请稍后再创建体验会话。' })
+      const releaseSlot = clientSlots.take(ip)
+      if (!releaseSlot)
+        return json(response, 429, { ok: false, error: `这个网络已经开着 ${maxPerClient} 个体验会话了。请回到已打开的页面，或关掉页面半小时后再试。` })
       sessionsByIP.set(ip, [...recent, Date.now()])
       const id = randomBytes(32).toString('hex')
       starting++
-      try { await createVisitor(id) }
+      try { await createVisitor(id, ip, releaseSlot) }
+      catch (error) {
+        releaseSlot()
+        throw error
+      }
       finally { starting-- }
       return json(response, 200, { session: id })
     }
@@ -297,6 +323,9 @@ const relayServer = createServer(async (request, response) => {
     visitor.relayCalls = visitor.relayCalls.filter(t => Date.now() - t < 60000)
     if (visitor.relayCalls.length >= 30)
       return json(response, 429, { error: { message: '在线体验的模型调用太频繁了，请稍等一分钟。' } })
+    const refused = relayBudget.take(visitor.client)
+    if (refused)
+      return json(response, 429, { error: { message: relayRefusals[refused] } })
     visitor.relayCalls.push(Date.now())
     const body = capRelayBody(JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>)
     const requested = [model, agentModel].includes(String(body.model)) ? String(body.model) : agentModel
@@ -353,7 +382,7 @@ server.requestTimeout = 0
  * outcome goes to the run log: the Studio's own proof that per-visitor users, the sandbox and the relay work there.
  */
 async function selfTest() {
-  const visitor = await createVisitor(randomBytes(32).toString('hex'))
+  const visitor = await createVisitor(randomBytes(32).toString('hex'), 'self-test', () => {})
   try {
     interface Snap { platform: { sandbox: unknown }, agents: { detected: { id: string, installed: boolean, version?: string }[] }, anna: { phase: string }, approvals: { id: string, details?: string }[], messages: { role: string, text?: string }[] }
     const execute = (command: unknown) => visitor.peer.call<Snap>('execute', command)
@@ -393,7 +422,7 @@ setInterval(() => {
       void close(visitor)
       continue
     }
-    if (Date.now() - visitor.touched < ttl)
+    if (Date.now() - visitor.touched < idleLimit(visitor.clients.size))
       continue
     void visitor.peer.call<boolean>('busy').catch(() => false).then(busy => busy ? undefined : close(visitor))
   }
