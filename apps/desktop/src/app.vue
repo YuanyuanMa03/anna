@@ -396,16 +396,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
 <template>
   <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
     <header class="corner">
-      <div class="brand-column">
-        <div class="brand">anna<span>v{{ version }}</span></div>
-        <div class="appearance-entry">
-          <button class="appearance-button" aria-label="更换 Anna 形象" :aria-expanded="pluginsOpen" aria-haspopup="dialog" @click="openFromMenu(() => pluginsOpen = true)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2M18 3h4m-2-2v4" /></svg>
-            <span>形象</span>
-          </button>
-          <span class="appearance-hint">点击切换或创造形象</span>
-        </div>
-      </div>
+      <div class="brand">anna<span>v{{ version }}</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
       <div class="corner-actions">
         <div class="menu">
