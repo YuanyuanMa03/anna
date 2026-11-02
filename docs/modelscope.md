@@ -72,3 +72,17 @@ Operator variables: `ANNA_SELF_TEST=1` runs one throwaway visitor through `npm t
 the outcome (`ANNA_SELF_TEST_TEXT` sets the task; it approves everything it is asked, so set it only to check a deploy
 and remove it after, since each cold start spends quota); `ANNA_RELAY_DEBUG` logs each relay call; `ANNA_TZ` sets the
 visitors' time zone (default Asia/Shanghai).
+
+## Open items
+
+This branch is what the Studio runs and main doesn't carry it, so the work left from the review of the online
+adaptation ([#44](https://github.com/YuanyuanMa03/anna/pull/44)) is tracked here. Checked against `6e2e547`, the source
+of the current deployment.
+
+- [ ] Limit each visitor's processes, memory and disk. Only the core's JS heap is capped.
+- [ ] Give the idle probe a time limit. A core that stops answering keeps its slot until the age limit instead of the
+  idle limit. Closing it worked in a local run.
+- [ ] Limit how many sessions one client holds at once, and check the origin when a session is created.
+- [ ] Add a limit on relay calls shared by all visitors. Today's limit is per session.
+- [ ] Test on Linux, as root: per-visitor users, what `/proc` shows, and a hostile core on the IPC channel.
+- [ ] Finish the independent Standards review and re-review the security fixes.
