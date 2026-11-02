@@ -50,7 +50,8 @@ remote URL), set the `ANNA_MODEL_API_KEY` secret, and deploy on free hardware on
 
 After a deploy, open `/healthz` from two networks: `client` should be each network's own public address. `ms.show` sits
 behind a web application firewall, so it may show a proxy's address instead, which makes many visitors look like one
-client. Set `ANNA_PUBLIC_PROXIES` to the number of public proxies to skip and restart. Until that's right, raise
+client. `forwardedFor` and `realIp` show only this caller's forwarding headers, and `publicProxies` shows the value the running server
+actually read. Use those to count the public proxy hops rather than guessing. Set `ANNA_PUBLIC_PROXIES` to the number of public proxies to skip and restart. Until that's right, raise
 `ANNA_MAX_SESSIONS_PER_CLIENT` and `ANNA_RELAY_PER_CLIENT_DAY`; neither needs a new build.
 
 ## Limits

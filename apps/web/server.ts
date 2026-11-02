@@ -216,7 +216,7 @@ const server = createServer(async (request, response) => {
     const token = typeof request.headers['x-anna-session'] === 'string' ? request.headers['x-anna-session'] : ''
     // `client` is who the limits take the caller for, told to the caller alone: from two networks it shows whether they tell clients apart.
     if (url.pathname === '/healthz')
-      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, client: clientIP(request), isolation: asRoot ? 'per-visitor user' : 'process' })
+      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, client: clientIP(request), forwardedFor: request.headers['x-forwarded-for'] ?? null, realIp: request.headers['x-real-ip'] ?? null, publicProxies, isolation: asRoot ? 'per-visitor user' : 'process' })
     // Public on purpose: the page shows the notice before anyone types, and it reveals nothing but a yes or no.
     if (url.pathname === '/api/quota' && request.method === 'GET')
       return json(response, 200, { out: quotaOut() || relayBudget.out(clientIP(request)) })

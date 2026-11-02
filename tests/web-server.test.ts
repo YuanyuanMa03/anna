@@ -93,6 +93,8 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
   }
 
   it('rejects other sites, shares slots between one client\'s tabs and leaves room for a neighbour', async () => {
+    const health = await (await fetch(`${base}/healthz`, { headers: { 'X-Forwarded-For': '9.9.9.9, 1.2.3.4', 'X-Real-IP': '5.6.7.8' } })).json()
+    expect(health).toMatchObject({ client: '1.2.3.4', forwardedFor: '9.9.9.9, 1.2.3.4', realIp: '5.6.7.8', publicProxies: 0 })
     expect((await open('1.2.3.4', 'cross-site')).status).toBe(403)
     expect((await open('1.2.3.4', 'same-site')).status).toBe(403)
     expect((await open('1.2.3.4', 'same-origin')).status).toBe(200)
