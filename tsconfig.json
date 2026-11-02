@@ -1,1 +1,33 @@
-{ "compilerOptions": { "target": "ES2023", "lib": ["ES2023", "DOM", "DOM.Iterable"], "module": "ESNext", "moduleResolution": "Bundler", "resolveJsonModule": true, "types": ["node", "vite/client"], "strict": true, "noEmit": true, "esModuleInterop": true, "skipLibCheck": true }, "include": ["apps/desktop/src/**/*.ts", "apps/desktop/src/**/*.vue", "packages/**/*.ts", "plugins/**/*.ts", "tests/**/*.ts", "vite.config.ts", "website/src/**/*.ts", "website/src/**/*.vue", "website/vite.config.ts"] }
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "types": [
+      "node",
+      "vite/client"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "apps/desktop/src/**/*.ts",
+    "apps/desktop/src/**/*.vue",
+    "packages/**/*.ts",
+    "plugins/**/*.ts",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "website/src/**/*.ts",
+    "website/src/**/*.vue",
+    "website/vite.config.ts",
+    "apps/web/**/*.ts"
+  ]
+}
