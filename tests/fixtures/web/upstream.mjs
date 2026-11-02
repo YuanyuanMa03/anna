@@ -1,4 +1,5 @@
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { ServerResponse } from 'node:http'
 import process from 'node:process'
 // No network leaves this test process. Record each actual attempt, including fallbacks.
 globalThis.fetch = async (_url, options) => {
@@ -13,3 +14,11 @@ const now = Date.now
 Date.now = () => now() + Number(readFileSync(process.env.ANNA_TEST_CLOCK, 'utf8'))
 const interval = globalThis.setInterval
 globalThis.setInterval = (callback, milliseconds, ...args) => interval(callback, milliseconds === 60000 ? 20 : milliseconds, ...args)
+
+// Observe completion of the real close handlers so the test can advance its clock without a timing guess.
+const writeHead = ServerResponse.prototype.writeHead
+ServerResponse.prototype.writeHead = function (...args) {
+  if (args[1]?.['Content-Type'] === 'text/event-stream')
+    this.once('close', () => queueMicrotask(() => writeFileSync(process.env.ANNA_TEST_CLOSED, 'closed')))
+  return writeHead.apply(this, args)
+}

@@ -325,10 +325,10 @@ const relayServer = createServer(async (request, response) => {
     if (request.method !== 'POST' || !/\/chat\/completions$/.test(url.pathname))
       return json(response, 404, { error: { message: 'only chat completions are relayed' } })
     visitor.touched = Date.now()
+    const body = capRelayBody(JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>)
     visitor.relayCalls = visitor.relayCalls.filter(t => Date.now() - t < 60000)
     if (visitor.relayCalls.length >= 30)
       return json(response, 429, { error: { message: '在线体验的模型调用太频繁了，请稍等一分钟。' } })
-    const body = capRelayBody(JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>)
     visitor.relayCalls.push(Date.now())
     const requested = [model, agentModel].includes(String(body.model)) ? String(body.model) : agentModel
     // Skip models that ran out of quota in the last ten minutes, then fall back in order.

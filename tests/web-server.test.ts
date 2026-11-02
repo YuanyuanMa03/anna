@@ -1,7 +1,9 @@
 import type { ChildProcess } from 'node:child_process'
+import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { copyFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { request } from 'node:http'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -35,7 +37,7 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
     await copyFile('tests/fixtures/web/core.mjs', join(directory, 'web-core.js'))
   })
 
-  beforeEach(async () => {
+  async function start(extraEnv: Record<string, string> = {}) {
     log = ''
     sessions = await mkdtemp(join(directory, 'sessions-'))
     const port = await freePort()
@@ -44,8 +46,9 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
     relay = `http://127.0.0.1:${relayPort}/v1/chat/completions`
     await writeFile(join(directory, 'upstream.log'), '')
     await writeFile(join(directory, 'clock'), '0')
+    await writeFile(join(directory, 'closed'), '')
     child = spawn(process.execPath, ['--import', pathToFileURL(resolve('tests/fixtures/web/upstream.mjs')).href, join(directory, 'web-server.js')], {
-      env: { ...process.env, NODE_OPTIONS: '', PORT: String(port), ANNA_RELAY_PORT: String(relayPort), ANNA_MODEL_API_KEY: 'test-only', ANNA_ROOT: resolve('.'), ANNA_WEB_DATA: sessions, ANNA_MODEL: 'primary', ANNA_AGENT_MODEL: 'agent', ANNA_FALLBACK_MODELS: 'backup', ANNA_MAX_SESSIONS: '8', ANNA_MAX_SESSIONS_PER_CLIENT: '2', ANNA_PUBLIC_PROXIES: '0', ANNA_RELAY_PER_MINUTE: '100', ANNA_RELAY_PER_CLIENT_DAY: '3', ANNA_RELAY_PER_DAY: '4', ANNA_TEST_UPSTREAM_LOG: join(directory, 'upstream.log'), ANNA_TEST_CLOCK: join(directory, 'clock'), ANNA_SELF_TEST: '', ANNA_RELAY_DEBUG: '' },
+      env: { ...process.env, NODE_OPTIONS: '', PORT: String(port), ANNA_RELAY_PORT: String(relayPort), ANNA_MODEL_API_KEY: 'test-only', ANNA_ROOT: resolve('.'), ANNA_WEB_DATA: sessions, ANNA_MODEL: 'primary', ANNA_AGENT_MODEL: 'agent', ANNA_FALLBACK_MODELS: 'backup', ANNA_MAX_SESSIONS: '8', ANNA_MAX_SESSIONS_PER_CLIENT: '2', ANNA_PUBLIC_PROXIES: '0', ANNA_RELAY_PER_MINUTE: '100', ANNA_RELAY_PER_CLIENT_DAY: '3', ANNA_RELAY_PER_DAY: '4', ANNA_TEST_UPSTREAM_LOG: join(directory, 'upstream.log'), ANNA_TEST_CLOCK: join(directory, 'clock'), ANNA_TEST_CLOSED: join(directory, 'closed'), ANNA_SELF_TEST: '', ANNA_RELAY_DEBUG: '', ...extraEnv },
       stdio: ['ignore', 'ignore', 'pipe'],
     })
     child.stderr!.on('data', (chunk) => { log += chunk })
@@ -60,15 +63,19 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
       await delay(20)
     }
     throw new Error(`Server never listened: ${log}`)
-  })
+  }
 
-  afterEach(async () => {
+  beforeEach(() => start())
+
+  async function stop() {
     if (child && child.exitCode === null) {
       const exit = once(child, 'exit')
       child.kill('SIGTERM')
       await exit
     }
-  })
+  }
+
+  afterEach(() => stop())
   afterAll(async () => { await rm(directory, { recursive: true, force: true }) })
 
   function open(ip: string, site?: string) {
@@ -115,7 +122,7 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
     expect((await (await fetch(`${base}/healthz`)).json()).visitors).toBe(1)
     abort.abort()
     await reader.cancel().catch(() => {})
-    await delay(80)
+    await expect.poll(() => readFile(join(directory, 'closed'), 'utf8')).toBe('closed')
     await writeFile(join(directory, 'clock'), String(32 * 60000))
     await delay(80)
     expect((await (await fetch(`${base}/healthz`)).json()).visitors).toBe(1)
@@ -126,6 +133,31 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
       await delay(20)
     }
     throw new Error('Idle session still holds a slot')
+  })
+
+  it('concurrent delayed bodies cannot bypass the session limit', async () => {
+    await stop()
+    await start({ ANNA_RELAY_PER_CLIENT_DAY: '100', ANNA_RELAY_PER_DAY: '100' })
+    await open('1.2.3.4')
+    const [token] = await tokens()
+    const body = JSON.stringify({ model: 'primary', messages: [{ role: 'user', content: 'hi' }] })
+    const pending = Array.from({ length: 31 }, () => {
+      const outgoing = request(relay, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } })
+      const result = new Promise<number>((resolve, reject) => {
+        outgoing.on('response', (response) => { response.resume(); resolve(response.statusCode!) })
+        outgoing.on('error', reject)
+      })
+      outgoing.write(body.slice(0, -1))
+      return { outgoing, result }
+    })
+    // All headers and partial bodies arrive before any request can finish parsing.
+    await delay(100)
+    for (const { outgoing } of pending)
+      outgoing.end(body.slice(-1))
+    const statuses = await Promise.all(pending.map(item => item.result))
+    expect(statuses.filter(status => status === 200)).toHaveLength(30)
+    expect(statuses.filter(status => status === 429)).toHaveLength(1)
+    expect((await readFile(join(directory, 'upstream.log'), 'utf8')).trim().split('\n')).toHaveLength(30)
   })
 
   it('counts actual fallback attempts, rejects invalid bodies without charging, and shares the client budget', async () => {
