@@ -31,6 +31,14 @@ export function clientAddress(forwardedFor: string | undefined, socketAddress: s
   return outside.at(-1 - publicProxies) ?? outside[0] ?? hops.at(-1) ?? socketAddress ?? 'unknown'
 }
 
+/** Reject a broken deployment setting rather than silently disabling a limit through NaN. */
+export function limitSetting(name: string, value: string | undefined, fallback: number, minimum = 1) {
+  const parsed = value === undefined ? fallback : Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed < minimum)
+    throw new Error(`${name} must be an integer >= ${minimum}`)
+  return parsed
+}
+
 /**
  * The sessions each client holds, so one address can't take every slot. `take` hands back the way to give the slot up,
  * or nothing when the client has its share. Several paths can end a session; the slot frees once.

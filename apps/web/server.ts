@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { validateCommand } from './commands'
-import { allowsNewSession, capRelayBody, clientAddress, ClientSlots, idleLimit, RelayBudget, sessionDirectory, staticFile, UidPool } from './guards'
+import { allowsNewSession, capRelayBody, clientAddress, ClientSlots, idleLimit, limitSetting, RelayBudget, sessionDirectory, staticFile, UidPool } from './guards'
 import { providerKeys, seedVisitor } from './seed'
 
 /**
@@ -40,14 +40,14 @@ const publicDir = resolve(process.env.ANNA_PUBLIC_DIR ?? 'dist/web')
 const sessionRoot = resolve(process.env.ANNA_WEB_DATA ?? '/tmp/anna-web-sessions')
 const maxSessions = Number(process.env.ANNA_MAX_SESSIONS ?? 12)
 /** A third of the slots: room for several tabs or a few people behind one address, short of locking everyone else out. */
-const maxPerClient = Number(process.env.ANNA_MAX_SESSIONS_PER_CLIENT ?? 4)
+const maxPerClient = limitSetting('ANNA_MAX_SESSIONS_PER_CLIENT', process.env.ANNA_MAX_SESSIONS_PER_CLIENT, 4)
 /** Proxies with public addresses in front of the Studio. Check after a deploy: /healthz says who it takes you for. */
-const publicProxies = Number(process.env.ANNA_PUBLIC_PROXIES ?? 0)
+const publicProxies = limitSetting('ANNA_PUBLIC_PROXIES', process.env.ANNA_PUBLIC_PROXIES, 0, 0)
 const clientSlots = new ClientSlots(maxPerClient)
 const relayBudget = new RelayBudget({
-  perMinute: Number(process.env.ANNA_RELAY_PER_MINUTE ?? 120),
-  perClientPerDay: Number(process.env.ANNA_RELAY_PER_CLIENT_DAY ?? 500),
-  perDay: Number(process.env.ANNA_RELAY_PER_DAY ?? 1500),
+  perMinute: limitSetting('ANNA_RELAY_PER_MINUTE', process.env.ANNA_RELAY_PER_MINUTE, 120),
+  perClientPerDay: limitSetting('ANNA_RELAY_PER_CLIENT_DAY', process.env.ANNA_RELAY_PER_CLIENT_DAY, 500),
+  perDay: limitSetting('ANNA_RELAY_PER_DAY', process.env.ANNA_RELAY_PER_DAY, 1500),
 })
 const relayRefusals: Record<RelayLimit, string> = {
   'minute': '在线体验现在有点忙，请稍等一分钟。',
@@ -216,14 +216,14 @@ const server = createServer(async (request, response) => {
     const token = typeof request.headers['x-anna-session'] === 'string' ? request.headers['x-anna-session'] : ''
     // `client` is who the limits take the caller for, told to the caller alone: from two networks it shows whether they tell clients apart.
     if (url.pathname === '/healthz')
-      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, clients: new Set([...visitors.values()].map(visitor => visitor.client)).size, client: clientIP(request), isolation: asRoot ? 'per-visitor user' : 'process' })
+      return json(response, 200, { status: 'ok', app: 'Anna', modelConfigured: Boolean(modelKey), model, agentModel, visitors: visitors.size, client: clientIP(request), isolation: asRoot ? 'per-visitor user' : 'process' })
     // Public on purpose: the page shows the notice before anyone types, and it reveals nothing but a yes or no.
     if (url.pathname === '/api/quota' && request.method === 'GET')
       return json(response, 200, { out: quotaOut() || relayBudget.out(clientIP(request)) })
     if (url.pathname === '/api/session' && request.method === 'POST') {
       if (/^[a-f0-9]{64}$/.test(token) && visitors.has(token))
         return json(response, 200, { session: token })
-      if (!allowsNewSession(typeof request.headers['sec-fetch-site'] === 'string' ? request.headers['sec-fetch-site'] : undefined))
+      if (!allowsNewSession(request.headers['sec-fetch-site']))
         return json(response, 403, { ok: false, error: '请从 Anna 在线体验的页面打开。' })
       if (!modelKey)
         return json(response, 503, { ok: false, error: '在线体验的模型还没有配置好，请稍后再来。' })
@@ -260,7 +260,12 @@ const server = createServer(async (request, response) => {
         response.write(`data: ${clean({ type: 'snapshot', snapshot }, visitor)}\n\n`)
         visitor.clients.add(response)
         const ping = setInterval(() => { response.write(': keepalive\n\n') }, 15000)
-        response.on('close', () => { clearInterval(ping); visitor.clients.delete(response) })
+        response.on('close', () => {
+          clearInterval(ping)
+          visitor.clients.delete(response)
+          if (visitor.clients.size === 0)
+            visitor.touched = Date.now()
+        })
         return
       }
       if (url.pathname === '/api/command' && request.method === 'POST') {
@@ -323,16 +328,16 @@ const relayServer = createServer(async (request, response) => {
     visitor.relayCalls = visitor.relayCalls.filter(t => Date.now() - t < 60000)
     if (visitor.relayCalls.length >= 30)
       return json(response, 429, { error: { message: '在线体验的模型调用太频繁了，请稍等一分钟。' } })
-    const refused = relayBudget.take(visitor.client)
-    if (refused)
-      return json(response, 429, { error: { message: relayRefusals[refused] } })
-    visitor.relayCalls.push(Date.now())
     const body = capRelayBody(JSON.parse(await readBody(request, 4_000_000)) as Record<string, unknown>)
+    visitor.relayCalls.push(Date.now())
     const requested = [model, agentModel].includes(String(body.model)) ? String(body.model) : agentModel
     // Skip models that ran out of quota in the last ten minutes, then fall back in order.
     const candidates = [...new Set([requested, ...fallbacks])].filter(name => Date.now() - (exhausted.get(name) ?? 0) > 600000)
     let upstreamResponse: Response | undefined
     for (const name of candidates.length ? candidates : [requested]) {
+      const refused = relayBudget.take(visitor.client)
+      if (refused)
+        return json(response, 429, { error: { message: relayRefusals[refused] } })
       body.model = name
       try {
         upstreamResponse = await fetch(`${upstream}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${modelKey}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) })
@@ -352,7 +357,7 @@ const relayServer = createServer(async (request, response) => {
       throw new Error('no upstream response')
     if (upstreamResponse.status === 429) {
       response.writeHead(429, { 'Content-Type': 'application/json' })
-      return response.end(JSON.stringify({ error: { message: `在线体验今天的免费模型额度用完了，请明天再来，或下载桌面版接上自己的模型。` } }))
+      return response.end(JSON.stringify({ error: { message: relayRefusals.day } }))
     }
     if (!upstreamResponse.ok) {
       const text = (await upstreamResponse.text()).split(modelKey).join('[redacted]')

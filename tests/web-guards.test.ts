@@ -1,6 +1,6 @@
 import { join, resolve, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { allowsNewSession, capRelayBody, clientAddress, ClientSlots, idleLimit, RelayBudget, sessionDirectory, staticFile, UidPool } from '../apps/web/guards'
+import { allowsNewSession, capRelayBody, clientAddress, ClientSlots, idleLimit, limitSetting, RelayBudget, sessionDirectory, staticFile, UidPool } from '../apps/web/guards'
 
 /** The online demo's front door, tried the way a hostile visitor would. */
 describe('the online demo\'s guards', () => {
@@ -32,6 +32,14 @@ describe('the online demo\'s guards', () => {
   it('proxies with public addresses, such as a firewall in front of the Studio, are skipped when the deploy names them', () => {
     expect(clientAddress('6.6.6.6, 1.2.3.4, 47.1.1.1, 10.0.0.7', '10.0.0.5', 1)).toBe('1.2.3.4')
     expect(clientAddress('47.1.1.1', '10.0.0.5', 1), 'fewer hops than proxies').toBe('47.1.1.1')
+  })
+
+  it('invalid deployment values cannot disable the limits', () => {
+    expect(limitSetting('limit', undefined, 4)).toBe(4)
+    expect(limitSetting('limit', '2', 4)).toBe(2)
+    expect(limitSetting('proxies', '0', 0, 0)).toBe(0)
+    for (const value of ['', 'no', 'NaN', 'Infinity', '-1', '0', '1.5'])
+      expect(() => limitSetting('limit', value, 4), value).toThrow('limit')
   })
 
   it('one client can\'t hold every slot, and its neighbours don\'t feel it', () => {

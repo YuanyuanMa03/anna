@@ -64,8 +64,9 @@ one: browsers say where a request comes from (`Sec-Fetch-Site`), and only the de
 is the rightmost `X-Forwarded-For` entry outside the platform's network, after skipping `ANNA_PUBLIC_PROXIES` public
 proxies.
 
-Model calls draw on one free quota: 120 a minute and 1500 a day for all visitors together, and 500 a day for one
-client. The day turns over at midnight in Beijing.
+Every upstream attempt, including a fallback, draws on one shared budget: 120 a minute and 1500 a day for all visitors together, and 500 a day for one
+client. The day turns over at midnight in Beijing. These local counters reset when the server restarts; they do not report
+the provider's remaining balance.
 
 Isolation, and where it stops:
 
