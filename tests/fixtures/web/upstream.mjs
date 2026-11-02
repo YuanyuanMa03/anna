@@ -1,5 +1,5 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
-import { ServerResponse } from 'node:http'
+import { Server, ServerResponse } from 'node:http'
 import process from 'node:process'
 // No network leaves this test process. Record each actual attempt, including fallbacks.
 globalThis.fetch = async (_url, options) => {
@@ -21,4 +21,12 @@ ServerResponse.prototype.writeHead = function (...args) {
   if (args[1]?.['Content-Type'] === 'text/event-stream')
     this.once('close', () => queueMicrotask(() => writeFileSync(process.env.ANNA_TEST_CLOSED, 'closed')))
   return writeHead.apply(this, args)
+}
+
+// Record when every partial upload has actually arrived, rather than guessing from a fixed delay.
+const emit = Server.prototype.emit
+Server.prototype.emit = function (event, ...args) {
+  if (event === 'request' && args[0].url.endsWith('/chat/completions'))
+    args[0].once('data', () => appendFileSync(process.env.ANNA_TEST_REQUESTS, 'arrived\n'))
+  return emit.call(this, event, ...args)
 }

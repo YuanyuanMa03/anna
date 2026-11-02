@@ -47,8 +47,9 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
     await writeFile(join(directory, 'upstream.log'), '')
     await writeFile(join(directory, 'clock'), '0')
     await writeFile(join(directory, 'closed'), '')
+    await writeFile(join(directory, 'requests'), '')
     child = spawn(process.execPath, ['--import', pathToFileURL(resolve('tests/fixtures/web/upstream.mjs')).href, join(directory, 'web-server.js')], {
-      env: { ...process.env, NODE_OPTIONS: '', PORT: String(port), ANNA_RELAY_PORT: String(relayPort), ANNA_MODEL_API_KEY: 'test-only', ANNA_ROOT: resolve('.'), ANNA_WEB_DATA: sessions, ANNA_MODEL: 'primary', ANNA_AGENT_MODEL: 'agent', ANNA_FALLBACK_MODELS: 'backup', ANNA_MAX_SESSIONS: '8', ANNA_MAX_SESSIONS_PER_CLIENT: '2', ANNA_PUBLIC_PROXIES: '0', ANNA_RELAY_PER_MINUTE: '100', ANNA_RELAY_PER_CLIENT_DAY: '3', ANNA_RELAY_PER_DAY: '4', ANNA_TEST_UPSTREAM_LOG: join(directory, 'upstream.log'), ANNA_TEST_CLOCK: join(directory, 'clock'), ANNA_TEST_CLOSED: join(directory, 'closed'), ANNA_SELF_TEST: '', ANNA_RELAY_DEBUG: '', ...extraEnv },
+      env: { ...process.env, NODE_OPTIONS: '', PORT: String(port), ANNA_RELAY_PORT: String(relayPort), ANNA_MODEL_API_KEY: 'test-only', ANNA_ROOT: resolve('.'), ANNA_WEB_DATA: sessions, ANNA_MODEL: 'primary', ANNA_AGENT_MODEL: 'agent', ANNA_FALLBACK_MODELS: 'backup', ANNA_MAX_SESSIONS: '8', ANNA_MAX_SESSIONS_PER_CLIENT: '2', ANNA_PUBLIC_PROXIES: '0', ANNA_RELAY_PER_MINUTE: '100', ANNA_RELAY_PER_CLIENT_DAY: '3', ANNA_RELAY_PER_DAY: '4', ANNA_TEST_UPSTREAM_LOG: join(directory, 'upstream.log'), ANNA_TEST_CLOCK: join(directory, 'clock'), ANNA_TEST_CLOSED: join(directory, 'closed'), ANNA_TEST_REQUESTS: join(directory, 'requests'), ANNA_SELF_TEST: '', ANNA_RELAY_DEBUG: '', ...extraEnv },
       stdio: ['ignore', 'ignore', 'pipe'],
     })
     child.stderr!.on('data', (chunk) => { log += chunk })
@@ -151,7 +152,7 @@ describe.skipIf(process.getuid?.() === 0)('the web server limits', () => {
       return { outgoing, result }
     })
     // All headers and partial bodies arrive before any request can finish parsing.
-    await delay(100)
+    await expect.poll(async () => (await readFile(join(directory, 'requests'), 'utf8')).trim().split('\n').length).toBe(31)
     for (const { outgoing } of pending)
       outgoing.end(body.slice(-1))
     const statuses = await Promise.all(pending.map(item => item.result))
