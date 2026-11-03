@@ -1,5 +1,25 @@
 # 感官开发审阅记录
 
+## 虚拟麦克风及三平台真实模型流程
+
+- 提交 `2fb23a80d51636adca6d412cf8a2a308ae794d6e` 的 [CI 41666014706](https://github.com/YuanyuanMa03/anna/actions/runs/41666014706) 四项通过：Windows、macOS、Ubuntu、Linux 安装包沙箱。
+- 真实听觉脚本增加 AudioData/MediaStreamTrackGenerator 输入公开录音，走实际 MediaRecorder 编码与本地识别，保持 HTML 播放和物理设备访问禁用。文件输入与虚拟麦克风均通过相同预期短语；识别分别约 2.83 / 2.85 秒。
+- 第二次虚拟录音执行取消，等待真实 recorder stop 事件后确认：两条虚拟轨道均已结束、最后一次转写保留、识别请求总数仍为两次。未触碰真实麦克风、摄像头、桌面或扬声器。
+- 同一文件、虚拟麦克风、取消及未发送输入流程也已在 macOS 自签名安装包通过；识别约 2.84 / 2.85 秒。独立脑配置使用脚本代理，不读取或调用用户安装的 agent。
+- 新增可重复准备固定公共模型的脚本，固定归档大小与 SHA-256，只解包指定的量化模型、许可说明和测试音频。Windows 使用系统 tar.exe 与参数数组；缓存命中仍检查模型和音频完整哈希。已验证本机归档准备及禁止网络的缓存命中路径。
+- 新增 Local hearing 工作流，三个 OS 使用同一权重、录音和预期短语；只在听觉相关修改、PR 或手动运行时执行。缓存只含公共模型包及测试音频，上传产物只含验收 JSON，不上传权重或用户数据。Action 固定提交；与通用 CI 分开并发，不能用旧提交成功代替新工作流结果。
+- 工作流尚待远端实际运行，不宣称三平台真实识别都已通过。模型整体准确率、真实系统设备授权与实际音质仍未验收。
+
+本机复验（公共模型约 1 GB 下载，可用已下载归档作为脚本第一个参数；准备后只需本机模型）：
+
+```sh
+pnpm exec node scripts/prepare-hearing-fixture.mjs
+ANNA_HEARING_MODEL_DIR=.data/hearing-fixture/pack \
+ANNA_HEARING_AUDIO=.data/hearing-fixture/raw/sherpa-onnx-streaming-paraformer-bilingual-zh-en/test_wavs/0.wav \
+ANNA_HEARING_EXPECT='昨天|monday|星期三' \
+pnpm exec node tests/accept-local-hearing.mjs
+```
+
 ## 真实 ASR 验收与 PCM 精度修复
 
 - Hugging Face 直连失败后，使用 [上游官方文档](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-paraformer/paraformer-models.html) 的 GitHub release 资源（asset 155855418）。归档大小 1,047,319,737 字节，完整读取通过，SHA-256 `5462a1fce42693deae572af1e8c4687124b12aa85fe61ff4d3168bb5280e205f`。包内 README 标注 Apache-2.0；没有将权重提交或发布。
