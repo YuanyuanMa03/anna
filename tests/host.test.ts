@@ -46,6 +46,18 @@ async function approve(host: Host, scope: 'once' | 'session' | 'always' = 'once'
   return question
 }
 
+it('delivers the complete reply for model speech separately from the short persisted result summary', async () => {
+  const reply = `${'这是完整回复。'.repeat(60)}\n第二段也需要保留。`
+  const { host, events } = await setup([{ text: reply }])
+  try {
+    await host.execute({ type: 'send', text: '请详细解释' })
+    const delivered = events.find(event => event.type === 'result')
+    expect(delivered?.type === 'result' && 'reply' in delivered && delivered.reply).toBe(reply)
+    expect(host.snapshot().result!.summary.length).toBe(160)
+  }
+  finally { await host.close() }
+})
+
 it('edit mode: works in the workspace, records changes, and undo restores them', async () => {
   const { host, workspace, events } = await setup([
     { tools: [{ name: 'read', args: { path: 'tasks.txt' } }] },

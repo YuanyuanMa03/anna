@@ -279,7 +279,7 @@ export class Host {
    * the default workspace (`workspace`) is the one folder here tools may use.
    */
   private protectedPaths() {
-    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'memory-dismissed.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
+    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'senses.bin', 'vision.bin', 'hearing-model', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'memory-dismissed.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
@@ -752,7 +752,7 @@ export class Host {
       this.state = 'ready'
       this.error = outcome.status === 'failed' ? this.recordFailure(this.safeError(outcome.error, key)) : undefined
       this.refreshHistory()
-      this.emit({ type: 'result', result: this.result })
+      this.emit({ type: 'result', result: this.result, reply: outcome.text })
       if (outcome.status !== 'aborted')
         this.emit({ type: 'notify', title: `${this.companionName}${outcome.status === 'failed' ? ' 遇到问题' : ' 完成了'}`, body: this.result.summary || line })
       this.publish()

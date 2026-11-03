@@ -21,6 +21,8 @@ import CapabilitiesSheet from './components/capabilities-sheet.vue'
 import LifeSheet from './components/life-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
+import SensesSheet from './components/senses-sheet.vue'
+import { modelSpeech } from './model-speech'
 import { forgetMyAvatar, readMyAvatar, saveMyAvatar } from './my-avatar'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
@@ -29,6 +31,16 @@ const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', fi
 const snapshot = ref<RuntimeSnapshot>()
 const messages = ref<Message[]>([])
 const settingsOpen = ref(false)
+const sensesOpen = ref(false)
+// Always start muted, including a restart on a remote workstation.
+const voiceEnabled = ref(false)
+const speaking = ref(false)
+const voicePlayer = modelSpeech(request => window.anna.senses(request), (value) => { speaking.value = value })
+function toggleVoice() {
+  voiceEnabled.value = !voiceEnabled.value
+  if (!voiceEnabled.value)
+    voicePlayer.stop()
+}
 const pluginsOpen = ref(false)
 const agentsOpen = ref(false)
 const collaborator = ref<{ agent: string, label: string, provider?: string, state: 'running' | 'done' | 'failed', line: string, step: number }>()
@@ -46,8 +58,6 @@ const stream = ref('')
 const tools = ref<ToolActivity[]>([])
 const anna = ref<AnnaState>({ phase: 'offline', line: '', step: 0 })
 const modeLine = ref<{ text: string, at: number }>()
-const autoSpeak = ref(false)
-const speaking = ref(false)
 const streamingAt = ref(0)
 const now = ref(Date.now())
 const history = ref<HTMLDivElement>()
@@ -169,17 +179,6 @@ function accept(next: RuntimeSnapshot) {
 }
 
 async function scrollHistory() { await nextTick(); history.value?.scrollTo({ top: history.value.scrollHeight }) }
-function speak(text: string) {
-  speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text.slice(0, 600))
-  utterance.lang = 'zh-CN'
-  utterance.pitch = character.value.voice.pitch
-  utterance.rate = character.value.voice.rate
-  utterance.onstart = () => { speaking.value = true }
-  utterance.onend = utterance.onerror = () => { speaking.value = false }
-  speechSynthesis.speak(utterance)
-}
-
 // ── Stage interaction: words float beside her face, cards come from her hand ─────────
 const anchors = ref<Anchors>({})
 const cue = ref<{ kind: MotionCue, at: number }>()
@@ -271,6 +270,7 @@ function send(text = input.value) {
   const body = text.trim()
   if (!body || configuring.value || !canChat.value || needsTrust.value)
     return
+  voicePlayer.stop()
   input.value = ''
   if (!running.value) {
     tools.value = []
@@ -346,8 +346,10 @@ onMounted(async () => {
       case 'tool': tools.value.push(event); break
       case 'anna': anna.value = event.state; break
       case 'stream': stream.value = event.text; streamingAt.value = Date.now(); break
-      case 'result': if (autoSpeak.value)
-        speak(lastReply.value); break
+      case 'result':
+        if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply)
+          void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message })
+        break
       case 'mode': modeLine.value = { text: event.line, at: Date.now() }; break
       case 'changes': changes.value = event.changes; break
       case 'collaborator': collaborator.value = event; break
@@ -391,7 +393,7 @@ watch(() => snapshot.value?.result?.taskId, () => {
     play('celebrate')
 })
 watch(subtitle, async () => { await nextTick(); bubble.value?.scrollTo({ top: running.value ? bubble.value.scrollHeight : 0 }) })
-onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); timers.forEach(timer => window.clearTimeout(timer)); speechSynthesis.cancel() })
+onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown', keydown); release?.(); window.clearInterval(clock); timers.forEach(timer => window.clearTimeout(timer)) })
 </script>
 
 <template>
@@ -493,8 +495,10 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么…（@claude、@codex 派活）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
+          <button type="button" @click="sensesOpen = true">感官</button>
+          <button type="button" :aria-pressed="voiceEnabled" @click="toggleVoice">{{ voiceEnabled ? '关闭模型语音' : '开启模型语音' }}</button>
+          <button v-if="voiceEnabled" type="button" @click="voicePlayer.stop()">停止说话</button>
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
-          <label><input v-model="autoSpeak" type="checkbox">朗读</label>
           <button v-if="running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
           <button class="primary" :disabled="configuring || !input.trim() || !canChat || needsTrust" type="submit">{{ running ? '插话 ↗' : '发送 ↗' }}</button>
         </div>
@@ -529,6 +533,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     </transition>
 
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
+    <SensesSheet v-if="sensesOpen" @close="sensesOpen = false" @transcript="text => { input = text; sensesOpen = false }" />
     <LifeSheet v-if="settingsOpen || !snapshot.settings.onboardingComplete || snapshot.settings.firstTaskPending" :snapshot="snapshot" :busy="configuring || running" :error="error" @close="settingsOpen = false" @command="async command => { if (await run(command) && command.type === 'personality') settingsOpen = false }" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />

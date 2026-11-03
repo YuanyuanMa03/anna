@@ -7,6 +7,7 @@ export default defineConfig({
   base: './',
   publicDir: resolve('assets'),
   plugins: [vue()],
+  worker: { format: 'es' },
   server: { host: '127.0.0.1', port: 5193, strictPort: true },
   build: { outDir: '../../dist/renderer', emptyOutDir: true },
 })

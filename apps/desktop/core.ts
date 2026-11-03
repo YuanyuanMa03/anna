@@ -1,9 +1,13 @@
+import type { SenseRequest } from '../../packages/senses/contracts'
 import type { Command } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { Host } from '../../packages/anna-host/host'
 import { companion } from '../../packages/character/manifest'
+import { HearingModelStore } from '../../packages/senses/model-store'
+import { SensesService } from '../../packages/senses/service'
+import { VisionService } from '../../packages/senses/vision'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { WeixinChannel } from '../../packages/weixin/channel'
 
@@ -14,6 +18,9 @@ import { WeixinChannel } from '../../packages/weixin/channel'
 const parent = process.parentPort
 const root = process.env.ANNA_CORE_ROOT!
 const data = process.env.ANNA_CORE_DATA!
+let vision: VisionService | undefined
+let senses: SensesService | undefined
+let hearingModels: HearingModelStore | undefined
 let host: Host | undefined
 let weixin: WeixinChannel | undefined
 let markReady!: () => void
@@ -22,7 +29,23 @@ const ready = new Promise<void>((resolve) => { markReady = resolve })
 const phaseNames: Record<string, string> = { offline: '离线', idle: '空闲', thinking: '思考中', responding: '正在回复', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '在看其他 agent 干活', done: '刚完成', failed: '遇到问题' }
 
 const peer = new RpcPeer(message => parent.postMessage(message), {
-  execute: async (command: Command) => {
+  'senses': async (request: SenseRequest) => {
+    await ready
+    if (request.type === 'hearing-status' || request.type === 'hearing-read' || request.type === 'hearing-remove')
+      return hearingModels!.execute(request)
+    if (request.type === 'vision-status' || request.type === 'vision-configure' || request.type === 'vision-read')
+      return vision!.execute(request)
+    if (request.type === 'cancel') {
+      hearingModels!.cancel(request.id)
+      await vision!.execute(request)
+    }
+    return senses!.execute(request)
+  },
+  'hearing.import': async ({ id, metadataPath, modelPath }: { id: string, metadataPath: string, modelPath: string }) => {
+    await ready
+    return hearingModels!.importFiles(id, metadataPath, modelPath)
+  },
+  'execute': async (command: Command) => {
     await ready
     switch (command.type) {
       case 'weixin-login': await weixin!.login(); break
@@ -33,7 +56,10 @@ const peer = new RpcPeer(message => parent.postMessage(message), {
     }
     return host!.snapshot()
   },
-  shutdown: async () => {
+  'shutdown': async () => {
+    senses?.dispose()
+    vision?.dispose()
+    hearingModels?.dispose()
     await Promise.allSettled([host?.shutdown(), weixin?.stop()])
     setTimeout(() => process.exit(0), 50)
   },
@@ -69,6 +95,9 @@ async function main() {
     secrets: vaultFor('providers.bin'),
     secretsMode: () => peer.call<'system' | 'file'>('vault.mode'),
   })
+  senses = new SensesService(vaultFor('senses.bin'))
+  vision = new VisionService(vaultFor('vision.bin'))
+  hearingModels = new HearingModelStore(join(data, 'hearing-model'))
   await host.initialize()
   const h = host
   weixin = new WeixinChannel(vaultFor('weixin-credential.bin'), state => peer.event({ type: 'weixin', state }), {

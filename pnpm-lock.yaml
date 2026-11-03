@@ -34,6 +34,15 @@ importers:
       '@pixi/unsafe-eval':
         specifier: 6.5.10
         version: 6.5.10(@pixi/core@6.5.10(@pixi/constants@6.5.10)(@pixi/extensions@6.5.10)(@pixi/math@6.5.10)(@pixi/runner@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))(@pixi/ticker@6.5.10(@pixi/extensions@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))(@pixi/utils@6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))))
+      '@sherpaw/asr':
+        specifier: 0.3.0
+        version: 0.3.0
+      '@sherpaw/preloader':
+        specifier: 0.3.0
+        version: 0.3.0
+      '@sherpaw/shared':
+        specifier: 0.3.0
+        version: 0.3.0
       diff:
         specifier: 8.0.4
         version: 8.0.4
@@ -1075,6 +1084,20 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@sherpaw/asr@0.3.0':
+    resolution: {integrity: sha512-zLCJk7ZUVdc/GKeUx2dCfqDkbfiuA/iWlWYsHbPz/9ltwXVwAZckUr+bDQ3Jlcbpfvoe+y+GK7WqP0oMUIkCeQ==}
+    peerDependencies:
+      onnxruntime-web: 1.27.0
+    peerDependenciesMeta:
+      onnxruntime-web:
+        optional: true
+
+  '@sherpaw/preloader@0.3.0':
+    resolution: {integrity: sha512-3l4VgX9bITM4FX0S7LKKVMU+uZJCRKKAQJmdf5/2IpqnfzcyIoLKYWrqojf2aWZmtFcWH435/56irStNQLROig==}
+
+  '@sherpaw/shared@0.3.0':
+    resolution: {integrity: sha512-J9XTyc/nwmVcW62Jr6NnXgLhQQndox+4931yayZUgC9lVsM8ACTT47c+kgGHeuUGkkSu8IVqcaX/PdMsuFeFng==}
+
   '@silvia-odwyer/photon-node@0.3.4':
     resolution: {integrity: sha512-bnly4BKB3KDTFxrUIcgCLbaeVVS8lrAkri1pEzskpmxu9MdfGQTy8b8EgcD83ywD3RPMsIulY8xJH5Awa+t9fA==}
 
@@ -1122,6 +1145,9 @@ packages:
 
   '@types/earcut@2.1.4':
     resolution: {integrity: sha512-qp3m9PPz4gULB9MhjGID7wpo3gJ4bTGXm7ltNDsmOvsPduTeHp8wSW9YckBj3mljeOh4F0m2z/0JKAALRKbmLQ==}
+
+  '@types/emscripten@1.41.6':
+    resolution: {integrity: sha512-uN+9i8bFT5CUcZfyIEYDrSueACEyKGbUs5kC/72DGlZZoinh84sJfVV0i8UOJD1asdzkvLPBRrKs41kZ8MdEXg==}
 
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -4506,6 +4532,14 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.64.7':
     optional: true
 
+  '@sherpaw/asr@0.3.0': {}
+
+  '@sherpaw/preloader@0.3.0': {}
+
+  '@sherpaw/shared@0.3.0':
+    dependencies:
+      '@types/emscripten': 1.41.6
+
   '@silvia-odwyer/photon-node@0.3.4': {}
 
   '@smithy/core@3.36.0':
@@ -4565,6 +4599,8 @@ snapshots:
   '@types/deep-eql@4.0.2': {}
 
   '@types/earcut@2.1.4': {}
+
+  '@types/emscripten@1.41.6': {}
 
   '@types/esrecurse@4.3.1': {}
 

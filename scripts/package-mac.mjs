@@ -42,6 +42,7 @@ p=app/'Contents/Info.plist'; d=plistlib.loads(p.read_bytes())
 d.update(CFBundleDisplayName='Anna',CFBundleName='Anna',CFBundleIdentifier='com.yuanyuanma.anna',CFBundleExecutable='Anna',CFBundleIconFile='anna.icns',CFBundleShortVersionString=version,CFBundleVersion=version,LSApplicationCategoryType='public.app-category.lifestyle',NSHumanReadableCopyright='Copyright © 2026 YuanyuanMa03',CFBundleURLTypes=[{'CFBundleURLName':'Anna import link','CFBundleURLSchemes':['anna']}])
 for k in list(d):
  if k.endswith('UsageDescription') or k=='ElectronAsarIntegrity':d.pop(k)
+d.update(NSMicrophoneUsageDescription='仅在你开启录音时供 Anna 在本机识别语音。',NSCameraUsageDescription='仅在你开启摄像头时供 Anna 查看你选择的画面。')
 p.write_bytes(plistlib.dumps(d))
 (app/'Contents/MacOS/Electron').rename(app/'Contents/MacOS/Anna')
 for p in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):

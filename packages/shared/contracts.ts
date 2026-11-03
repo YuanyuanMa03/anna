@@ -2,6 +2,7 @@ import type { AgentTier } from '../agents/catalog'
 import type { CharacterId } from '../character/manifest'
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
+import type { SenseReply, SenseRequest } from '../senses/contracts'
 import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
 
 export type { PermissionMode } from '../permissions/modes'
@@ -254,7 +255,7 @@ export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'providers' } | 
   | ({ type: 'tool' } & ToolActivity)
   | { type: 'anna', state: AnnaState }
   | { type: 'stream', text: string }
-  | { type: 'result', result: TaskResult }
+  | { type: 'result', result: TaskResult, reply?: string }
   | { type: 'mode', mode: PermissionMode, previous: PermissionMode, line: string }
   | { type: 'changes', taskId: string, changes: FileChange[] }
   | { type: 'notify', title: string, body: string }
@@ -323,6 +324,7 @@ export type Reply = { ok: true, snapshot: RuntimeSnapshot } | { ok: false, error
 export const command = defineInvokeEventa<Reply, { command: Command }>('anna:command')
 export const runtimeEvent = defineEventa<AnnaEvent>('anna:event')
 export interface AnnaBridge {
+  senses: (request: SenseRequest) => Promise<SenseReply>
   invoke: (command: Command) => Promise<Reply>
   subscribe: (listener: (event: AnnaEvent) => void) => () => void
 }

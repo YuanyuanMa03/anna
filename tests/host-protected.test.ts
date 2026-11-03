@@ -10,7 +10,7 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 /** pi's shell tool: bash, or powershell on Windows. */
 const shell = process.platform === 'win32' ? 'powershell' : 'bash'
 
-it.each([['the agents\' config backups (their original keys)', 'agent-backups/codex/auth.json.orig'], ['the brain set aside by the data move', 'before-0.6/credential.bin']])('%s are Anna\'s own data: no tool reads them, even in Auto', async (_name, file) => {
+it.each([['the agents\' config backups (their original keys)', 'agent-backups/codex/auth.json.orig'], ['the brain set aside by the data move', 'before-0.6/credential.bin'], ['model speech credentials', 'senses.bin'], ['vision credentials', 'vision.bin'], ['the managed hearing model cache', 'hearing-model/current.json']])('%s are Anna\'s own data: no tool reads them, even in Auto', async (_name, file) => {
   const data = await mkdtemp(join(tmpdir(), 'anna-protected-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)

@@ -7,8 +7,10 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
+import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
 import { moveDataHome } from '../../packages/anna-host/data-home'
+import { senseCommand } from '../../packages/senses/contracts'
+import { ScreenGrant } from '../../packages/senses/screen-grant'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
 import { dataDirectory, earlierDataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
@@ -63,7 +65,7 @@ if (process.env.ANNA_TEST_CDP && !app.isPackaged) {
 
 /** Credentials are encrypted with the OS store (Keychain, DPAPI, libsecret) and only ever decrypted here. */
 const vault = createVault({ dir: data, safeStorage, platform: process.platform })
-const vaultNames = new Set(['credential.bin', 'weixin-credential.bin', 'providers.bin'])
+const vaultNames = new Set(['credential.bin', 'weixin-credential.bin', 'providers.bin', 'senses.bin', 'vision.bin'])
 
 let window: BrowserWindow | undefined
 let core: UtilityProcess | undefined
@@ -205,6 +207,31 @@ async function start() {
   await app.whenReady()
   window = new BrowserWindow({ width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
   const win = window
+  let screenRevision = 0
+  let hearingImport: string | undefined
+  const screenGrant = new ScreenGrant<Awaited<ReturnType<typeof desktopCapturer.getSources>>[number]>()
+  win.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+    const source = screenGrant.consume(!win.isDestroyed() && request.frame === win.webContents.mainFrame && request.userGesture && request.videoRequested && !request.audioRequested)
+    callback(source ? { video: source } : null)
+  })
+  const mediaAllowed = new Set<string>()
+  win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    contents?.id === win.webContents.id && details.isMainFrame && ((permission === 'display-capture' && screenGrant.ready) || (permission === 'media' && Boolean(details.mediaType && mediaAllowed.has(details.mediaType)))))
+  win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
+    if (permission === 'display-capture') { callback(contents.id === win.webContents.id && details.isMainFrame && screenGrant.ready); return }
+    const types = 'mediaTypes' in details ? details.mediaTypes : undefined
+    if (contents.id !== win.webContents.id || permission !== 'media' || !details.isMainFrame || !types?.length || types.some(type => !['audio', 'video'].includes(type))) {
+      callback(false)
+      return
+    }
+    const names = types.map(type => type === 'audio' ? '麦克风' : '摄像头').join('、')
+    void dialog.showMessageBox(win, { type: 'question', title: 'Anna 感官授权', message: `允许 Anna 使用${names}？`, detail: '仅用于你主动开启的本次感官操作。关闭面板会停止采集，系统可能另行询问权限。', buttons: ['取消', '允许'], defaultId: 0, cancelId: 0 }).then(({ response }) => {
+      const allowed = response === 1 && !win.isDestroyed()
+      if (allowed)
+        types.forEach(type => mediaAllowed.add(type))
+      callback(allowed)
+    }).catch(() => callback(false))
+  })
   // No new windows and no navigation inside the app; web links (e.g. a provider's "get a key" page) go to the browser.
   const browse = (url: string) => {
     const external = externalUrl(url, win.webContents.getURL())
@@ -221,7 +248,7 @@ async function start() {
   })
   const { context, dispose } = createContext(ipcMain, win, { onlySameWindow: false })
   emitToRenderer = event => context.emit(runtimeEvent, event)
-  win.on('closed', () => { dispose(); emitToRenderer = () => {} })
+  win.on('closed', () => { screenRevision++; screenGrant.clear(); dispose(); emitToRenderer = () => {} })
   app.setAboutPanelOptions({ applicationName: 'Anna', applicationVersion: app.getVersion(), copyright: 'Copyright © 2026 YuanyuanMa03' })
   Menu.setApplicationMenu(menu(context))
   // The tray switches providers like cc-switch's; on macOS it sits in the menu bar.
@@ -235,6 +262,52 @@ async function start() {
   // Quietly check for updates shortly after launch and then every six hours.
   setTimeout(() => void updater.check(true), 10000)
   setInterval(() => void updater.check(true), 6 * 60 * 60 * 1000)
+  defineInvokeHandler(context, senseCommand, async ({ request }, options) => {
+    if (options?.raw?.ipcMainEvent.sender.id !== win.webContents.id)
+      return { ok: false as const, error: 'Unauthorized window' }
+    try {
+      if (request.type === 'cancel' && hearingImport === request.id)
+        hearingImport = undefined
+      if (request.type === 'hearing-import') {
+        if (hearingImport || !request.id || request.id.length > 100)
+          return { ok: false as const, error: '已有模型选择操作，请先完成或取消' }
+        hearingImport = request.id
+        try {
+          const result = await dialog.showOpenDialog(win, { title: '选择对应的模型元数据和模型数据（两个文件）', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Sherpaw 模型包', extensions: ['metadata', 'json', 'data'] }] })
+          if (result.canceled || hearingImport !== request.id || win.isDestroyed())
+            return { ok: false as const, error: '模型选择已取消，原模型保留' }
+          const metadataPath = result.filePaths.find(path => /\.(?:metadata|json)$/i.test(path))
+          const modelPath = result.filePaths.find(path => /\.data$/i.test(path))
+          if (result.filePaths.length !== 2 || !metadataPath || !modelPath)
+            return { ok: false as const, error: '请同时选择一个元数据文件和对应的 .data 模型文件' }
+          if (!peer)
+            throw new Error('Core unavailable')
+          return await peer.call<import('../../packages/senses/contracts').SenseReply>('hearing.import', { id: request.id, metadataPath, modelPath })
+        }
+        finally {
+          if (hearingImport === request.id)
+            hearingImport = undefined
+        }
+      }
+      if (request.type === 'screen-clear') { screenRevision++; screenGrant.clear(); return { ok: true as const } }
+      if (request.type === 'screen-sources') {
+        const revision = ++screenRevision
+        screenGrant.clear()
+        const sources = await desktopCapturer.getSources({ types: ['window', 'screen'], thumbnailSize: { width: 240, height: 135 }, fetchWindowIcons: false })
+        if (win.isDestroyed() || revision !== screenRevision)
+          return { ok: false as const, error: '窗口列表读取已取消' }
+        screenGrant.offer(sources)
+        return { ok: true as const, sources: sources.map(source => ({ id: source.id, name: source.name, thumbnail: source.thumbnail.toDataURL() })) }
+      }
+      if (request.type === 'screen-select') {
+        return screenGrant.select(request.id) ? { ok: true as const } : { ok: false as const, error: '来源已失效，请重新获取窗口列表' }
+      }
+      if (!peer)
+        throw new Error('核心进程尚未启动')
+      return await peer.call<import('../../packages/senses/contracts').SenseReply>('senses', request)
+    }
+    catch { return { ok: false as const, error: '感官服务尚未就绪，请稍后重试' } }
+  })
   defineInvokeHandler(context, command, async ({ command: request }, options) => {
     if (options?.raw?.ipcMainEvent.sender.id !== win.webContents.id)
       return { ok: false as const, error: 'Unauthorized window' }
