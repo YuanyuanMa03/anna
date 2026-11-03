@@ -368,6 +368,9 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 
 /* Brain cards and the first meeting share the same connection form. */
 .life-sheet { width: min(820px, 94vw); max-width: 94vw }
+.life-onboarding .sheet-backdrop { backdrop-filter: none; background: #47365018 }
+.life-onboarding .life-sheet { width: min(700px, 62vw) }
+.life-onboarding .stage { right: calc(min(700px, 62vw) + 36px) }
 .brain-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 16px 0 }
 .brain-tile { border: 1px solid var(--line); border-radius: 16px; padding: 6px; background: var(--glass) }
 .brain-tile > button:first-child, .personality-card { width: 100%; min-height: 124px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; border-radius: 12px }

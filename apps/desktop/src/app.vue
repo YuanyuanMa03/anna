@@ -395,7 +395,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
 </script>
 
 <template>
-  <main v-if="snapshot" class="app-shell" :data-phase="anna.phase" :data-mode="mode">
+  <main v-if="snapshot" class="app-shell" :class="{ 'life-onboarding': !snapshot.settings.onboardingComplete || snapshot.settings.firstTaskPending }" :data-phase="anna.phase" :data-mode="mode">
     <header class="corner">
       <div class="brand">anna<span>v{{ version }}</span></div>
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
