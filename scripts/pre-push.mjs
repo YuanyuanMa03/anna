@@ -1,0 +1,18 @@
+import { execFileSync, spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import process from 'node:process'
+
+const refs = readFileSync(0, 'utf8').trim().split('\n').filter(Boolean).map(line => line.split(/\s+/))
+const updates = refs.filter(([ref, sha]) => !/^0+$/.test(sha) && (ref.startsWith('refs/heads/') || ref.startsWith('refs/tags/v')))
+if (updates.length) {
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  for (const [, sha] of updates) {
+    if (execFileSync('git', ['rev-parse', `${sha}^{commit}`], { encoding: 'utf8' }).trim() !== head)
+      throw new Error('Push the checked-out, reviewed commit only; check out the other branch before validating it.')
+  }
+  const dirty = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()
+  if (dirty)
+    throw new Error('Commit or preserve outstanding changes before validating the pushed commit.')
+  const result = spawnSync(process.execPath, ['scripts/preflight.mjs'], { stdio: 'inherit' })
+  process.exit(result.status === 0 ? 0 : result.status ?? 1)
+}
