@@ -1,6 +1,6 @@
 # 分支归档（2026-11-03）
 
-保留 main、当前数字生命开发分支、在线版主线，以及 3 个未关闭 PR 的分支，共 6 个。所有已清理分支先用远端轻量标签归档，验证 SHA 后才删除；本地与远端不同的版本分别保存。旧工作树保持文件原状，改为 detached HEAD。
+首次清理时保留 main、当前数字生命开发分支、在线版主线，以及 3 个未关闭 PR 的分支，共 6 个；后续处理结果见末尾。所有已清理分支先用远端轻量标签归档，验证 SHA 后才删除；本地与远端不同的版本分别保存。旧工作树保持文件原状，改为 detached HEAD。
 
 恢复示例：`git switch -c recovered-name archive/20261103/local/原分支名`。归档标签不使用 v 前缀，不触发 Release。
 
@@ -60,3 +60,13 @@
 | remote | fix/review-v051 | c67c5f81d1967e5e5c4fac89cf156c1d6759ff71 | archive/20261103/remote/fix/review-v051 |
 | remote | fix/stack-review | 9dd4939f88b1d914039bdaf68d5464f710868bc6 | archive/20261103/remote/fix/stack-review |
 | remote | fix/takeover-restore | 8189e2d44b97bc72193f9887b3e5ae35aa1043bc | archive/20261103/remote/fix/takeover-restore |
+
+## PR 处理后的最终分支
+
+用户要求完成残留 PR 后，#44 归档关闭，#46 合并 main，#47 修订后合并在线主线，三个 PR 分支均已删除。当前本地和远端仅保留：
+
+- `main`
+- `work/anna-life-v1-20261103`
+- `release/online-v0.6.0`
+
+完整恢复标签：`archive/20261103/pr-44`、`archive/20261103/pr-46`、`archive/20261103/pr-47`。所有历史归档继续保留；没有通过强推改写历史。
