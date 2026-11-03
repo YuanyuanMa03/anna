@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { cameraFrame, MediaSession } from '../media-session'
 
 const props = defineProps<{ hearingReady: boolean, disabled: boolean }>()
@@ -7,7 +7,9 @@ const emit = defineEmits<{ recording: [file: File], frame: [image: string, sourc
 const camera = ref<HTMLVideoElement>()
 const cameraActive = ref(false)
 const recording = ref(false)
-const requesting = ref(false)
+const microphoneRequesting = ref(false)
+const cameraRequesting = ref(false)
+const requesting = computed(() => microphoneRequesting.value || cameraRequesting.value)
 let closed = false
 let recorder: MediaRecorder | undefined
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -18,6 +20,7 @@ const mic = new MediaSession(navigator.mediaDevices, () => stopRecording(false))
 const vision = new MediaSession(navigator.mediaDevices, () => stopCamera())
 function stopCamera() {
   cameraRevision++
+  cameraRequesting.value = false
   vision.stop()
   cameraActive.value = false
   if (camera.value)
@@ -34,13 +37,13 @@ function stopRecording(discard = true) {
     recorder.stop()
   mic.stop()
   recording.value = false
-  requesting.value = false
+  microphoneRequesting.value = false
 }
 async function startRecording() {
   if (!props.hearingReady || props.disabled || requesting.value || recording.value)
     return
   const revision = ++recordingRevision
-  requesting.value = true
+  microphoneRequesting.value = true
   cancelRecording = false
   emit('status', '正在申请麦克风权限；录音只用于本机识别。')
   try {
@@ -86,13 +89,13 @@ async function startRecording() {
   }
   finally {
     if (revision === recordingRevision)
-      requesting.value = false
+      microphoneRequesting.value = false
   }
 }
 async function startCamera() {
   if (requesting.value || props.disabled)
     return
-  requesting.value = true
+  cameraRequesting.value = true
   const revision = ++cameraRevision
   emit('status', '正在申请摄像头权限，只显示本机预览。')
   try {
@@ -109,14 +112,13 @@ async function startCamera() {
   catch {
     if (revision === cameraRevision) {
       stopCamera()
-      requesting.value = false
       if (!closed)
         emit('status', '摄像头未开启，请检查权限及设备')
     }
   }
   finally {
     if (revision === cameraRevision)
-      requesting.value = false
+      cameraRequesting.value = false
   }
 }
 function capture() {

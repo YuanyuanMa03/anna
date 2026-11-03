@@ -440,6 +440,26 @@ try {
   })
   await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
   await senses.getByRole('status').filter({ hasText: '摄像头未开启' }).waitFor()
+  // Closing while play() is pending must release the device and the request lock.
+  await page.evaluate(() => {
+    const original = HTMLMediaElement.prototype.play
+    window.__annaTestMedia.play = original
+    HTMLMediaElement.prototype.play = function () {
+      if (this instanceof HTMLVideoElement)
+        return new Promise((resolve) => { window.__annaTestMedia.resumePlay = resolve })
+      return original.call(this)
+    }
+  })
+  await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
+  await page.waitForFunction(() => Boolean(window.__annaTestMedia.resumePlay))
+  await senses.getByRole('button', { name: '关闭摄像头', exact: true }).click()
+  assert.equal(await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).isDisabled(), false, 'Closing pending preview must unlock capture controls')
+  assert.equal(await page.evaluate(() => window.__annaTestMedia.tracks.every(track => track.readyState === 'ended')), true)
+  await page.evaluate(() => {
+    window.__annaTestMedia.resumePlay()
+    HTMLMediaElement.prototype.play = window.__annaTestMedia.play
+  })
+  evidence.checks.push('Closing a camera preview before playback is ready releases its fake track and unlocks device controls')
   await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
   await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2)
   await senses.getByRole('button', { name: '取一帧供 Anna 查看', exact: true }).click()
