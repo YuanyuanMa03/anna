@@ -2,18 +2,14 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
-import electron from 'electron'
 import { _electron } from 'playwright'
-import { assertBuiltAssets } from './built-assets.mjs'
+import { desktopLaunch } from './desktop-launch.mjs'
 
 async function main() {
   await mkdir('.data', { recursive: true })
   await mkdir('artifacts', { recursive: true })
   const data = await mkdtemp(resolve('.data/unconfigured-'))
-  const packaged = process.env.ANNA_PACKAGED_APP
-  if (!packaged)
-    assertBuiltAssets()
-  const desktop = await _electron.launch({ executablePath: packaged ? process.platform === 'win32' ? `${packaged}/Anna.exe` : `${packaged}/Contents/MacOS/Anna` : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_CDP: '' } })
+  const desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_CDP: '' }))
   try {
     const page = await desktop.firstWindow()
     const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))

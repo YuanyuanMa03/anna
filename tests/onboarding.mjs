@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import electron from 'electron'
 import { _electron } from 'playwright'
+import { desktopLaunch } from './desktop-launch.mjs'
 
 const data = await mkdtemp(resolve('.data/onboarding-'))
 const workspace = join(data, 'project')
 await mkdir(workspace)
 const script = join(data, 'script.json')
 await writeFile(script, JSON.stringify([{ text: '你好，我们开始吧。' }]))
-const desktop = await _electron.launch({ executablePath: electron, args: ['dist/host/apps/desktop/main.js'], env: { ...process.env, ANNA_ROOT: process.cwd(), ANNA_DATA_DIR: data, ANNA_DEV_URL: '', ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath } })
+const desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath }))
 try {
   const page = await desktop.firstWindow()
   const errors = []

@@ -5,9 +5,8 @@ import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import electron from 'electron'
 import { _electron } from 'playwright'
-import { assertBuiltAssets } from './built-assets.mjs'
+import { desktopLaunch } from './desktop-launch.mjs'
 
 /**
  * Deterministic desktop acceptance with a scripted model (no API key, runs in CI on macOS, Windows and Linux):
@@ -37,13 +36,7 @@ await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, onboar
 const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_ACP: '1', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
 const packaged = process.env.ANNA_PACKAGED_APP
-if (!packaged)
-  assertBuiltAssets(root)
-const executablePath = !packaged ? electron : process.platform === 'darwin' ? join(packaged, 'Contents/MacOS/Anna') : process.platform === 'win32' ? join(packaged, 'Anna.exe') : join(packaged, 'anna')
-// GitHub's Ubuntu runners block the unprivileged user namespaces Chromium's sandbox needs, and have no GPU:
-// render WebGL (the Live2D canvas) in software. The packaged app's launcher decides about the sandbox on its own.
-const chromium = process.platform === 'linux' && process.env.CI ? [...(packaged ? [] : ['--no-sandbox']), '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []
-const desktop = await _electron.launch({ executablePath, args: [...chromium, ...(packaged ? [] : ['dist/host/apps/desktop/main.js'])], cwd: packaged ? '/' : root, env: packaged ? { ...env, ANNA_ROOT: '/nonexistent/anna-source', ANNA_DEV_URL: 'http://127.0.0.1:9' } : env })
+const desktop = await _electron.launch(desktopLaunch(data, env))
 if (process.env.ANNA_TEST_VERBOSE)
   desktop.process().stderr.on('data', chunk => process.stderr.write(`[app] ${chunk}`))
 const snapshot = async page => (await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))).snapshot
