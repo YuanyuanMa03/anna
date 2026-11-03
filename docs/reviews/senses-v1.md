@@ -1,5 +1,12 @@
 # 感官开发审阅记录
 
+## 远端真实听觉结果（2026-11-04）
+
+- 核对提交 `dc5366f84d4a2f56d895efb0ac01ca3868e898d6` 的 [Local hearing 41669006963](https://github.com/YuanyuanMa03/anna/actions/runs/41669006963) 及下载的验收 JSON：Windows 2025、Ubuntu 24.04 已通过；macOS 15 仍在排队，尚不能宣称本次三平台全部通过。
+- 两份报告中的模型和音频 SHA-256 与固定夹具一致，文件与虚拟麦克风均识别出“昨天 / monday / 星期三”。Windows 加载约 29.20 秒、文件识别 8.11 秒、虚拟麦克风识别 7.87 秒；Ubuntu 分别约 30.70 / 4.93 / 5.38 秒。CI 机器性能不同，这些结果不代表比赛 Intel 电脑性能。
+- 两个平台的 Renderer 均断网，物理设备调用为空、播放次数为零，识别请求数恰好两次；第二次录音取消没有追加识别，前次转写保留且只带入未发送的输入框。单条公开录音的关键短语通过不等于整体转写准确率通过。
+- 同提交的通用 [CI 41669413041](https://github.com/YuanyuanMa03/anna/actions/runs/41669413041) 中 Windows、macOS 已通过，Ubuntu 与 Linux 安装包任务仍在执行。真实语音合成、视觉服务、原生设备授权及实际音质继续保留为未验收。
+
 ## 虚拟麦克风及三平台真实模型流程
 
 - 提交 `2fb23a80d51636adca6d412cf8a2a308ae794d6e` 的 [CI 41666014706](https://github.com/YuanyuanMa03/anna/actions/runs/41666014706) 四项通过：Windows、macOS、Ubuntu、Linux 安装包沙箱。
