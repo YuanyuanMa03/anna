@@ -54,7 +54,7 @@ async function send(page, text, { approve } = {}) {
     if (state.approvals.length && approve) {
       await page.screenshot({ path: 'artifacts/stage-approval.png' })
       evidence.approval = state.approvals[0]
-      await page.getByRole('button', { name: '仅允许一次', exact: true }).first().click()
+      await page.getByRole('button', { name: state.approvals[0].memory ? '确认记住' : '仅允许一次', exact: true }).first().click()
       approved++
     }
     if (state.state !== 'running' && state.messages.length >= before + 2)
@@ -101,7 +101,7 @@ try {
   await page.getByRole('button', { name: '关闭抽屉', exact: true }).click()
 
   const token = `槐树-${Date.now().toString().slice(-6)}`
-  const status = await send(page, `调用你的状态工具，告诉我你现在的大脑和插件。另外请记住本次验收暗号是“${token}”。`)
+  const status = await send(page, `调用你的状态工具，告诉我你现在的大脑和插件。另外请记住本次验收暗号是“${token}”。`, { approve: true })
   assert.match(JSON.stringify(status.state), /anna_status/)
   evidence.statusReply = status.text
   evidence.checks.push('anna_status tool called through pi customTools')

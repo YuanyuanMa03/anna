@@ -2,6 +2,7 @@ import type { AgentSession, AgentSessionEvent, ExtensionAPI, ToolDefinition } fr
 import type { Message, Origin } from '../../shared/contracts'
 import type { AgentKernel, AnnaTool, KernelCapabilities, KernelContext, TurnOutcome } from '../types'
 import type { Backend } from './backend'
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -22,7 +23,9 @@ export class PiKernel implements AgentKernel {
   private session?: AgentSession
   private aborting = false
   private streamText = ''
+  private usageIds = new WeakMap<object, string>()
   restored = false
+  skills: string[] = []
   plugins: string[] = []
   constructor(private context: KernelContext, private backend?: Backend) {}
 
@@ -81,6 +84,7 @@ export class PiKernel implements AgentKernel {
       appendSystemPromptOverride: () => this.context.instructions,
     })
     await resourceLoader.reload()
+    this.skills = resourceLoader.getSkills().skills.map(skill => skill.name)
     const sessionDir = join(this.context.data, 'pi-sessions')
     const resume = this.context.sessionFile && existsSync(this.context.sessionFile)
     const sessionManager = resume ? SessionManager.open(this.context.sessionFile!, sessionDir, this.context.workspace) : SessionManager.create(this.context.workspace, sessionDir)
@@ -122,6 +126,14 @@ export class PiKernel implements AgentKernel {
         }
         else if (event.assistantMessageEvent.type === 'thinking_delta') {
           emit({ type: 'thinking' })
+        }
+        break
+      case 'message_end':
+        if (event.message.role === 'assistant') {
+          const usage = event.message.usage
+          const id = this.usageIds.get(event.message) ?? randomUUID()
+          this.usageIds.set(event.message, id)
+          emit({ type: 'usage', id, tokens: usage && usage.totalTokens > 0 ? { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite } : undefined })
         }
         break
       case 'tool_execution_start':

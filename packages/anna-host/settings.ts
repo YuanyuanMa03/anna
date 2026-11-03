@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as v from 'valibot'
 import { characters } from '../character/manifest'
+import { profileSchema } from '../character/personality'
 import { emptyRules } from '../permissions/rules'
 
 const modelSchema = v.object({ provider: v.picklist(['deepseek-official', 'custom']), model: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[\w./:@+-]+$/)), baseURL: v.pipe(v.string(), v.url()), api: v.picklist(['anthropic-messages', 'openai-completions', 'openai-responses']) })
@@ -11,6 +12,13 @@ const ruleList = v.optional(v.array(v.pipe(v.string(), v.maxLength(500))), [])
 const workspaceSchema = v.object({ trusted: v.boolean(), mode: v.picklist(['plan', 'ask', 'edit', 'auto']), rules: v.optional(v.object({ allow: ruleList, ask: ruleList, deny: ruleList }), () => emptyRules()) })
 const settingsSchema = v.object({
   version: v.literal(2),
+  brainSessions: v.optional(v.record(v.string(), v.string())),
+  onboardingComplete: v.optional(v.boolean()),
+  firstTaskPending: v.optional(v.boolean()),
+  memoryRevision: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  connectionVerified: v.optional(v.string()),
+  personality: v.optional(profileSchema),
+  sharedModelBackup: v.optional(v.object({ claude: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })), codex: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })) })),
   kernel: v.optional(v.custom<BrainId>(value => typeof value === 'string' && (['pi', 'claude-code', 'codex'].includes(value) || /^acp:[a-z][a-z0-9-]*$/.test(value)), 'unknown brain'), 'pi'),
   characterId: v.picklist(characters.map(character => character.id) as [CharacterId, ...CharacterId[]]),
   statusEnabled: v.boolean(),
@@ -57,6 +65,13 @@ export function migrate(raw: Record<string, unknown>): Settings {
   // Everyone but Anna has left the cast (Hiyori in 0.5, the others in 0.6).
   if (!characters.some(character => character.id === value.characterId))
     value.characterId = characters[0].id
+  if (value.personality && typeof value.personality === 'object') {
+    const profile = value.personality as Record<string, unknown>
+    if (!profile.type)
+      value.personality = { ...profile, type: ({ gentle: 'INFJ', direct: 'INTJ', curious: 'ENTP', playful: 'ESFP' } as Record<string, string>)[String(profile.tone)] ?? 'INFJ' }
+  }
+  if (value.onboardingComplete === undefined && (value.modelVerified || value.sessionFile))
+    value.onboardingComplete = true
   return v.parse(settingsSchema, value) as Settings
 }
 

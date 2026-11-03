@@ -33,7 +33,7 @@ await writeFile(script, JSON.stringify([
   { text: '我核实过了：done.txt 已创建，内容是 OK，可以放心用。' },
 ]))
 // Pretend the settings come from a previous key-configured install; the vault returns the scripted key.
-await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'scripted', baseURL: 'https://scripted.invalid', api: 'openai-completions' }, workspaces: {} }))
+await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, onboardingComplete: true, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'scripted', baseURL: 'https://scripted.invalid', api: 'openai-completions' }, workspaces: {} }))
 const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_ACP: '1', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
 const packaged = process.env.ANNA_PACKAGED_APP
@@ -141,14 +141,14 @@ try {
   await until(page, s => s.state === 'ready' && s.workspace.trusted, 'trusted and connected')
   evidence.checks.push('Unknown folder asks for trust first; auto mode disabled until trusted')
 
-  // The brain chip lists who she can think with, the current one marked, and closes with Escape.
+  // The brain chip opens the unified card picker, with installed and missing agents.
   await page.locator('.brain-chip').click()
-  await page.locator('.brain-list button[data-brain="pi"][aria-pressed="true"][data-state="ready"]').waitFor()
-  const sandboxed = (await snapshot(page)).platform.sandbox.available
-  assert.deepEqual(await page.locator('.brain-list button[data-brain]').evaluateAll(buttons => buttons.map(button => button.dataset.brain)), ['pi', 'claude-code', 'codex', ...(sandboxed ? ['acp:gemini'] : [])])
-  await page.keyboard.press('Escape')
-  await page.locator('.brain-list').waitFor({ state: 'detached' })
-  evidence.checks.push('Brain chip: pi, Claude Code, Codex and an installed ACP agent listed with their state; pi marked as thinking')
+  await page.getByRole('button', { name: '选择其他大脑', exact: true }).click()
+  await page.getByRole('radio', { name: /pi.*默认/ }).waitFor()
+  assert(await page.locator('.brain-tile').count() > 15)
+  assert.equal(await page.getByRole('radio', { name: /pi.*默认/ }).getAttribute('aria-checked'), 'true')
+  await page.getByRole('button', { name: '关闭设置', exact: true }).click()
+  evidence.checks.push('Brain cards: pi is selected; catalogued agents remain visible even when unavailable')
 
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('你好')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
@@ -380,7 +380,9 @@ try {
     // An ACP agent as her brain (Gemini CLI, answered by the ACP fake): picked from the brain chip, its shell call
     // waits for her approval card, and its words come back as hers.
     await page.locator('.brain-chip').click()
-    await page.locator('.brain-list button[data-brain="acp:gemini"]').click()
+    await page.getByRole('button', { name: '选择其他大脑', exact: true }).click()
+    await page.getByRole('radio', { name: /Gemini CLI/ }).click()
+    await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await until(page, s => s.state === 'ready' && s.settings.kernel === 'acp:gemini' && s.kernel.label === 'Gemini CLI', 'switched to the ACP brain')
     // Ask mode, so the agent's shell call has to come through her approval card.
     await page.locator('.mode-switch button[data-mode="ask"]').click()

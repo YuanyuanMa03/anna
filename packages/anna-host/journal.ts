@@ -1,20 +1,8 @@
-import type { FileChange, Origin } from '../shared/contracts'
+import type { FileChange, TaskRecord } from '../shared/contracts'
 import { join } from 'node:path'
 import { readJson, writeJson } from './json-file'
 
-export interface JournalEntry {
-  taskId: string
-  at: string
-  workspace: string
-  status: 'completed' | 'aborted' | 'failed'
-  origin: Origin
-  /** What the user asked for, shortened. */
-  request: string
-  changes: { path: string, status: FileChange['status'] }[]
-  /** Collaborators (Claude Code, Codex…) that did the work; empty when the companion did it with its own tools. */
-  by?: string[]
-  undone?: boolean
-}
+export type JournalEntry = TaskRecord
 
 const statusWords: Record<JournalEntry['status'], string> = { completed: '完成', aborted: '被用户中断', failed: '没有完成' }
 const changeWords: Record<FileChange['status'], string> = { added: '新增', modified: '修改', deleted: '删除' }
@@ -54,8 +42,8 @@ export class TaskJournal {
   }
 
   /** A note for a fresh session: the recent tasks in this workspace, newest last. Empty when there is nothing to tell. */
-  brief(workspace: string, count = 8) {
-    const recent = this.entries.filter(entry => entry.workspace === workspace).slice(-count)
+  brief(workspace: string, count = 8, revision = 0) {
+    const recent = this.entries.filter(entry => entry.workspace === workspace && (entry.memoryRevision ?? 0) === revision && !/记住|忘记/.test(entry.request)).slice(-count)
     if (!recent.length)
       return ''
     const lines = recent.map((entry) => {

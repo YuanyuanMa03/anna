@@ -1,4 +1,4 @@
-import type { Message, ModelSettings, Origin } from '../shared/contracts'
+import type { CapabilityReport, Message, ModelSettings, Origin, TokenCounts } from '../shared/contracts'
 
 /**
  * The seam between Anna and an agent kernel (pi today; Claude Code and Codex later).
@@ -7,14 +7,17 @@ import type { Message, ModelSettings, Origin } from '../shared/contracts'
  * Tool names are normalized to: read, write, edit, bash (any shell), grep, find, ls, and anna_* tools.
  */
 export type KernelEvent
-  = | { type: 'thinking' }
+  = | { type: 'model', id: string }
+    | { type: 'capabilities', report: CapabilityReport }
+    | { type: 'usage', id: string, tokens?: TokenCounts }
+    | { type: 'thinking' }
     | { type: 'text', text: string }
     | { type: 'tool-start', id: string, name: string, input: Record<string, unknown> }
     | { type: 'tool-end', id: string, name: string, output: string, isError: boolean }
     | { type: 'compacting', active: boolean }
     | { type: 'retrying', attempt: number }
     /** Anna's routing moved a request to a backup provider (`line` says which, for the stage). */
-    | { type: 'failover', line: string }
+    | { type: 'failover', line: string, retry?: boolean }
 
 export type GateVerdict = { allow: true } | { allow: false, reason: string, stop?: boolean }
 export type ToolGate = (tool: string, input: Record<string, unknown>, callId: string) => Promise<GateVerdict>
@@ -29,6 +32,7 @@ export interface AnnaTool {
 }
 
 export interface KernelContext {
+  verification?: boolean
   root: string
   data: string
   workspace: string
@@ -80,6 +84,9 @@ export interface AgentKernel {
   readonly sessionFile?: string
   readonly restored: boolean
   readonly tools: string[]
+  readonly skills?: string[]
+  readonly capabilityReport?: CapabilityReport
+  readonly actualModel?: string
   readonly plugins: string[]
   readonly modelInfo?: { id: string, thinking: string, contextWindow: number }
   start: () => Promise<void>

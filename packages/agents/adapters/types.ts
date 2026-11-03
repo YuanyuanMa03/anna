@@ -1,9 +1,12 @@
 import type { KernelEvent } from '../../kernels/types'
+import type { TokenCounts } from '../../shared/contracts'
 
 /** A permission request from an external agent, with the tool normalized to Anna's names. */
 export interface AgentApproval { id: string | number, tool: string, input: Record<string, unknown>, /** Protocol-specific payload needed to answer. */ raw: unknown }
 
 export interface Decoded {
+  usage?: TokenCounts
+  cumulativeUsage?: TokenCounts
   events: KernelEvent[]
   approval?: AgentApproval
   sessionId?: string

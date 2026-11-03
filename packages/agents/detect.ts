@@ -1,5 +1,5 @@
 import type { AgentDescriptor, AgentId, AgentTier } from './catalog'
-import { delimiter, join, posix, win32 } from 'node:path'
+import { delimiter, posix, win32 } from 'node:path'
 import { catalog, configDirOf } from './catalog'
 
 /** Everything detection needs from the machine, injectable for tests. */
@@ -67,8 +67,10 @@ function locate(agent: AgentDescriptor, env: DetectEnvironment, dirs: string[]) 
         return candidate
     }
   }
-  for (const app of agent.appPaths ?? []) {
-    const candidate = app.startsWith('/') ? app : join(env.home, app)
+  const appPaths = Array.isArray(agent.appPaths) ? agent.appPaths : agent.appPaths?.[env.platform] ?? []
+  for (const app of appPaths) {
+    const expanded = app.replace(/%([^%]+)%/g, (match, name: string) => env.env[name] ?? (name === 'LOCALAPPDATA' ? path.join(env.home, 'AppData/Local') : match))
+    const candidate = path.normalize(path.isAbsolute(expanded) ? expanded : path.join(env.home, expanded))
     if (env.exists(candidate))
       return candidate
   }

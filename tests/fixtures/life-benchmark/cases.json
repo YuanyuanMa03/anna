@@ -1,0 +1,317 @@
+[
+  {
+    "id": "F01",
+    "category": "files",
+    "prompt": "只读盘点这个目录，忽略隐藏文件。将文件用途和建议的整理顺序写入 overview.md，不移动文件。",
+    "files": {
+      "notes.txt": "周一讨论产品方向。\n",
+      "budget.csv": "item,cost\npaper,12\nink,38\n",
+      "draft/article.md": "# 初稿\n下一步需要补充案例。\n"
+    },
+    "requiredFiles": [
+      "overview.md"
+    ],
+    "checks": {
+      "overview.md": [
+        "notes.txt",
+        "budget.csv",
+        "article.md"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "F02",
+    "category": "files",
+    "prompt": "把 incoming 中两个不同目录里的 report.txt 完整复制到 organized，保留两份且避免重名覆盖；不要修改或删除源文件。最后在 result.md 说明各自去向。",
+    "files": {
+      "incoming/a/report.txt": "alpha report\n",
+      "incoming/b/report.txt": "beta report\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "preservedCopies": [
+        "alpha report\n",
+        "beta report\n"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "F03",
+    "category": "files",
+    "prompt": "比较资料的内容，在 duplicates.json 中写出所有内容完全相同的文件分组（数组的数组），不要删除任何文件。",
+    "files": {
+      "a.txt": "same\n",
+      "b.txt": "different\n",
+      "nested/c.txt": "same\n",
+      "d.txt": "another\n"
+    },
+    "requiredFiles": [
+      "duplicates.json"
+    ],
+    "checks": {
+      "json": {
+        "duplicates.json": [
+          [
+            "a.txt",
+            "nested/c.txt"
+          ]
+        ]
+      }
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "T01",
+    "category": "text",
+    "prompt": "将 announcement.txt 改写成友好、清楚、100到180字的中文通知，写入 result.md。保留全部日期、数量和金额，不增加事实。",
+    "files": {
+      "announcement.txt": "活动时间：2026年11月15日14:00—16:00。报名截至11月12日18:00。共24个名额，每人材料费35元。地点为实验楼201室。请自带笔记本电脑，参与者分成6组。\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "result.md": [
+        "11月15日",
+        "14:00",
+        "16:00",
+        "11月12日",
+        "18:00",
+        "24",
+        "35",
+        "201",
+        "6"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "T02",
+    "category": "text",
+    "prompt": "把 meeting.txt 整理为 result.md：一段简短结论，以及负责人、任务、截止日期三列的行动表。不要把尚未确定的事情写成决定。",
+    "files": {
+      "meeting.txt": "11月2日讨论：小林负责在11月4日前完成用户访谈提纲；小周11月6日前整理6份反馈；小陈11月8日前准备演示。是否增加语音功能尚未决定，下次再议。\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "result.md": [
+        "小林",
+        "11月4日",
+        "小周",
+        "11月6日",
+        "小陈",
+        "11月8日",
+        "尚未"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "T03",
+    "category": "text",
+    "prompt": "根据 instructions.txt 写一份给新手的 result.md，分步骤解释怎么运行。必须保留原始命令和失败时的检查办法，不新增安装要求。",
+    "files": {
+      "instructions.txt": "本项目不需要安装依赖。已有 Node.js 22及以上即可。先运行 node app.mjs，浏览器打开 http://127.0.0.1:8080。若端口被占用，运行 PORT=8081 node app.mjs，然后访问8081。按 Ctrl+C 停止。\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "result.md": [
+        "node app.mjs",
+        "127.0.0.1:8080",
+        "PORT=8081",
+        "Ctrl+C",
+        "22"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "P01",
+    "category": "project",
+    "prompt": "只读理解这个小项目，将入口、调用关系和数据存储方式写入 result.md，并引用实际文件路径。不安装依赖、不改代码。",
+    "files": {
+      "package.json": "{\"type\":\"module\",\"scripts\":{\"start\":\"node src/main.mjs\"}}",
+      "src/main.mjs": "import { greeting } from './greeting.mjs';\nconsole.log(greeting('Anna'));\n",
+      "src/greeting.mjs": "export function greeting(name) { return `Hello, ${name}`; }\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "result.md": [
+        "src/main.mjs",
+        "src/greeting.mjs",
+        "greeting"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "P02",
+    "category": "project",
+    "prompt": "阅读配置合并代码，根据 example.json 计算最终配置，将结果作为JSON写入 effective.json，在 result.md 解释覆盖顺序并引用代码。不要修改代码。",
+    "files": {
+      "config.mjs": "export const defaults = { timeout: 10, mode: \"safe\", retries: 1 };\nexport function config(file, env) { return { ...defaults, ...file, ...env }; }\n",
+      "example.json": "{\"file\":{\"timeout\":20,\"retries\":2},\"env\":{\"timeout\":30}}\n"
+    },
+    "requiredFiles": [
+      "effective.json",
+      "result.md"
+    ],
+    "checks": {
+      "json": {
+        "effective.json": {
+          "timeout": 30,
+          "mode": "safe",
+          "retries": 2
+        }
+      },
+      "result.md": [
+        "config.mjs"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "P03",
+    "category": "project",
+    "prompt": "说明 request.mjs 中一次请求从输入到输出的实际顺序，以及 missing 时返回什么。写入 result.md；需要引用相关函数，不修改代码。",
+    "files": {
+      "request.mjs": "export function parse(input) { return input.trim(); }\nexport function lookup(key) { return { anna: \"ready\" }[key]; }\nexport function handle(input) { const key = parse(input); const value = lookup(key); return value === undefined ? { status: 404 } : { status: 200, value }; }\n"
+    },
+    "requiredFiles": [
+      "result.md"
+    ],
+    "checks": {
+      "result.md": [
+        "parse",
+        "lookup",
+        "handle",
+        "404"
+      ]
+    },
+    "testCommand": null,
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "C01",
+    "category": "code",
+    "prompt": "修复 median.mjs：支持负数和多位数的中位数，不修改输入数组；空数组抛出 RangeError。运行现有测试，禁止修改测试。",
+    "files": {
+      "median.mjs": "export function median(values) { values.sort(); return values[Math.floor(values.length / 2)]; }\n",
+      "median.test.mjs": "import { test } from 'node:test'; import assert from 'node:assert/strict'; import { median } from './median.mjs';\ntest('median', () => { const a=[10,2,3]; assert.equal(median(a),3); assert.deepEqual(a,[10,2,3]); assert.equal(median([-5,10,1,2]),1.5); assert.throws(()=>median([]),RangeError); });\n"
+    },
+    "requiredFiles": [
+      "median.mjs"
+    ],
+    "checks": {},
+    "testCommand": "node --test",
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "C02",
+    "category": "code",
+    "prompt": "修复 search.mjs，让查询忽略首尾空白与大小写；空查询返回空数组，保留匹配项原有顺序和字符串。运行现有测试，禁止修改测试。",
+    "files": {
+      "search.mjs": "export function search(items, query) { return items.filter(item => item.includes(query)); }\n",
+      "search.test.mjs": "import { test } from 'node:test'; import assert from 'node:assert/strict'; import { search } from './search.mjs';\ntest('search', () => { assert.deepEqual(search(['Alpha','beta','ALPINE'],' alP '),['Alpha','ALPINE']); assert.deepEqual(search(['Alpha'],'  '),[]); assert.deepEqual(search(['小麦','玉米'],'麦'),['小麦']); });\n"
+    },
+    "requiredFiles": [
+      "search.mjs"
+    ],
+    "checks": {},
+    "testCommand": "node --test",
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  },
+  {
+    "id": "C03",
+    "category": "code",
+    "prompt": "修复 total.mjs：数量0应保留为0，仅在数量未提供时默认1，正确累加价格。运行现有测试，禁止修改测试。",
+    "files": {
+      "total.mjs": "export function total(items) { return items.reduce((sum,item) => sum + item.price * (item.quantity || 1), 0); }\n",
+      "total.test.mjs": "import { test } from 'node:test'; import assert from 'node:assert/strict'; import { total } from './total.mjs';\ntest('total', () => { assert.equal(total([{price:10,quantity:0},{price:5}]),5); assert.equal(total([{price:2,quantity:3},{price:4,quantity:2}]),14); assert.equal(total([]),0); });\n"
+    },
+    "requiredFiles": [
+      "total.mjs"
+    ],
+    "checks": {},
+    "testCommand": "node --test",
+    "rubric": [
+      "完成用户目标且保留原始事实",
+      "结果清晰、可以直接使用",
+      "说明验证与未完成之处",
+      "不擅自扩展范围或覆盖原文件"
+    ]
+  }
+]

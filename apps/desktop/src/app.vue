@@ -2,7 +2,7 @@
 import type { BrainChoice } from '../../../packages/agents/brains'
 import type { CaptionPlace } from '../../../packages/character/layout'
 import type { CompanionForm, MotionCue } from '../../../packages/character/manifest'
-import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
+import type { AnnaPhase, AnnaState, ApprovalScope, Command, FileChange, MemoryDraft, Message, PermissionMode, RuntimeSnapshot, ToolActivity, WeixinState } from '../../../packages/shared/contracts'
 import type { Anchors } from './character-stage.vue'
 import type { MyAvatar } from './my-avatar'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -18,10 +18,10 @@ import AgentsSheet from './components/agents-sheet.vue'
 import ApprovalCard from './components/approval-card.vue'
 import AvatarMaker from './components/avatar-maker.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
+import LifeSheet from './components/life-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
 import { forgetMyAvatar, readMyAvatar, saveMyAvatar } from './my-avatar'
-import SettingsPanel from './settings-panel.vue'
 
 const phaseLabels: Record<AnnaPhase, string> = { offline: '休息中', idle: '在这儿', thinking: '思考中', responding: '正在回答', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '督工中', reviewing: '审阅中', done: '完成了', failed: '遇到问题' }
 const toolLabels: Record<string, string> = { read: '读取', ls: '列目录', find: '查找', grep: '搜索', edit: '修改', write: '写入', bash: '终端', powershell: '终端', anna_status: '状态', anna_memory: '记忆', anna_delegate: '派活' }
@@ -113,7 +113,7 @@ function chooseForm(next: CompanionForm) {
 const typedAt = ref(0)
 const listening = computed(() => Boolean(input.value.trim()) && now.value - typedAt.value < 3000)
 /** What a newcomer can say to her: greet her first, then ask, then hand her something to do. */
-const suggestions = computed(() => [`${character.value.name}，你好，介绍一下你自己。`, '你现在在想什么？', '看看这个工作文件夹里有什么，给我一个概览'])
+const suggestions = computed(() => snapshot.value?.starterTasks ?? ['看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
 /** Who she can think with on this machine, and the one to offer someone whose pi has no model yet. */
 const brains = computed(() => snapshot.value ? brainChoices({ detected: snapshot.value.agents.detected, current: snapshot.value.settings.kernel, hasKey: snapshot.value.hasKey, sandbox: snapshot.value.platform.sandbox.available, acp: snapshot.value.platform.acp }) : [])
@@ -126,7 +126,7 @@ const canChat = computed(() => Boolean(snapshot.value && (snapshot.value.hasKey 
 const needsTrust = computed(() => Boolean(snapshot.value && snapshot.value.settings.workspace && !snapshot.value.workspace.known))
 const connected = computed(() => snapshot.value?.state === 'ready' || snapshot.value?.state === 'running')
 /** What the running brain reports, or the model pi is set up with; pi's settings say nothing about another brain, or before it has a key. */
-const modelName = computed(() => snapshot.value?.model?.id ?? (snapshot.value?.settings.kernel === 'pi' && snapshot.value.hasKey ? snapshot.value.settings.model.model : ''))
+const modelName = computed(() => snapshot.value?.actualModel ?? snapshot.value?.model?.id ?? (snapshot.value?.settings.kernel === 'pi' && snapshot.value.hasKey ? snapshot.value.settings.model.model : ''))
 /** Honest connection label: a saved key is only "connected" once a real reply came back. */
 const connection = computed(() => {
   const state = snapshot.value?.state
@@ -142,7 +142,7 @@ const subtitle = computed(() => {
     return modeLine.value.text
   if (snapshot.value?.error)
     return snapshot.value.credential === 'rejected' ? '我连不上模型：密钥被服务商拒绝了。到“模型与设置”里换一个吧。' : '这一轮没有成功，原因写在下面。'
-  return lastReply.value || (canChat.value ? character.value.greeting : '先给我接上一个模型，我们就能开始了。')
+  return lastReply.value || (canChat.value ? snapshot.value?.welcome ?? character.value.greeting : '先给我接上一个模型，我们就能开始了。')
 })
 /** Her words fade once she has said them and the moment has passed; hovering or anything new brings them back. */
 const subtitleAt = ref(Date.now())
@@ -300,6 +300,7 @@ function openFromMenu(action: () => void) {
  */
 function pickBrain(choice: BrainChoice) {
   brainOpen.value = false
+  settingsOpen.value = true
   if (choice.state === 'needs-key') {
     // pi's model form only shows while pi is her brain.
     if (!choice.current)
@@ -313,7 +314,7 @@ function pickBrain(choice: BrainChoice) {
     void run({ type: 'kernel', id: choice.id })
   }
 }
-const decide = (id: string, allow: boolean, scope: ApprovalScope) => run({ type: 'approval', id, allow, scope })
+const decide = (id: string, allow: boolean, scope: ApprovalScope, memory?: MemoryDraft) => run({ type: 'approval', id, allow, scope, memory })
 async function showChanges() {
   if (snapshot.value?.result && await run({ type: 'changes', taskId: snapshot.value.result.taskId }))
     drawer.value = 'changes'
@@ -400,7 +401,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
       <span class="connection" :title="snapshot.model ? `${snapshot.kernel.label} · ${snapshot.model.id} · 思考 ${snapshot.model.thinking}` : modelName"><i :class="{ online: connected && snapshot.credential !== 'unverified' && snapshot.credential !== 'rejected', bad: snapshot.credential === 'rejected' || snapshot.state === 'error' }" />{{ connection }}<template v-if="modelName"> · {{ modelName }}</template></span>
       <div class="corner-actions">
         <div class="menu">
-          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="brainOpen = !brainOpen; menuOpen = false"><i />用 {{ brains.find(choice => choice.current)?.label ?? snapshot.kernel.label }} 思考 ▾</button>
+          <button class="brain-chip" :title="`${character.name} 现在用 ${snapshot.kernel.label} 思考`" :aria-expanded="brainOpen" @click="settingsOpen = true; menuOpen = false"><i />Anna 档案 ▾</button>
           <div v-if="brainOpen" class="menu-backdrop" @click="brainOpen = false" />
           <nav v-if="brainOpen" ref="menuList" class="menu-list brain-list" :aria-label="`${character.name} 用谁来思考`">
             <span class="menu-title">{{ character.name }} 用谁来思考</span>
@@ -460,7 +461,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
           </div>
         </Transition>
 
-        <TransitionGroup :css="false" @enter="fromHand"><ApprovalCard v-for="approval in snapshot.approvals" :key="approval.id" :approval="approval" @decide="(allow, scope) => decide(approval.id, allow, scope)" /></TransitionGroup>
+        <TransitionGroup :css="false" @enter="fromHand"><ApprovalCard v-for="approval in snapshot.approvals" :key="approval.id" :approval="approval" @decide="(allow, scope, memory) => decide(approval.id, allow, scope, memory)" /></TransitionGroup>
 
         <div v-if="running || callTools.length" class="card activity-card">
           <span class="eyebrow">{{ running ? '正在做' : '刚才做了' }}</span>
@@ -528,7 +529,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); release?
     </transition>
 
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
-    <SettingsPanel v-if="settingsOpen" :snapshot="snapshot" :busy="configuring || running" @close="settingsOpen = false" @command="run" />
+    <LifeSheet v-if="settingsOpen || !snapshot.settings.onboardingComplete || snapshot.settings.firstTaskPending" :snapshot="snapshot" :busy="configuring || running" :error="error" @close="settingsOpen = false" @command="async command => { if (await run(command) && command.type === 'personality') settingsOpen = false }" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />
     <AvatarMaker v-if="makerOpen" :name="character.name" :can-ask="canChat && !running && Boolean(snapshot?.workspace.trusted) && mode !== 'plan'" @close="makerOpen = false" @made="madeAvatar" @ask="askForAvatar" />

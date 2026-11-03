@@ -204,7 +204,9 @@ it('a stopped task stays stopped: the model is told not to pick it up again, and
   await host.execute({ type: 'send', text: '你是谁' })
   expect(await sessionText(host)).toMatch(/用户中断了任务「把 coupon\.js 实现完整」[^"]*不要主动接着做/)
   const journal = JSON.parse(await readFile(join(data, 'journal.json'), 'utf8'))
-  expect(journal).toEqual([expect.objectContaining({ status: 'aborted', request: '把 coupon.js 实现完整' })])
+  expect(journal).toHaveLength(2)
+  expect(journal[0]).toMatchObject({ status: 'aborted', request: '把 coupon.js 实现完整' })
+  expect(journal[1]).toMatchObject({ status: 'completed', request: '你是谁' })
   await host.close()
 }, 15000)
 
@@ -286,4 +288,34 @@ it('a key is only "verified" after a real reply, and an auth failure says so in 
   await host.execute({ type: 'configure', model: host.snapshot().settings.model, key: 'sk-new' })
   expect(host.snapshot().credential).toBe('unverified')
   await host.close()
+})
+
+it('keeps completed conversation work records and task usage metadata on disk', async () => {
+  const { host } = await setup([{ text: '完成了文件说明。' }])
+  try {
+    await host.execute({ type: 'send', text: '介绍这个工作目录' })
+    const record = host.snapshot().workRecords?.at(-1)
+    expect(record?.request).toBe('介绍这个工作目录')
+    expect(record?.status).toBe('completed')
+    expect(record?.result?.elapsedMs).toBeGreaterThanOrEqual(0)
+    const persisted = JSON.parse(await readFile(join(host.data, 'journal.json'), 'utf8'))
+    expect(persisted.at(-1).result).toEqual(JSON.parse(JSON.stringify(record?.result)))
+  }
+  finally { await host.close() }
+})
+
+it('starts a fresh model context after a memory correction without injecting old journal preferences', async () => {
+  const { host } = await setup([{ text: '记住了。' }, { text: '你好。' }])
+  try {
+    await host.execute({ type: 'send', text: '记住：偏爱绿茶' })
+    const previousSession = host.snapshot().settings.sessionFile
+    const item = host.snapshot().memories[0]!
+    await host.execute({ type: 'memory-update', id: item.id, memory: { text: '偏爱红茶', kind: 'preference' } })
+    expect(host.snapshot().settings.sessionFile).not.toBe(previousSession)
+    await host.execute({ type: 'send', text: '你好' })
+    const context = await sessionText(host)
+    expect(context).not.toContain('偏爱绿茶')
+    expect(context).toContain('偏爱红茶')
+  }
+  finally { await host.close() }
 })

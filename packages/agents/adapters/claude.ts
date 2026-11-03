@@ -49,6 +49,16 @@ export function claudeDecoder(): Decoder {
       const out: Decoded = { events: [] }
       if (message.session_id)
         out.sessionId = message.session_id
+      if (message.type === 'system' && message.subtype === 'init') {
+        if (typeof message.model === 'string')
+          out.events.push({ type: 'model', id: message.model })
+        out.events.push({ type: 'capabilities', report: { at: new Date().toISOString(), source: 'Claude Code 初始化报告', unknown: ['skills', 'plugins', 'mcp'].filter(kind => message[kind === 'mcp' ? 'mcp_servers' : kind] === undefined), entries: [
+          ...(message.tools ?? []).map((name: string) => ({ kind: 'tool' as const, name, source: 'Claude Code', state: 'available' as const })),
+          ...(message.skills ?? []).map((skill: string | { name: string }) => ({ kind: 'skill' as const, name: typeof skill === 'string' ? skill : skill.name, source: 'Claude Code', state: 'available' as const })),
+          ...(message.plugins ?? []).map((plugin: { name: string, path?: string }) => ({ kind: 'plugin' as const, name: plugin.name, source: plugin.path ?? 'Claude Code', state: 'available' as const })),
+          ...(message.mcp_servers ?? []).map((server: { name: string, status: string }) => ({ kind: 'mcp' as const, name: server.name, source: 'Claude Code', state: server.status === 'connected' ? 'available' as const : 'configured' as const })),
+        ] } })
+      }
       if (message.type === 'assistant') {
         for (const block of (message.message?.content ?? []) as Block[]) {
           if (block.type === 'thinking') {
@@ -80,6 +90,10 @@ export function claudeDecoder(): Decoder {
         out.events.push({ type: 'compacting', active: false })
       }
       else if (message.type === 'result') {
+        if (message.usage) {
+          const usage = message.usage
+          out.usage = { input: usage.input_tokens, output: usage.output_tokens, cacheRead: usage.cache_read_input_tokens, cacheWrite: usage.cache_creation_input_tokens }
+        }
         out.done = { text: typeof message.result === 'string' ? message.result : text, isError: Boolean(message.is_error) || message.subtype !== 'success' }
       }
       return out

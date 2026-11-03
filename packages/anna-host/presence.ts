@@ -1,5 +1,5 @@
 import type { KernelEvent } from '../kernels/types'
-import type { AnnaPhase, AnnaState, ToolActivity } from '../shared/contracts'
+import type { AnnaPhase, AnnaState, TaskUsage, TokenCounts, ToolActivity } from '../shared/contracts'
 import { basename } from 'node:path'
 import { isVerification } from '../permissions/commands'
 
@@ -33,7 +33,7 @@ export function describeTool(tool: string, input: Record<string, unknown>): { ph
 
 const agentLabels: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI', opencode: 'OpenCode', pi: 'Pi' }
 
-export interface TurnStats { files: Set<string>, commands: number, failedTools: number, tests?: 'passed' | 'failed', step: number }
+export interface TurnStats { files: Set<string>, commands: number, failedTools: number, retries: number, tests?: 'passed' | 'failed', step: number }
 export type PresenceOutput = { type: 'anna', state: AnnaState } | { type: 'stream', text: string } | { type: 'tool', activity: ToolActivity }
 
 /**
@@ -45,12 +45,32 @@ export class Presence {
   stats: TurnStats = Presence.fresh()
   private calls = new Map<string, { name: string, input: Record<string, unknown> }>()
   private waiting = 0
+  private usageReports = new Map<string, TokenCounts | undefined>()
+
+  get usage(): TaskUsage | undefined {
+    if (!this.usageReports.size)
+      return undefined
+    const result: TaskUsage = { partial: false }
+    for (const tokens of this.usageReports.values()) {
+      if (!tokens || tokens.input === undefined || tokens.output === undefined)
+        result.partial = true
+      for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'] as const) {
+        const value = tokens?.[field]
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+          result[field] = (result[field] ?? 0) + value
+        else if (value !== undefined)
+          result.partial = true
+      }
+    }
+    return result
+  }
+
   private beforeWait?: AnnaState
   private streamAt = 0
   /** While an external agent works, Anna supervises: tool events update the collaborator card, not her pose. */
   supervising?: { label: string, onStep: (line: string, step: number) => void }
   constructor(private emit: (output: PresenceOutput) => void) {}
-  private static fresh(): TurnStats { return { files: new Set(), commands: 0, failedTools: 0, step: 0 } }
+  private static fresh(): TurnStats { return { files: new Set(), commands: 0, failedTools: 0, retries: 0, step: 0 } }
 
   set(phase: AnnaPhase, line = '', target?: string) {
     this.state = { phase, line, step: this.stats.step, target }
@@ -63,6 +83,7 @@ export class Presence {
   beginTurn() {
     this.stats = Presence.fresh()
     this.calls.clear()
+    this.usageReports.clear()
     this.set('thinking', '让我想想…')
   }
 
@@ -87,6 +108,9 @@ export class Presence {
 
   handle(event: KernelEvent) {
     switch (event.type) {
+      case 'usage':
+        this.usageReports.set(event.id, event.tokens)
+        break
       case 'thinking':
         if (this.supervising)
           break
@@ -140,9 +164,12 @@ export class Presence {
         this.set(event.active ? 'compacting' : 'thinking', event.active ? '整理一下前面的上下文…' : '整理好了，继续。')
         break
       case 'retrying':
+        this.stats.retries++
         this.set('retrying', `模型连接不稳，第 ${event.attempt} 次重试…`)
         break
       case 'failover':
+        if (event.retry)
+          this.stats.retries++
         this.set('retrying', event.line)
         break
     }

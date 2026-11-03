@@ -1,7 +1,9 @@
 import type { KernelEvent } from '../kernels/types'
+import type { TokenCounts } from '../shared/contracts'
 import type { DelegateAgent } from './adapters'
 import type { Launch } from './launch'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname } from 'node:path'
 import process from 'node:process'
@@ -17,12 +19,13 @@ export interface RunOptions {
   cwd: string
   /** Continue this session (codex resumes the thread over JSON-RPC; others pass it in launch args). */
   sessionId?: string
+  usageBaseline?: TokenCounts
   gate: (tool: string, input: Record<string, unknown>) => Promise<{ allow: boolean, reason?: string }>
   emit: (event: KernelEvent) => void
   signal?: AbortSignal
 }
 
-export interface RunResult { status: 'completed' | 'failed' | 'aborted', text: string, sessionId?: string, error?: string }
+export interface RunResult { status: 'completed' | 'failed' | 'aborted', text: string, sessionId?: string, error?: string, cumulativeUsage?: TokenCounts }
 
 /**
  * Run one delegated turn of an external agent: start the process, decode its stream into Anna events, route its
@@ -53,6 +56,9 @@ export function runAgent(options: RunOptions): Promise<RunResult> {
   let stderr = ''
   let settled = false
   let rpc = 1
+  const usageId = randomUUID()
+  let reported: TokenCounts | undefined
+  let cumulative: TokenCounts | undefined
   return new Promise<RunResult>((resolve) => {
     const finish = (result: RunResult) => {
       if (settled)
@@ -60,7 +66,21 @@ export function runAgent(options: RunOptions): Promise<RunResult> {
       settled = true
       child.stdin.end()
       setTimeout(() => child.kill(), agent === 'codex' ? 200 : 2000)
-      resolve({ ...result, sessionId: result.sessionId ?? sessionId })
+      let tokens = reported
+      if (cumulative) {
+        const baseline = options.usageBaseline ?? (options.sessionId ? undefined : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 })
+        if (baseline) {
+          tokens = {}
+          for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'] as const) {
+            const value = cumulative[field]
+            const previous = baseline[field]
+            if (typeof value === 'number' && typeof previous === 'number' && value >= previous)
+              tokens[field] = value - previous
+          }
+        }
+      }
+      options.emit({ type: 'usage', id: usageId, tokens })
+      resolve({ ...result, cumulativeUsage: cumulative, sessionId: result.sessionId ?? sessionId })
     }
     options.signal?.addEventListener('abort', () => {
       child.kill()
@@ -94,6 +114,10 @@ export function runAgent(options: RunOptions): Promise<RunResult> {
         }
       }
       const decoded = decoder.decode(line)
+      if (decoded.usage)
+        reported = decoded.usage
+      if (decoded.cumulativeUsage)
+        cumulative = decoded.cumulativeUsage
       if (decoded.sessionId)
         sessionId = decoded.sessionId
       for (const event of decoded.events) options.emit(event)
