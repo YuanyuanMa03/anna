@@ -32,7 +32,8 @@ export function mono16k(channels: Float32Array[], sampleRate: number): Float32Ar
     const end = Math.min(start + 1, length - 1)
     let value = 0
     for (const channel of channels) value += channel[start]! * (1 - (position - start)) + channel[end]! * (position - start)
-    output[i] = Number.isFinite(value) ? Math.max(-1, Math.min(1, value / channels.length)) : 0
+    // Keep input at PCM16 precision across browser decoders before feeding the recognizer.
+    output[i] = Number.isFinite(value) ? Math.max(-32768, Math.min(32767, Math.round(value / channels.length * 32768))) / 32768 : 0
   }
   return output
 }

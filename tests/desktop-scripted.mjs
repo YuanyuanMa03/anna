@@ -554,14 +554,17 @@ try {
   await senses.getByRole('link', { name: '下载生成的语音', exact: true }).waitFor()
   assert.match(await senses.getByRole('link', { name: '下载生成的语音', exact: true }).getAttribute('href'), /^blob:/)
   assert.equal(await page.locator('audio, video').count(), 0)
-  if ((await snapshot(page)).platform.secrets === 'system')
+  evidence.secretsMode = (await snapshot(page)).platform.secrets
+  if (evidence.secretsMode === 'system')
     assert.equal((await readFile(join(data, 'senses.bin'))).includes(Buffer.from('fixture-senses-key')), false)
   await senses.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '感官', exact: true }).click()
   await senses.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
   assert.equal(await senses.getByLabel('API Key', { exact: true }).inputValue(), '')
   await senses.getByRole('button', { name: '关闭', exact: true }).click()
-  evidence.checks.push('Senses: model voice configuration persists, key stays in the platform vault and masked, loopback synthesis produces a download with no audio playback')
+  evidence.checks.push(`Senses: model voice configuration persists, key stays in the Host credential store (${evidence.secretsMode}) and masked, loopback synthesis produces a download with no audio playback`)
+  if (packaged && process.platform === 'darwin')
+    evidence.checks.push('Packaged macOS scripted credentials use isolated file fixtures; native Keychain authorization is not exercised')
   assert.deepEqual(evidence.consoleErrors, [])
 }
 finally {

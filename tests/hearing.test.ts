@@ -14,12 +14,17 @@ describe('local hearing input boundary', () => {
     const output = mono16k([new Float32Array(48000).fill(1), new Float32Array(48000).fill(-1)], 48000)
     expect(output.length).toBe(16000)
     expect(output.every(value => value === 0)).toBe(true)
-    expect(mono16k([new Float32Array([0, 1])], 8000)).toEqual(new Float32Array([0, 0.5, 1, 1]))
+    expect(mono16k([new Float32Array([0, 1])], 8000)).toEqual(new Float32Array([0, 0.5, 32767 / 32768, 32767 / 32768]))
   })
   it('bounds duration and sanitizes corrupt samples without playing or uploading them', () => {
     expect(() => mono16k([], 16000)).toThrow()
     expect(() => mono16k([new Float32Array(1)], 0)).toThrow()
     expect(() => mono16k([new Float32Array(16000 * 121)], 16000)).toThrow('两分钟')
-    expect(mono16k([new Float32Array([Number.NaN, Infinity, 2])], 16000)).toEqual(new Float32Array([0, 0, 1]))
+    expect(mono16k([new Float32Array([Number.NaN, Infinity, 2])], 16000)).toEqual(new Float32Array([0, 0, 32767 / 32768]))
+  })
+
+  it('restores PCM16 samples after decoder normalization without inventing sub-bit precision', () => {
+    const decoded = new Float32Array([5 / 32767, 11 / 32767, -5 / 32768, 0])
+    expect(mono16k([decoded], 16000)).toEqual(new Float32Array([5 / 32768, 11 / 32768, -5 / 32768, 0]))
   })
 })

@@ -63,8 +63,10 @@ if (process.env.ANNA_TEST_CDP && !app.isPackaged) {
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 }
 
-/** Credentials are encrypted with the OS store (Keychain, DPAPI, libsecret) and only ever decrypted here. */
-const vault = createVault({ dir: data, safeStorage, platform: process.platform })
+/** Credentials are encrypted with the OS store; explicit scripted tests can use isolated file fixtures. */
+const testVault = Boolean(process.env.ANNA_TEST_SCRIPT && process.env.ANNA_TEST_VAULT === 'file')
+const fixtureStorage = { isEncryptionAvailable: () => false, encryptString: () => { throw new Error('Fixture vault has no encryption') }, decryptString: () => { throw new Error('Fixture vault cannot read OS credentials') } }
+const vault = createVault({ dir: data, safeStorage: testVault ? fixtureStorage : safeStorage, platform: testVault ? 'linux' : process.platform })
 const vaultNames = new Set(['credential.bin', 'weixin-credential.bin', 'providers.bin', 'senses.bin', 'vision.bin'])
 
 let window: BrowserWindow | undefined
