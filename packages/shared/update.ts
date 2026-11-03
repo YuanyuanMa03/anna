@@ -15,7 +15,7 @@ export interface ReleaseManifest {
  * The release key's public half (SPKI, base64; scripts/release-keygen.mjs). The website only carries the manifest:
  * an update is installed only when the release machine signed it, so a changed website can't push code.
  */
-export const releasePublicKey = 'MCowBQYDK2VwAyEAk69bdR8Cj6bbDY2zfDBzpCyCidyLQb6H3bGz+903alY='
+export const releasePublicKey = 'MCowBQYDK2VwAyEA1r/Xx5qtgtjFyif7s90iL5l6G1AETVP2MHu6/E7noKA='
 
 /** The bytes the signature covers; must match scripts/manifest-payload.mjs. */
 export function manifestPayload(manifest: ReleaseManifest) {

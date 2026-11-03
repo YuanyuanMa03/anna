@@ -325,3 +325,8 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
   :root { scroll-behavior: auto }
   *, *::before, *::after { animation: none !important; transition: none !important }
 }
+
+/* The current app opens in Anna’s room, with her own mesh body. */
+.demo-stage { background: url('/stage/room.webp') center / cover; }
+
+.model .body-stage canvas { position: absolute; }
