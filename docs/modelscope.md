@@ -22,7 +22,9 @@ visitor and, when a model's free quota runs out (HTTP 429), falls back through `
 Codex reach the relay through Anna's own local routing, as a Chat Completions provider.
 
 Variables: `ANNA_MODEL` (Anna, default `Qwen/Qwen3.5-35B-A3B`), `ANNA_AGENT_MODEL` (Claude Code / Codex, default
-`Qwen/Qwen3.5-397B-A17B`), `ANNA_FALLBACK_MODELS`, `ANNA_MAX_SESSIONS` (default 12), `ANNA_WEB_DATA`.
+`Qwen/Qwen3.5-397B-A17B`), `ANNA_FALLBACK_MODELS`, `ANNA_MAX_SESSIONS` (default 12), `ANNA_MAX_SESSIONS_PER_CLIENT` (default 4), `ANNA_PUBLIC_PROXIES` (default 0),
+`ANNA_RELAY_PER_MINUTE` (default 120), `ANNA_RELAY_PER_DAY` (default 1500), `ANNA_RELAY_PER_CLIENT_DAY` (default 500),
+`ANNA_WEB_DATA`.
 
 ## Local run
 
@@ -46,11 +48,26 @@ node scripts/package-modelscope.mjs
 Publish `artifacts/modelscope/` to the Docker Studio's `master` branch with a credential helper (never a token in the
 remote URL), set the `ANNA_MODEL_API_KEY` secret, and deploy on free hardware only. Port 7860.
 
+After a deploy, open `/healthz` from two networks: `client` should be each network's own public address. `ms.show` sits
+behind a web application firewall, so it may show a proxy's address instead, which makes many visitors look like one
+client. `forwardedFor` and `realIp` show only this caller's forwarding headers, and `publicProxies` shows the value the running server
+actually read. Use those to count the public proxy hops rather than guessing. Set `ANNA_PUBLIC_PROXIES` to the number of public proxies to skip and restart. Until that's right, raise
+`ANNA_MAX_SESSIONS_PER_CLIENT` and `ANNA_RELAY_PER_CLIENT_DAY`; neither needs a new build.
+
 ## Limits
 
 A visitor session allows 8 messages and 30 model calls a minute (each call asks for one answer, and a requested
-length is capped at 16384 tokens), expires after 2 idle hours and ends after 4 hours however busy; the Studio holds 12 sessions, and session
-creation is limited per client address (the rightmost `X-Forwarded-For` entry, the one the Studio's proxy added).
+length is capped at 16384 tokens), expires after 2 idle hours, or after 30 minutes once no tab has it open, and ends
+after 4 hours however busy.
+
+The Studio holds 12 sessions. A client may open 6 a minute and hold 4 at once, and a page on another site can't open
+one: browsers say where a request comes from (`Sec-Fetch-Site`), and only the demo's own page is accepted. The client
+is the rightmost `X-Forwarded-For` entry outside the platform's network, after skipping `ANNA_PUBLIC_PROXIES` public
+proxies.
+
+Every upstream attempt, including a fallback, draws on one shared budget: 120 a minute and 1500 a day for all visitors together, and 500 a day for one
+client. The day turns over at midnight in Beijing. These local counters reset when the server restarts; they do not report
+the provider's remaining balance.
 
 Isolation, and where it stops:
 
