@@ -1,5 +1,6 @@
 /* eslint-disable antfu/no-top-level-await -- Opt-in acceptance with local model files and public test audio only. */
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
@@ -9,7 +10,12 @@ import { _electron } from 'playwright'
 import { desktopLaunch } from './desktop-launch.mjs'
 
 const modelDirectory = process.env.ANNA_HEARING_MODEL_DIR
-const audio = process.env.ANNA_HEARING_AUDIO
+let audio = process.env.ANNA_HEARING_AUDIO
+const localTts = process.env.ANNA_LOCAL_TTS_URL
+if (localTts) {
+  const url = new URL(localTts)
+  assert(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash, 'Local TTS acceptance only accepts an uncredentialed loopback HTTP endpoint')
+}
 const expected = process.env.ANNA_HEARING_EXPECT?.split('|').filter(Boolean)
 assert(modelDirectory && audio && expected?.length, 'Set ANNA_HEARING_MODEL_DIR, ANNA_HEARING_AUDIO and ANNA_HEARING_EXPECT (expected phrases separated by |); use public/synthetic test audio: the report retains its transcript.')
 const metadata = resolve(modelDirectory, 'preload.js.metadata')
@@ -52,6 +58,29 @@ try {
   })
   await page.getByRole('button', { name: '感官', exact: true }).click()
   const senses = page.getByRole('dialog', { name: 'Anna 感官', exact: true })
+  if (localTts) {
+    await senses.getByLabel('服务地址', { exact: true }).fill(localTts)
+    await senses.getByLabel('语音模型', { exact: true }).fill('kokoro-local')
+    await senses.getByLabel('音色 ID', { exact: true }).fill('anna')
+    await senses.getByRole('button', { name: '保存语音配置', exact: true }).click()
+    await senses.getByRole('status').filter({ hasText: '配置已保存' }).waitFor()
+    await senses.getByRole('textbox', { name: '语音测试文本', exact: true }).fill('你好，我是安娜。我们可以一起工作，也可以聊聊天。')
+    await senses.getByRole('button', { name: '生成语音文件', exact: true }).click()
+    await senses.getByRole('status').filter({ hasText: '音频已生成' }).waitFor({ timeout: 90000 })
+    const base64 = await senses.getByRole('link', { name: '下载生成的语音', exact: true }).evaluate(async (link) => {
+      const blob = await (await fetch(link.href)).blob()
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result.split(',')[1])
+        reader.onerror = () => reject(new Error('Cannot read generated audio'))
+        reader.readAsDataURL(blob)
+      })
+    })
+    audio = join(data, 'local-kokoro.wav')
+    await writeFile(audio, Buffer.from(base64, 'base64'))
+    evidence.audioSha256 = await sha256(audio)
+    evidence.checks.push('Anna UI → Main → Host → local Kokoro generates a real WAV without playback; this WAV is the ASR input below')
+  }
   await desktop.evaluate(({ dialog }, paths) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: paths }) }, [metadata, model])
   await senses.getByRole('button', { name: '导入并保存本地模型包', exact: true }).click()
   await senses.getByRole('status').filter({ hasText: '模型已保存在本机' }).waitFor({ timeout: 30000 })
