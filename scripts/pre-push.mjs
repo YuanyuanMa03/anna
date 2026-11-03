@@ -14,5 +14,7 @@ if (updates.length) {
   if (dirty)
     throw new Error('Commit or preserve outstanding changes before validating the pushed commit.')
   const result = spawnSync(process.execPath, ['scripts/preflight.mjs'], { stdio: 'inherit' })
+  if (result.status === 0 && (execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() !== head || execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()))
+    throw new Error('The reviewed checkout changed during validation; review and validate the new state again.')
   process.exit(result.status === 0 ? 0 : result.status ?? 1)
 }
