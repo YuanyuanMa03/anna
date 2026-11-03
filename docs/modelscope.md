@@ -89,3 +89,22 @@ Operator variables: `ANNA_SELF_TEST=1` runs one throwaway visitor through `npm t
 the outcome (`ANNA_SELF_TEST_TEXT` sets the task; it approves everything it is asked, so set it only to check a deploy
 and remove it after, since each cold start spends quota); `ANNA_RELAY_DEBUG` logs each relay call; `ANNA_TZ` sets the
 visitors' time zone (default Asia/Shanghai).
+
+## Review status
+
+Source baseline: `b3b035c` on `release/online-v0.6.0`. This checklist tracks the online branch; it does not add the
+online implementation to desktop main. Deployment verification remains a separate operator step.
+
+- [x] Limit concurrent sessions per client and check browser request origin. Implemented in #48, with HTTP boundary
+  tests in `tests/web-server.test.ts` and policy tests in `tests/web-guards.test.ts`.
+- [x] Bound relay calls across all visitors, including fallback attempts, and per client. Implemented in #48; the
+  budget and rejection cases are covered by the same tests. Counters reset on process restart.
+- [ ] Limit each visitor's processes, memory and disk. Only the core's JS heap is capped.
+- [ ] Give the idle busy probe a time limit. A core that stops answering can keep its slot until the age limit;
+  closing stopped cores alone does not bound an outstanding probe.
+- [ ] Test on Linux, as root: per-visitor users, what `/proc` shows, and a hostile core on the IPC channel.
+- [ ] Finish the independent Standards review and re-review the security fixes. Unit and HTTP tests do not replace
+  that review or root-level isolation acceptance.
+
+#49 added caller-only proxy diagnostics for validating the deployed forwarding chain. The source changes above
+have been reviewed here; the remaining unchecked items stay open and are not resolved by closing the old #44 PR.
