@@ -232,7 +232,7 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ## Development
 
-The optional [Anna Gateway data entrypoint](docs/gateway-deployment.md) runs separately with native Node.js 24+, without installing Electron or model runtimes. It connects an existing New API backend; the integrated service workbench is still planned. Windows, macOS and Linux use the same commands, with target-platform acceptance tracked separately.
+The optional [Anna Gateway](docs/gateway-deployment.md) runs separately with native Node.js 24+, without installing Electron or model runtimes. Its [service workbench](docs/gateway-workbench.md) is shared by the browser and Anna’s “更多 → 服务工作台” menu, using an existing New API backend. Windows, macOS and Linux use the same commands, with target-platform acceptance tracked separately.
 
 ```bash
 pnpm install --frozen-lockfile

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 artifacts/
+.playwright-cli/
+output/playwright/
 .data/
 .env*
 assets/characters/

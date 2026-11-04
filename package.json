@@ -17,6 +17,7 @@
     "gateway:start": "node apps/gateway/cli.mjs start",
     "gateway:stop": "node apps/gateway/cli.mjs stop",
     "gateway:doctor": "node apps/gateway/cli.mjs doctor",
+    "gateway:open": "node apps/gateway/cli.mjs open",
     "assets": "node scripts/fetch-assets.mjs",
     "build": "node scripts/fetch-assets.mjs && vite build && node scripts/build-host.mjs",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.host.json --noEmit",

@@ -9,9 +9,10 @@ import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
 import { moveDataHome } from '../../packages/anna-host/data-home'
+import { workbenchURL } from '../../packages/gateway/desktop'
 import { senseCommand } from '../../packages/senses/contracts'
 import { ScreenGrant } from '../../packages/senses/screen-grant'
-import { command, runtimeEvent } from '../../packages/shared/contracts'
+import { command, gatewayCommand, runtimeEvent } from '../../packages/shared/contracts'
 import { dataDirectory, earlierDataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { createVault } from '../../packages/shared/vault'
@@ -261,6 +262,14 @@ async function start() {
   if (process.env.ANNA_TEST_SCRIPT)
     Object.assign(globalThis, { annaTrayMenu: () => JSON.parse(trayShown || '[]') as TrayItem[] })
   startCore()
+  defineInvokeHandler(context, gatewayCommand, async (_request, options) => {
+    if (options?.raw?.ipcMainEvent.sender.id !== win.webContents.id || options.raw.ipcMainEvent.senderFrame !== win.webContents.mainFrame)
+      return { ok: false as const, error: 'Unauthorized window' }
+    if (process.env.ANNA_TEST_SCRIPT)
+      return { ok: true as const, url: 'http://127.0.0.1:17865/' }
+    try { return { ok: true as const, url: await workbenchURL() } }
+    catch { return { ok: false as const, error: '独立网关尚未启动或本机记录无法验证。请先运行 gateway:start，再重新连接。' } }
+  })
   // Quietly check for updates shortly after launch and then every six hours.
   setTimeout(() => void updater.check(true), 10000)
   setInterval(() => void updater.check(true), 6 * 60 * 60 * 1000)

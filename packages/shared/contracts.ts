@@ -323,7 +323,10 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
 export type Reply = { ok: true, snapshot: RuntimeSnapshot } | { ok: false, error: string }
 export const command = defineInvokeEventa<Reply, { command: Command }>('anna:command')
 export const runtimeEvent = defineEventa<AnnaEvent>('anna:event')
+export type GatewayReply = { ok: true, url: string } | { ok: false, error: string }
+export const gatewayCommand = defineInvokeEventa<GatewayReply, void>('anna:gateway')
 export interface AnnaBridge {
+  gateway: () => Promise<GatewayReply>
   senses: (request: SenseRequest) => Promise<SenseReply>
   invoke: (command: Command) => Promise<Reply>
   subscribe: (listener: (event: AnnaEvent) => void) => () => void

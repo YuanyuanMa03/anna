@@ -51,7 +51,8 @@ it('requires explicit network publishing and validates config without embedded s
   expect(validateConfig(defaults)).toMatchObject({ access: 'local', host: '127.0.0.1' })
   expect(() => validateConfig({ ...defaults, host: '0.0.0.0' })).toThrow(/network/)
   expect(validateConfig({ ...defaults, access: 'network', host: '0.0.0.0' })).toMatchObject({ access: 'network' })
-  for (const backendURL of ['file:///tmp/a', 'http://user:secret@localhost:17860', 'https://example.com/v1', 'http://192.168.1.2:17860', 'http://127.0.0.1:17864'])
+  expect(validateConfig({ ...defaults, backendURL: 'http://192.168.1.2:17860' })).toMatchObject({ backendURL: 'http://192.168.1.2:17860' })
+  for (const backendURL of ['file:///tmp/a', 'http://user:secret@localhost:17860', 'https://example.com/v1', 'http://203.0.113.2:17860', 'http://127.0.0.1:17864'])
     expect(() => validateConfig({ ...defaults, backendURL })).toThrow()
   expect(() => validateConfig({ ...defaults, host: 'bad' })).toThrow()
   expect(() => validateConfig({ ...defaults, port: 70000 })).toThrow()
@@ -204,10 +205,19 @@ it('times out a stalled backend without retrying and cancels its connection', as
   let cancelled = false
   const f = await fixture((_request, response) => { response.on('close', () => { cancelled = true }) })
   const original = globalThis.setTimeout
-  // Shorten only the production deadline; leave socket operations and test polling on real timers.
-  const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: Parameters<typeof setTimeout>[0], delay?: number, ...args: unknown[]) => original(callback, delay === 120_000 ? 30 : delay, ...args)) as typeof setTimeout)
+  let expire: (() => void) | undefined
+  // Fire the actual deadline callback after the backend receives the request, independent of machine speed.
+  const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: Parameters<typeof setTimeout>[0], delay?: number, ...args: unknown[]) => {
+    if (delay === 120_000)
+      expire = () => callback(...args)
+    return original(callback, delay, ...args)
+  }) as typeof setTimeout)
   onTestFinished(() => timer.mockRestore())
-  const response = await post(f.url)
+  const pending = post(f.url)
+  await expect.poll(() => f.seen.length).toBe(1)
+  expect(expire).toBeTypeOf('function')
+  expire!()
+  const response = await pending
   expect(response.status).toBe(504)
   await expect.poll(() => cancelled).toBe(true)
   expect(f.seen).toHaveLength(1)
@@ -233,18 +243,22 @@ it('cleans up a failed bind and preserves an unverified stale instance record', 
 it('runs init/start/doctor/stop/restart in native Node without installing desktop or models', async () => {
   const dir = await directory()
   const f = await fixture((request, response) => {
+    if (request.url === '/api/user/login') {
+      response.end('{"success":true,"data":{"access_token":"fixture-only","user":{"id":1,"role":100,"username":"fixture"}}}')
+      return
+    }
     expect(request.url).toBe('/api/status')
     response.end('{"success":true}')
   })
   const exec = (command: string) => run(process.execPath, [cli, command, '--data-dir', dir])
   await exec('init')
-  await writeFile(join(dir, 'gateway.json'), JSON.stringify({ ...defaults, port: 0, backendURL: f.backendURL }))
+  await writeFile(join(dir, 'gateway.json'), JSON.stringify({ ...defaults, port: 0, consolePort: 0, backendURL: f.backendURL }))
   const children: ChildProcess[] = []
   onTestFinished(() => { for (const child of children) child.kill() })
   async function start() {
     const child = spawn(process.execPath, [cli, 'start', '--data-dir', dir], { stdio: ['ignore', 'pipe', 'pipe'] })
     children.push(child)
-    return new Promise<{ host: string, port: number, modelsStarted: boolean }>((resolve, reject) => {
+    return new Promise<{ host: string, port: number, consoleURL: string, modelsStarted: boolean }>((resolve, reject) => {
       let output = ''
       let errors = ''
       const timeout = setTimeout(() => reject(new Error(`Gateway startup timed out: ${errors}`)), 3000)
@@ -272,6 +286,13 @@ it('runs init/start/doctor/stop/restart in native Node without installing deskto
   expect(doctor.node).toBe(process.versions.node)
   expect(f.seen.map(item => item.path)).toEqual(['/api/status'])
   expect(JSON.stringify(doctor)).not.toContain(instance.token)
+  const login = await fetch(`${ready.consoleURL}manage/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"username":"fixture","password":"fixture"}' })
+  const session = await login.json()
+  const configBefore = await readFile(join(dir, 'gateway.json'), 'utf8')
+  const refused = await fetch(`${ready.consoleURL}manage/deployment`, { method: 'POST', headers: { 'content-type': 'application/json', 'authorization': `Bearer ${session.token}` }, body: JSON.stringify({ access: 'local', host: '127.0.0.1', port: Number(new URL(f.url).port), publicURL: '' }) })
+  expect(refused.status).toBe(400)
+  expect(await readFile(join(dir, 'gateway.json'), 'utf8')).toBe(configBefore)
+  expect((await fetch(`${address}/healthz`)).status).toBe(200)
   await exec('stop')
   await expect(readFile(join(dir, 'gateway.lock'))).rejects.toMatchObject({ code: 'ENOENT' })
   await expect(fetch(`${address}/healthz`)).rejects.toThrow()

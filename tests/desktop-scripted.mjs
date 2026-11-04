@@ -92,9 +92,16 @@ try {
     evidence.checks.push(`Chromium sandbox ${sandboxed ? 'on' : 'off'}, as expected`)
   }
   const page = await desktop.firstWindow()
+  await page.route('http://127.0.0.1:17865/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Gateway fixture</title><p>Gateway fixture</p>' }))
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
+  await menu(page, '服务工作台')
+  await page.getByRole('dialog', { name: 'Anna 服务工作台' }).waitFor()
+  assert.equal(await page.locator('iframe[title="Anna 网关管理页面"]').getAttribute('src'), 'http://127.0.0.1:17865/')
+  assert.match(await page.locator('iframe[title="Anna 网关管理页面"]').getAttribute('sandbox'), /allow-downloads/)
+  await page.getByRole('button', { name: '关闭服务工作台', exact: true }).click()
+  evidence.checks.push('Gateway: opens and closes the isolated in-app workbench without touching real services')
   // Anna's own body is what a fresh start shows; the anime form is one click away.
   if (!packaged) {
     assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), 'mesh')

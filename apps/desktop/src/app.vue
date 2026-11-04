@@ -18,6 +18,7 @@ import AgentsSheet from './components/agents-sheet.vue'
 import ApprovalCard from './components/approval-card.vue'
 import AvatarMaker from './components/avatar-maker.vue'
 import CapabilitiesSheet from './components/capabilities-sheet.vue'
+import GatewaySheet from './components/gateway-sheet.vue'
 import LifeSheet from './components/life-sheet.vue'
 import ModeSwitch from './components/mode-switch.vue'
 import ResultCard from './components/result-card.vue'
@@ -32,6 +33,7 @@ const snapshot = ref<RuntimeSnapshot>()
 const messages = ref<Message[]>([])
 const settingsOpen = ref(false)
 const sensesOpen = ref(false)
+const gatewayOpen = ref(false)
 // Always start muted, including a restart on a remote workstation.
 const voiceEnabled = ref(false)
 const speaking = ref(false)
@@ -421,6 +423,7 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
             <button @click="openFromMenu(() => { agentsOpen = true; run({ type: 'snapshot' }) })">外部 agent<small v-if="delegates">{{ delegates }}</small></button>
             <button @click="openFromMenu(() => makerOpen = true)">创造我的 {{ character.name }}</button>
             <button @click="openFromMenu(() => pluginsOpen = true)">外观与能力</button>
+            <button @click="openFromMenu(() => gatewayOpen = true)">服务工作台</button>
             <button @click="openFromMenu(() => settingsOpen = true)">模型与设置</button>
           </nav>
         </div>
@@ -534,6 +537,7 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
 
     <div v-if="weixinOpen" class="sheet-backdrop" @click.self="weixinOpen = false"><section class="sheet weixin-sheet" role="dialog" aria-modal="true" aria-label="微信连接"><div class="sheet-heading"><div><h2>在微信里给 {{ character.name }} 派活</h2><p class="muted">微信 → 我 → 设置 → 插件 → ClawBot</p></div><button class="icon-button" aria-label="关闭微信连接" @click="weixinOpen = false">×</button></div><img v-if="weixin.qr" class="weixin-qr" :src="weixin.qr" alt="微信 ClawBot 登录二维码"><p role="status">{{ weixin.message }}</p><form v-if="weixin.phase === 'need-code'" @submit.prevent="run({ type: 'weixin-code', code: verifyCode })"><input v-model="verifyCode" aria-label="微信验证码" inputmode="numeric"><button>提交验证码</button></form><button v-if="weixin.phase !== 'connected'" :disabled="weixin.phase === 'loading'" @click="run({ type: 'weixin-login' })">刷新登录二维码</button><button v-else @click="run({ type: 'weixin-disconnect' })">断开微信连接</button><p class="small muted">绑定后只响应扫码的账号。直接发任务即可；{{ character.name }} 忙时会排队并立即回执。微信任务始终按“谨慎”模式执行。<br>/status 看进度 · /stop 停止 · 授权请求回复 1 允许、0 拒绝（高风险操作仍需在桌面确认）。<br>Anna 需保持运行。</p></section></div>
     <SensesSheet v-if="sensesOpen" @close="sensesOpen = false" @transcript="text => { input = text; sensesOpen = false }" />
+    <GatewaySheet v-if="gatewayOpen" @close="gatewayOpen = false" />
     <LifeSheet v-if="settingsOpen || !snapshot.settings.onboardingComplete || snapshot.settings.firstTaskPending" :snapshot="snapshot" :busy="configuring || running" :error="error" @close="settingsOpen = false" @command="async command => { if (await run(command) && command.type === 'personality') settingsOpen = false }" />
     <AgentsSheet v-if="agentsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" @close="agentsOpen = false" @command="run" />
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />

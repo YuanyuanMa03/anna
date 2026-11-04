@@ -1,15 +1,26 @@
 import { Buffer } from 'node:buffer'
+import { spawn } from 'node:child_process'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { mkdir, open, readFile, unlink } from 'node:fs/promises'
+import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { dataDirectory, initialize, loadConfig } from '../../packages/gateway/config.mjs'
+import { BackendError } from '../../packages/gateway/backend.mjs'
+import { dataDirectory, initialize, loadConfig, validateConfig } from '../../packages/gateway/config.mjs'
 import { close, gatewayServer, json, listen } from '../../packages/gateway/server.mjs'
+import { workbenchServer } from '../../packages/gateway/workbench.mjs'
 
 const [command, ...args] = process.argv.slice(2)
-const validArgs = args.length === 0 || (args.length === 2 && args[0] === '--data-dir')
-const directory = resolve(args.length === 2 ? args[1] : dataDirectory())
+const options = new Map()
+let validArgs = args.length % 2 === 0
+for (let i = 0; i < args.length; i += 2) {
+  if (!['--data-dir', '--credentials'].includes(args[i]) || options.has(args[i]))
+    validArgs = false
+  options.set(args[i], args[i + 1])
+}
+if (options.has('--credentials') && command !== 'open')
+  validArgs = false
+const directory = resolve(options.get('--data-dir') || dataDirectory())
 const lockPath = join(directory, 'gateway.lock')
 const print = value => process.stdout.write(`${JSON.stringify(value)}\n`)
 
@@ -23,23 +34,72 @@ async function running() {
   return value
 }
 
-async function control(instance, path) {
+async function control(instance, path, body) {
   return fetch(`http://127.0.0.1:${instance.controlPort}${path}`, {
-    method: path === '/stop' ? 'POST' : 'GET',
-    headers: { authorization: `Bearer ${instance.token}` },
-    signal: AbortSignal.timeout(3000),
+    method: ['/stop', '/console-open'].includes(path) ? 'POST' : 'GET',
+    headers: { 'authorization': `Bearer ${instance.token}`, 'content-type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(path === '/console-open' ? 20_000 : 3000),
     redirect: 'error',
   })
 }
 
 async function start() {
-  const config = await loadConfig(directory)
+  let config = await loadConfig(directory)
   await mkdir(directory, { recursive: true, mode: 0o700 })
   let lock
   try { lock = await open(lockPath, 'wx', 0o600) }
   catch { throw new Error('无法独占数据目录。请运行 doctor 检查已有实例；异常退出留下的锁须核对后手动备份移走，不会自动杀进程。') }
   const token = randomBytes(32).toString('hex')
-  const gateway = gatewayServer(config, entry => print({ event: 'request', ...entry }))
+  const makeGateway = value => gatewayServer(value, entry => print({ event: 'request', ...entry }))
+  let gateway = makeGateway(config)
+  let port
+  let consolePort
+  let applying
+  const dataAddress = () => {
+    const host = config.host === '0.0.0.0' ? '127.0.0.1' : config.host === '::' ? '::1' : config.host
+    return `http://${host.includes(':') ? `[${host}]` : host}:${port}/v1`
+  }
+  const workbench = workbenchServer({
+    getConfig: () => config,
+    getDataAddress: dataAddress,
+    applyConfig: async (value) => {
+      if (applying)
+        throw new BackendError(409, '另一个连接变更正在进行。')
+      const next = validateConfig(value)
+      const previous = config
+      const previousPort = port
+      applying = (async () => {
+        await writeFile(join(directory, 'gateway.previous.json'), JSON.stringify(previous, null, 2), { mode: 0o600 })
+        await gateway.stop()
+        const replacement = makeGateway(next)
+        try {
+          const bound = await listen(replacement.server, next.host, next.port)
+          const temp = join(directory, 'gateway.json.pending')
+          let created = false
+          try {
+            await writeFile(temp, JSON.stringify(next, null, 2), { flag: 'wx', mode: 0o600 })
+            created = true
+            await rename(temp, join(directory, 'gateway.json'))
+          }
+          catch (error) {
+            if (created)
+              await unlink(temp).catch(() => {})
+            throw error
+          }
+          gateway = replacement; config = next; port = bound
+        }
+        catch {
+          await replacement.stop()
+          gateway = makeGateway(previous)
+          port = await listen(gateway.server, previous.host, previousPort)
+          throw new BackendError(400, '新地址或端口不可用，已恢复原监听；请修正后重试。')
+        }
+      })()
+      try { await applying }
+      finally { applying = undefined }
+    },
+  })
   const startedAt = new Date().toISOString()
   let stopping
   const management = createServer((request, response) => {
@@ -56,23 +116,39 @@ async function start() {
       json(response, 200, { stopping: true })
       setImmediate(() => void shutdown())
     }
+    else if (request.url === '/console-open' && request.method === 'POST') {
+      void (async () => {
+        const chunks = []
+        let size = 0
+        for await (const chunk of request) {
+          size += chunk.length; if (size > 8192)
+            throw new Error('Credentials too large'); chunks.push(chunk)
+        }
+        const source = Buffer.concat(chunks).toString()
+        const body = source ? JSON.parse(source) : {}
+        const code = body.username && body.password ? await workbench.bootstrap(body.username, body.password) : workbench.ownerCode()
+        json(response, 200, { url: `http://127.0.0.1:${consolePort}/${code ? `#open=${code}` : ''}` })
+      })().catch(() => json(response, 400, { error: '无法建立本机登录，请在工作台中登录。' }))
+    }
     else { json(response, 404, { error: '接口不存在。' }) }
   })
   async function shutdown() {
     stopping ??= (async () => {
-      await Promise.all([gateway.stop(), close(management)])
+      await applying?.catch(() => {})
+      await Promise.all([gateway.stop(), close(management), close(workbench.server)])
       await lock.close()
       await unlink(lockPath)
     })()
     return stopping
   }
   try {
-    const port = await listen(gateway.server, config.host, config.port)
+    port = await listen(gateway.server, config.host, config.port)
+    consolePort = await listen(workbench.server, '127.0.0.1', config.consolePort)
     const controlPort = await listen(management, '127.0.0.1', 0)
     await lock.writeFile(JSON.stringify({ pid: process.pid, startedAt, controlPort, token }))
     process.once('SIGINT', () => void shutdown())
     process.once('SIGTERM', () => void shutdown())
-    print({ event: 'ready', host: config.host, port, access: config.access, modelsStarted: false })
+    print({ event: 'ready', host: config.host, port, consoleURL: `http://127.0.0.1:${consolePort}/`, access: config.access, modelsStarted: false })
   }
   catch (error) {
     await shutdown()
@@ -134,11 +210,31 @@ try {
     }
   }
   else if (command === 'doctor') { await doctor() }
-  else { throw new Error('用法：node apps/gateway/cli.mjs <init|start|stop|doctor> [--data-dir <目录>]') }
+  else if (command === 'open') {
+    let credentials
+    if (options.has('--credentials')) {
+      const value = JSON.parse(await readFile(resolve(options.get('--credentials')), 'utf8'))
+      if (typeof value.admin_username !== 'string' || typeof value.admin_password !== 'string')
+        throw new Error('凭据文件格式不支持。')
+      credentials = { username: value.admin_username, password: value.admin_password }
+    }
+    const response = await control(await running(), '/console-open', credentials)
+    const value = await response.json()
+    if (!response.ok)
+      throw new Error('本机登录链接未创建，请手动打开工作台登录。')
+    const url = new URL(value.url)
+    if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1')
+      throw new Error('工作台地址无法验证。')
+    const [program, arguments_] = process.platform === 'darwin' ? ['/usr/bin/open', [url.href]] : process.platform === 'win32' ? ['rundll32.exe', ['url.dll,FileProtocolHandler', url.href]] : ['xdg-open', [url.href]]
+    const child = spawn(program, arguments_, { stdio: 'ignore' })
+    await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => code === 0 ? resolve() : reject(new Error('系统浏览器未打开，请访问本机工作台地址。'))) })
+    print({ opened: true, consoleURL: url.origin, modelsStarted: false })
+  }
+  else { throw new Error('用法：node apps/gateway/cli.mjs <init|start|stop|doctor|open> [--data-dir <目录>]') }
 }
 catch (error) {
   // Avoid dumping configuration, fetch internals, file contents or stack traces into shared logs.
-  const message = error.code === 'EEXIST' ? '配置已存在，未覆盖。' : error.code === 'ENOENT' ? '配置或实例记录不存在，请先运行 init / start。' : error.message
+  const message = error instanceof SyntaxError ? 'JSON 文件或响应格式无效；未输出其内容。' : error.code === 'EEXIST' ? '配置已存在，未覆盖。' : error.code === 'ENOENT' ? '配置或实例记录不存在，请先运行 init / start。' : error.message
   process.stderr.write(`Anna Gateway: ${message}\n`)
   process.exitCode = 1
 }
