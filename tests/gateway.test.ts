@@ -209,7 +209,7 @@ it('times out a stalled backend without retrying and cancels its connection', as
   // Fire the actual deadline callback after the backend receives the request, independent of machine speed.
   const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: Parameters<typeof setTimeout>[0], delay?: number, ...args: unknown[]) => {
     if (delay === 120_000)
-      expire = () => callback(...args)
+      expire = () => callback()
     return original(callback, delay, ...args)
   }) as typeof setTimeout)
   onTestFinished(() => timer.mockRestore())
