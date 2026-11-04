@@ -1,44 +1,6 @@
 name: Local hearing
+# Opt-in acceptance: downloads a real model and runs all three platforms.
 on:
-  push:
-    branches: [main, 'work/anna-senses-*']
-    paths:
-      - 'packages/senses/hearing*'
-      - apps/desktop/src/local-hearing.ts
-      - apps/desktop/src/hearing.worker.ts
-      - apps/desktop/src/components/capture-panel.vue
-      - apps/desktop/src/components/senses-sheet.vue
-      - apps/desktop/core.ts
-      - apps/desktop/main.ts
-      - apps/desktop/preload.ts
-      - packages/senses/model-store.ts
-      - packages/senses/contracts.ts
-      - tests/desktop-launch.mjs
-      - package.json
-      - pnpm-lock.yaml
-      - vite.config.ts
-      - scripts/prepare-hearing-fixture.mjs
-      - tests/accept-local-hearing.mjs
-      - .github/workflows/local-hearing.yml
-  pull_request:
-    paths:
-      - 'packages/senses/hearing*'
-      - apps/desktop/src/local-hearing.ts
-      - apps/desktop/src/hearing.worker.ts
-      - apps/desktop/src/components/capture-panel.vue
-      - apps/desktop/src/components/senses-sheet.vue
-      - apps/desktop/core.ts
-      - apps/desktop/main.ts
-      - apps/desktop/preload.ts
-      - packages/senses/model-store.ts
-      - packages/senses/contracts.ts
-      - tests/desktop-launch.mjs
-      - package.json
-      - pnpm-lock.yaml
-      - vite.config.ts
-      - scripts/prepare-hearing-fixture.mjs
-      - tests/accept-local-hearing.mjs
-      - .github/workflows/local-hearing.yml
   workflow_dispatch:
 permissions:
   contents: read

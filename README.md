@@ -232,6 +232,8 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ## Development
 
+The optional [Anna Gateway data entrypoint](docs/gateway-deployment.md) runs separately with native Node.js 24+, without installing Electron or model runtimes. It connects an existing New API backend; the integrated service workbench is still planned. Windows, macOS and Linux use the same commands, with target-platform acceptance tracked separately.
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm assets          # download her Live2D model (not in Git, see NOTICE.md)

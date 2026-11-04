@@ -1,8 +1,6 @@
 name: CI
+# Run a stable candidate after local review/preflight, rather than on every push or PR update.
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

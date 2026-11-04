@@ -110,6 +110,8 @@ importers:
 
   apps/desktop: {}
 
+  apps/gateway: {}
+
 packages:
 
   '@antfu/eslint-config@5.4.1':
