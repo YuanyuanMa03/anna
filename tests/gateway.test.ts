@@ -205,7 +205,7 @@ it('times out a stalled backend without retrying and cancels its connection', as
   const f = await fixture((_request, response) => { response.on('close', () => { cancelled = true }) })
   const original = globalThis.setTimeout
   // Shorten only the production deadline; leave socket operations and test polling on real timers.
-  const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback, delay, ...args) => original(callback, delay === 120_000 ? 30 : delay, ...args)) as typeof setTimeout)
+  const timer = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: Parameters<typeof setTimeout>[0], delay?: number, ...args: unknown[]) => original(callback, delay === 120_000 ? 30 : delay, ...args)) as typeof setTimeout)
   onTestFinished(() => timer.mockRestore())
   const response = await post(f.url)
   expect(response.status).toBe(504)

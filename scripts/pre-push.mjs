@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import process from 'node:process'
 
 const refs = readFileSync(0, 'utf8').trim().split('\n').filter(Boolean).map(line => line.split(/\s+/))
-const updates = refs.filter(([ref, sha]) => !/^0+$/.test(sha) && (ref.startsWith('refs/heads/') || ref.startsWith('refs/tags/v')))
+// Git may name the local source HEAD or a SHA; validation follows the remote destination.
+const updates = refs.filter(([, sha, ref]) => !/^0+$/.test(sha) && (ref.startsWith('refs/heads/') || ref.startsWith('refs/tags/v')))
 if (updates.length) {
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
   for (const [, sha] of updates) {

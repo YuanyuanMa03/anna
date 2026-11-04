@@ -17,7 +17,7 @@ async function fixture() {
   git('add', '.')
   git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture')
   const head = git('rev-parse', 'HEAD')
-  const run = (ref: string, sha = head, exit = '0') => spawnSync(process.execPath, [hook], { cwd: dir, input: `${ref} ${sha} ${ref} ${'0'.repeat(40)}\n`, encoding: 'utf8', env: { ...process.env, FIXTURE_EXIT: exit } })
+  const run = (ref: string, sha = head, exit = '0', destination = ref) => spawnSync(process.execPath, [hook], { cwd: dir, input: `${ref} ${sha} ${destination} ${'0'.repeat(40)}\n`, encoding: 'utf8', env: { ...process.env, FIXTURE_EXIT: exit } })
   return { dir, head, git, run }
 }
 it('runs validation for the exact clean commit and propagates failed checks', async () => {
@@ -45,4 +45,10 @@ it('allows branch deletion and archival tags without validating an unrelated che
   expect(run('refs/heads/old', '0'.repeat(40)).status).toBe(0)
   expect(run('refs/tags/archive/old')).toHaveProperty('status', 0)
   expect(existsSync(join(dir, 'validated'))).toBe(false)
+})
+it('validates HEAD and explicit SHA pushes based on their remote branch destination', async () => {
+  const { run, head, dir } = await fixture()
+  expect(run('HEAD', head, '7', 'refs/heads/feature').status).toBe(7)
+  expect(existsSync(join(dir, 'validated'))).toBe(true)
+  expect(run(head, head, '0', 'refs/heads/feature').status).toBe(0)
 })
