@@ -46,7 +46,7 @@ describe('production dependency staging', () => {
       const archive = join(root, 'fixture.asar')
       await createPackageWithOptions(join(root, 'runtime'), archive, {})
       expect(listPackage(archive, { isPack: false }).some(path => path.includes('typescript'))).toBe(false)
-      expect(extractFile(archive, 'node_modules/a/index.cjs').toString()).toBe('module.exports = require(\'shared\')')
+      expect(extractFile(archive, join('node_modules', 'a', 'index.cjs')).toString()).toBe('module.exports = require(\'shared\')')
       expect(await readFile(join(output, 'a/LICENSE'), 'utf8')).toContain('Synthetic fixture')
     }
     finally { await rm(root, { recursive: true, force: true }) }
