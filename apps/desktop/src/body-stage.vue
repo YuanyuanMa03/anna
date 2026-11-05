@@ -6,11 +6,11 @@ import type { AnnaPhase, PermissionMode } from '../../../packages/shared/contrac
 import type { Anchors } from './character-stage.vue'
 import { loadMeshAvatar, openAvatar } from 'mesh-avatar'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt, voiceAt } from '../../../packages/character/body'
+import { aim, BodyDirector, bodyRegions, frameBody, headPoint, regionAt } from '../../../packages/character/body'
 import { followBodyLook, stabilizeBodyRig } from '../../../packages/character/body-rig'
 import { Director, gestureForModeChange } from '../../../packages/character/director'
 
-const props = withDefaults(defineProps<{ body: Pick<NonNullable<Companion['body']>, 'crop' | 'hands'> & { path?: string, archive?: Blob }, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, listening: false, align: 0.5 })
+const props = withDefaults(defineProps<{ body: Pick<NonNullable<Companion['body']>, 'crop' | 'hands'> & { path?: string, archive?: Blob }, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, voiceLevel?: number, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, voiceLevel: 0, listening: false, align: 0.5 })
 /** `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` says why the body cannot be shown. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason: string] }>()
 const element = ref<HTMLDivElement>()
@@ -39,11 +39,9 @@ let observer: ResizeObserver | undefined
 let frame = 0
 let disposed = false
 let gestureUntil = 0
-let talking = false
-let talkStart = 0
 let weight = 0
 const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
-const pointer = { x: 0, y: 0, at: performance.now() }
+const pointer = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY }
 let activeAt = performance.now()
 let lastFrameAt = performance.now()
 let pokeTimer: number | undefined
@@ -91,10 +89,13 @@ function track(event: PointerEvent) {
     return
   pointer.x = event.clientX - rect.left
   pointer.y = event.clientY - rect.top
-  pointer.at = activeAt = performance.now()
+  activeAt = performance.now()
+  const region = element.value!.contains(event.target as Node) && touched(pointer.x, pointer.y)
+  pointer.at = region ? activeAt : Number.NEGATIVE_INFINITY
   // Her outline, not the empty canvas around her, is what can be touched.
-  element.value!.style.cursor = touched(pointer.x, pointer.y) ? 'pointer' : 'default'
+  element.value!.style.cursor = region ? 'pointer' : 'default'
 }
+function unfollow() { pointer.at = Number.NEGATIVE_INFINITY }
 /** Typing, or coming back to the window (animation frames pause while it is hidden), counts as being with her. */
 function stir() { activeAt = performance.now() }
 function returned() {
@@ -141,20 +142,10 @@ function tick() {
   weight += ((next.look === 'free' ? 0 : motion.value ? 0.3 : 0.8) - weight) * 0.08
   avatar.setParameters(look, weight)
 
-  // Without audio to listen to, her mouth follows the rhythm of speech while text streams in or is read aloud.
-  if (props.speaking && !reduced.matches) {
-    if (!talking) {
-      talking = true
-      talkStart = now
-      avatar.setSpeaking(true)
-    }
-    avatar.setVoiceLevel(voiceAt((now - talkStart) / 1000))
-  }
-  else if (talking) {
-    talking = false
-    avatar.setVoiceLevel(0)
-    avatar.setSpeaking(false)
-  }
+  // Only actual playback drives the mouth; silence and text streaming keep it closed.
+  const talking = props.speaking && !reduced.matches
+  avatar.setSpeaking(talking)
+  avatar.setVoiceLevel(talking ? props.voiceLevel : 0)
 
   if (++frame % 6 === 0 && element.value) {
     const rect = element.value.getBoundingClientRect()
@@ -179,6 +170,8 @@ onMounted(async () => {
   observer = new ResizeObserver(layout)
   observer.observe(element.value!)
   window.addEventListener('pointermove', track)
+  window.addEventListener('blur', unfollow)
+  document.addEventListener('pointerleave', unfollow)
   window.addEventListener('keydown', stir)
   document.addEventListener('visibilitychange', returned)
   director.update(props.phase, performance.now())
@@ -232,6 +225,8 @@ onBeforeUnmount(() => {
   disposed = true
   window.clearTimeout(pokeTimer)
   window.removeEventListener('pointermove', track)
+  window.removeEventListener('blur', unfollow)
+  document.removeEventListener('pointerleave', unfollow)
   window.removeEventListener('keydown', stir)
   document.removeEventListener('visibilitychange', returned)
   observer?.disconnect()
@@ -246,7 +241,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="element" class="model-canvas body-stage" data-renderer="mesh" :data-avatar="body.archive ? 'mine' : 'hers'" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :data-motion="motion" :data-expression="expression" @click="event => touch(event, false)" @dblclick="event => touch(event, true)">
+  <div ref="element" class="model-canvas body-stage" data-renderer="mesh" :data-avatar="body.archive ? 'mine' : 'hers'" :data-state="state" :data-performed="performed" :data-mode="mode" :data-gesture="playing" :data-motion="motion" :data-expression="expression" :data-speaking="speaking" :data-voice-level="speaking ? voiceLevel : 0" @click="event => touch(event, false)" @dblclick="event => touch(event, true)">
     <canvas ref="canvas" :style="{ left: `${placement.left}px`, top: `${placement.top}px`, width: `${placement.width}px`, height: `${placement.height}px` }" />
     <p v-if="state === 'loading'" class="stage-loading" role="status">正在唤醒 {{ name }}…</p>
   </div>

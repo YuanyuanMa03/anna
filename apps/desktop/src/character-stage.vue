@@ -11,7 +11,7 @@ import { fitStage } from '../../../packages/character/manifest'
 
 /** `clearance` is how far her head and hair extend sideways from her mouth, in viewport pixels, when the stage knows it. */
 export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number, y: number }, clearance?: number }
-const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, zoom: 1, align: 0.5 })
+const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, voiceLevel?: number, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, voiceLevel: 0, zoom: 1, align: 0.5 })
 /** `anchors` reports where her mouth and her outward hand are on screen (viewport pixels), a few times a second. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors] }>()
 const element = ref<HTMLDivElement>()
@@ -91,8 +91,7 @@ function perform() {
   core.setParameterValueById('ParamCheek', Math.max(0, smile - 0.6))
   for (const name of ['ParamEyeLOpen', 'ParamEyeROpen'])
     core.multiplyParameterValueById(name, pose.eyeOpen)
-  if (props.speaking)
-    core.setParameterValueById('ParamMouthOpenY', 0.25 + Math.abs(Math.sin(t * 11)) * 0.45 + Math.sin(t * 23) * 0.08)
+  core.setParameterValueById('ParamMouthOpenY', props.speaking ? Math.max(0, Math.min(1, props.voiceLevel)) * 0.65 : 0)
 }
 
 async function load() {

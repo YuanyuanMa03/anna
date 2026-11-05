@@ -37,7 +37,8 @@ const gatewayOpen = ref(false)
 // Always start muted, including a restart on a remote workstation.
 const voiceEnabled = ref(false)
 const speaking = ref(false)
-const voicePlayer = modelSpeech(request => window.anna.senses(request), (value) => { speaking.value = value })
+const voiceLevel = ref(0)
+const voicePlayer = modelSpeech(request => window.anna.senses(request), (value) => { speaking.value = value }, (value) => { voiceLevel.value = value })
 function toggleVoice() {
   voiceEnabled.value = !voiceEnabled.value
   if (!voiceEnabled.value)
@@ -60,7 +61,6 @@ const stream = ref('')
 const tools = ref<ToolActivity[]>([])
 const anna = ref<AnnaState>({ phase: 'offline', line: '', step: 0 })
 const modeLine = ref<{ text: string, at: number }>()
-const streamingAt = ref(0)
 const now = ref(Date.now())
 const history = ref<HTMLDivElement>()
 const bubble = ref<HTMLDivElement>()
@@ -160,8 +160,6 @@ const subtitle = computed(() => {
 const subtitleAt = ref(Date.now())
 watch(subtitle, () => { subtitleAt.value = Date.now() })
 const quiet = computed(() => !running.value && !speaking.value && now.value - subtitleAt.value > 15_000 && Boolean(messages.value.length))
-/** Mouth moves while text streams in, while reading aloud, or while greeting a mode change. */
-const mouth = computed(() => speaking.value || (anna.value.phase === 'responding' && now.value - streamingAt.value < 400) || Boolean(modeLine.value && now.value - modeLine.value.at < 1600))
 const callTools = computed(() => tools.value.filter(tool => tool.phase === 'call'))
 const resultFor = (callId: string) => tools.value.find(tool => tool.phase === 'result' && tool.callId === callId)
 const workspaceName = computed(() => snapshot.value?.workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? '工作区')
@@ -347,7 +345,7 @@ onMounted(async () => {
       case 'snapshot': accept(event.snapshot); break
       case 'tool': tools.value.push(event); break
       case 'anna': anna.value = event.state; break
-      case 'stream': stream.value = event.text; streamingAt.value = Date.now(); break
+      case 'stream': stream.value = event.text; break
       case 'result':
         if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply)
           void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message })
@@ -433,8 +431,8 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
     <section class="scene" :data-form="usesBody ? 'body' : 'anime'" :aria-label="`${character.name} 的舞台`">
       <div class="stage">
         <div class="stage-halo" />
-        <BodyStage v-if="avatarChecked && usesBody" :key="form === 'mine' ? `mine-${mineVersion}` : form" :body="shownBody!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="mouth" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
-        <CharacterStage v-else-if="avatarChecked" :character="character" :phase="anna.phase" :mode="mode" :speaking="mouth" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
+        <BodyStage v-if="avatarChecked && usesBody" :key="form === 'mine' ? `mine-${mineVersion}` : form" :body="shownBody!" :name="character.name" :phase="anna.phase" :mode="mode" :speaking="speaking" :voice-level="voiceLevel" :listening="listening" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" @unavailable="bodyUnavailable" />
+        <CharacterStage v-else-if="avatarChecked" :character="character" :phase="anna.phase" :mode="mode" :speaking="speaking" :voice-level="voiceLevel" :zoom="1.7" :align="0.5" :cue="cue" @poke="drawer = 'work'" @anchors="onAnchors" />
         <div class="status-ribbon" role="status" :data-phase="anna.phase"><em class="mode-badge" :data-mode="mode">{{ modes[mode].label }}</em><i />{{ phaseLabels[anna.phase] }}<span v-if="anna.line">· {{ anna.line }}</span><b v-if="running && anna.step">第 {{ anna.step }} 步</b></div>
       </div>
 

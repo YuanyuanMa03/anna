@@ -30,6 +30,8 @@ jobs:
             artifact: |
               dist/windows/Anna-*-windows-x64.zip
               dist/windows/Anna-Setup-windows-x64.exe
+              dist/windows/*.sha256
+              dist/windows/package-report.json
           - os: ubuntu-24.04
             key: linux-x64
             script: package:linux
@@ -74,6 +76,11 @@ jobs:
         shell: pwsh
         run: if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) { choco install nsis -y --no-progress }
       - run: pnpm ${{ matrix.installer }}
+      - name: Test the Windows packaged desktop
+        if: runner.os == 'Windows'
+        env:
+          ANNA_PACKAGED_APP: ${{ github.workspace }}\dist\windows\Anna
+        run: pnpm test:scripted
       # Install each installer the way a user would (silently here), check what lands where, then remove it again.
       - name: Test the DMG (macOS)
         if: runner.os == 'macOS'

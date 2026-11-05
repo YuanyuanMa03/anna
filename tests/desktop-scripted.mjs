@@ -53,11 +53,14 @@ const voiceServer = createServer((req, res) => {
   }
   if (req.url !== '/v1/audio/speech' || req.method !== 'POST') { res.writeHead(404); res.end(); return }
   req.resume()
-  const wav = Buffer.alloc(364)
-  wav.write('RIFF'); wav.writeUInt32LE(356, 4); wav.write('WAVEfmt ', 8)
+  // Synthetic one-second WAV: silence, a tone, then silence. Never play to a physical output.
+  const wav = Buffer.alloc(32044)
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8)
   wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22)
   wav.writeUInt32LE(16000, 24); wav.writeUInt32LE(32000, 28)
-  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(320, 40)
+  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(32000, 40)
+  for (let sample = 3200; sample < 9600; sample++)
+    wav.writeInt16LE(Math.round(Math.sin(sample * Math.PI * 2 * 220 / 16000) * 8000), 44 + sample * 2)
   res.writeHead(200, { 'Content-Type': 'audio/wav' }); res.end(wav)
 })
 await new Promise(resolve => voiceServer.listen(0, '127.0.0.1', resolve))
@@ -177,14 +180,46 @@ try {
   await page.getByRole('button', { name: '关闭设置', exact: true }).click()
   evidence.checks.push('Brain cards: pi is selected; catalogued agents remain visible even when unavailable')
 
+  // Real Chromium decoding + app/Host wiring, with playback events and time controlled silently.
+  assert.equal((await page.evaluate(baseURL => window.anna.senses({ type: 'voice-configure', config: { baseURL, model: 'fixture-tts', voice: 'fixture' }, key: '' }), `http://127.0.0.1:${voicePort}/v1`)).ok, true)
+  await page.evaluate(() => {
+    const state = { original: window.Audio, player: undefined }
+    window.__annaAudioFixture = state
+    window.Audio = class {
+      currentTime = 0
+      constructor() { state.player = this }
+      async play() { this.onplaying?.() }
+      pause() { this.onpause?.() }
+      removeAttribute() {}
+    }
+  })
+  await page.getByRole('button', { name: '开启模型语音', exact: true }).click()
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('你好')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
   await until(page, s => s.state === 'ready' && s.messages?.length === 2, 'greeting')
+  await page.locator('.body-stage[data-speaking="true"]').waitFor()
+  assert.equal(Number(await page.locator('.body-stage').getAttribute('data-voice-level')), 0)
+  await page.evaluate(() => { window.__annaAudioFixture.player.currentTime = 0.3 })
+  await page.waitForFunction(() => Number(document.querySelector('.body-stage').dataset.voiceLevel) > 0.3)
+  await page.evaluate(() => { window.__annaAudioFixture.player.currentTime = 0.8 })
+  await page.waitForFunction(() => Number(document.querySelector('.body-stage').dataset.voiceLevel) === 0)
+  await page.getByRole('button', { name: '停止说话', exact: true }).click()
+  await page.locator('.body-stage[data-speaking="false"][data-voice-level="0"]').waitFor()
+  await page.evaluate(() => {
+    window.__annaAudioFixture.player.onplaying?.()
+    window.Audio = window.__annaAudioFixture.original
+    delete window.__annaAudioFixture
+  })
+  assert.equal(await page.locator('.body-stage').getAttribute('data-speaking'), 'false')
+  await page.getByRole('button', { name: '关闭模型语音', exact: true }).click()
+  evidence.checks.push('Mouth: real offline decoding of synthetic WAV follows the controlled playback clock, silence closes it, stop ignores late events; audio playback is mocked and no speakers are used')
 
   // Switch to ask mode: Anna tilts her head (stricter) and greets the change.
   await page.locator('.mode-switch button[data-mode="ask"]').click()
   await page.locator('.model-canvas[data-mode="ask"][data-gesture="tilt"]').waitFor({ timeout: 3000 })
   await page.locator('.bubble').getByText('每次要动手之前我都会先问你').waitFor()
+  assert.equal(await page.locator('.body-stage').getAttribute('data-speaking'), 'false')
+  assert.equal(Number(await page.locator('.body-stage').getAttribute('data-voice-level')), 0)
   await page.screenshot({ path: 'artifacts/scripted-mode-ask.png' })
   evidence.checks.push('Mode change: stance + tilt gesture + greeting caption')
 
