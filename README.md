@@ -232,7 +232,7 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ## Development
 
-The optional [Anna Gateway](docs/gateway-deployment.md) runs separately with native Node.js 24+, without installing Electron or model runtimes. Its [service workbench](docs/gateway-workbench.md) is shared by the browser and Anna’s “更多 → 服务工作台” menu, using an existing New API backend. Windows, macOS and Linux use the same commands, with target-platform acceptance tracked separately.
+[Voice conversation](docs/voice.md) connects directly to local speech services or cloud APIs, with independent recognition and synthesis settings. The desktop package needs no New API, gateway, Python or model weights to start. Camera, screen observation and the service workbench have been removed; existing brains, tools and memories remain available.
 
 ```bash
 pnpm install --frozen-lockfile

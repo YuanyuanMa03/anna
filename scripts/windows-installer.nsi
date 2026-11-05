@@ -13,7 +13,7 @@ ManifestDPIAware true
 !define APPDIR "$LOCALAPPDATA\Programs\Anna"
 !define UNINSTDIR "$LOCALAPPDATA\Programs\Anna Uninstaller"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna"
-!define ICON "${APPDIR}\resources\app\dist\renderer\anna.ico"
+!define ICON "${APPDIR}\resources\anna.ico"
 
 Name "Anna"
 OutFile "${OUTFILE}"
@@ -26,8 +26,8 @@ VIAddVersionKey /LANG=0 "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=0 "FileDescription" "Anna Setup"
 VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright (c) 2026 Anna contributors"
 
-!define MUI_ICON "${SOURCE}\resources\app\dist\renderer\anna.ico"
-!define MUI_UNICON "${SOURCE}\resources\app\dist\renderer\anna.ico"
+!define MUI_ICON "${SOURCE}\resources\anna.ico"
+!define MUI_UNICON "${SOURCE}\resources\anna.ico"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Anna.exe"
 

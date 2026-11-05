@@ -25,7 +25,11 @@ class LocalSpeechTest(unittest.TestCase):
             self.release.wait(3)
             return SimpleNamespace(samples=np.array([0.0, 0.25, -0.25]), sample_rate=24000)
 
-        self.server = create_server(SimpleNamespace(generate=generate, num_speakers=103, sample_rate=24000), 0)
+        self.recognized = []
+        def create_stream():
+            return SimpleNamespace(accept_waveform=lambda rate, samples: self.recognized.append((rate, samples.copy())), result=SimpleNamespace(text="合成识别结果"))
+        recognizer = SimpleNamespace(create_stream=create_stream, decode_stream=lambda stream: None)
+        self.server = create_server(SimpleNamespace(generate=generate, num_speakers=103, sample_rate=24000), 0, recognizer)
         self.thread = Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.url = f"http://127.0.0.1:{self.server.server_port}"
@@ -84,6 +88,36 @@ class LocalSpeechTest(unittest.TestCase):
             worker.join(3)
         self.assertFalse(worker.is_alive())
         self.assertEqual(len(self.calls), 1)
+
+    def test_synthetic_wav_transcription_and_model_listing(self):
+        audio = io.BytesIO()
+        with wave.open(audio, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(np.array([0, 8192, -8192], dtype="<i2").tobytes())
+        boundary = "anna-test-boundary"
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nparaformer-local\r\n"
+                f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"synthetic.wav\"\r\nContent-Type: audio/wav\r\n\r\n").encode() + audio.getvalue() + f"\r\n--{boundary}--\r\n".encode()
+        request = Request(self.url + "/v1/audio/transcriptions", body, {"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urlopen(request, timeout=5) as response:
+            self.assertEqual(json.load(response), {"text": "合成识别结果"})
+        self.assertEqual(len(self.recognized), 1)
+        self.assertEqual(self.recognized[0][0], 16000)
+        np.testing.assert_array_equal(self.recognized[0][1], np.array([0, 0.25, -0.25], dtype=np.float32))
+        with urlopen(self.url + "/v1/models", timeout=2) as response:
+            self.assertEqual([model["id"] for model in json.load(response)["data"]], ["kokoro-local", "paraformer-local"])
+
+    def test_invalid_transcription_never_runs_model(self):
+        for body, content_type, extra, status in [(b"{}", "application/json", {}, 415),
+                                                  (b"garbage", "multipart/form-data; boundary=test", {}, 400),
+                                                  (b"garbage", "multipart/form-data; boundary=test", {"Origin": "https://example.com"}, 403)]:
+            request = Request(self.url + "/v1/audio/transcriptions", body, {"Content-Type": content_type, **extra})
+            with self.assertRaises(HTTPError) as error:
+                urlopen(request, timeout=5)
+            self.assertEqual(error.exception.code, status)
+            error.exception.close()
+        self.assertEqual(self.recognized, [])
 
 
 if __name__ == "__main__":

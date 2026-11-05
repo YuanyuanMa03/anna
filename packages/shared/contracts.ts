@@ -2,7 +2,7 @@ import type { AgentTier } from '../agents/catalog'
 import type { CharacterId } from '../character/manifest'
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
-import type { SenseReply, SenseRequest } from '../senses/contracts'
+import type { VoiceReply, VoiceRequest } from '../voice/contracts'
 import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
 
 export type { PermissionMode } from '../permissions/modes'
@@ -323,11 +323,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
 export type Reply = { ok: true, snapshot: RuntimeSnapshot } | { ok: false, error: string }
 export const command = defineInvokeEventa<Reply, { command: Command }>('anna:command')
 export const runtimeEvent = defineEventa<AnnaEvent>('anna:event')
-export type GatewayReply = { ok: true, url: string } | { ok: false, error: string }
-export const gatewayCommand = defineInvokeEventa<GatewayReply, void>('anna:gateway')
 export interface AnnaBridge {
-  gateway: () => Promise<GatewayReply>
-  senses: (request: SenseRequest) => Promise<SenseReply>
+  voice: (request: VoiceRequest) => Promise<VoiceReply>
   invoke: (command: Command) => Promise<Reply>
   subscribe: (listener: (event: AnnaEvent) => void) => () => void
 }

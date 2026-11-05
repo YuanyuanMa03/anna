@@ -1,9 +1,9 @@
-import type { SenseReply, SenseRequest } from '../../../packages/senses/contracts'
-import { SpeechSession } from '../../../packages/senses/speech'
+import type { VoiceReply, VoiceRequest } from '../../../packages/voice/contracts'
+import { SpeechSession } from '../../../packages/voice/speech'
 import { decodeSpeechEnvelope, envelopeStep } from './speech-envelope'
 
 /** Only model-generated audio reaches this player. No browser/OS speech synthesis. */
-export function modelSpeech(invoke: (request: SenseRequest) => Promise<SenseReply>, onSpeaking: (value: boolean) => void, onLevel: (value: number) => void = () => {}) {
+export function modelSpeech(invoke: (request: VoiceRequest) => Promise<VoiceReply>, onSpeaking: (value: boolean) => void, onLevel: (value: number) => void = () => {}) {
   let audio: HTMLAudioElement | undefined
   let url: string | undefined
   let finish: (() => void) | undefined

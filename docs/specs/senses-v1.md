@@ -1,3 +1,5 @@
+> Historical specification: retired on 2026-11-05. The current desktop scope is documented in [voice conversation](../voice.md). Camera/screen/vision and the local gateway/workbench are removed. Historical evidence below is preserved.
+
 # Anna 感官首版：AIRI 复用与实现边界
 
 状态：开发中，分支 `work/anna-senses-v1-20261103`；完整感官体验尚未端到端验收。2026-11-04。

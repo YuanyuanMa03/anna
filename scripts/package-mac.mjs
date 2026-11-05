@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { stageRuntime } from './stage-runtime.mjs'
 
 /** Stage the production dependency closure and a complete Electron application. No user data enters the bundle. */
 async function main() {
@@ -12,25 +13,15 @@ async function main() {
   const root = process.cwd()
   const output = resolve('dist/macos')
   const app = join(output, 'Anna.app')
-  const stage = resolve('.data/macos-stage')
   const icon = resolve('.data/Anna.iconset')
   execFileSync('pnpm', ['build'], { stdio: 'inherit' })
   await mkdir(output, { recursive: true })
-  await rm(stage, { recursive: true, force: true })
-  execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', stage], { stdio: 'inherit' })
   await rm(app, { recursive: true, force: true })
   execFileSync('/usr/bin/ditto', [resolve(dirname(electron), '../..'), app])
   const resources = join(app, 'Contents/Resources')
   await rm(join(resources, 'default_app.asar'), { force: true })
-  const runtime = join(resources, 'app')
-  await mkdir(runtime, { recursive: true })
-  await cp(join(stage, 'node_modules'), join(runtime, 'node_modules'), { recursive: true, verbatimSymlinks: true })
-  for (const path of ['dist/host', 'dist/renderer', 'plugins/anna-persona/persona.md', 'LICENSE', 'NOTICE.md']) {
-    await mkdir(dirname(join(runtime, path)), { recursive: true })
-    await cp(join(root, path), join(runtime, path), { recursive: true })
-  }
   const original = JSON.parse(await readFile('package.json', 'utf8'))
-  await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'anna', productName: 'Anna', version: original.version, private: true, type: 'module', main: 'dist/host/apps/desktop/main.js', dependencies: original.dependencies }, null, 2))
+  const runtimeReport = await stageRuntime(root, resources)
   await rm(icon, { recursive: true, force: true })
   execFileSync('/usr/bin/swift', [join(root, 'scripts/make-icon.swift'), icon])
   execFileSync('/usr/bin/iconutil', ['-c', 'icns', icon, '-o', join(resources, 'anna.icns')])
@@ -42,7 +33,7 @@ p=app/'Contents/Info.plist'; d=plistlib.loads(p.read_bytes())
 d.update(CFBundleDisplayName='Anna',CFBundleName='Anna',CFBundleIdentifier='com.yuanyuanma.anna',CFBundleExecutable='Anna',CFBundleIconFile='anna.icns',CFBundleShortVersionString=version,CFBundleVersion=version,LSApplicationCategoryType='public.app-category.lifestyle',NSHumanReadableCopyright='Copyright © 2026 YuanyuanMa03',CFBundleURLTypes=[{'CFBundleURLName':'Anna import link','CFBundleURLSchemes':['anna']}])
 for k in list(d):
  if k.endswith('UsageDescription') or k=='ElectronAsarIntegrity':d.pop(k)
-d.update(NSMicrophoneUsageDescription='仅在你开启录音时供 Anna 在本机识别语音。',NSCameraUsageDescription='仅在你开启摄像头时供 Anna 查看你选择的画面。')
+d.update(NSMicrophoneUsageDescription='仅在你开启录音时供 Anna 通过所选本地服务或云端 API 识别语音。')
 p.write_bytes(plistlib.dumps(d))
 (app/'Contents/MacOS/Electron').rename(app/'Contents/MacOS/Anna')
 for p in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):
@@ -73,7 +64,7 @@ for p in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):
   execFileSync('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip])
   const digest = createHash('sha256').update(await readFile(zip)).digest('hex')
   await writeFile(`${zip}.sha256`, `${digest}  ${basename(zip)}\n`)
-  const report = { app, zip, sha256: digest, version: original.version, arch: process.arch, electron: '44.7.0', runtime: 'pi', signing: signing.signing, certificate: signing.certificate, notarized: false, containedSymlinks: links }
+  const report = { app, zip, sha256: digest, version: original.version, arch: process.arch, electron: '44.7.0', runtime: 'pi', signing: signing.signing, certificate: signing.certificate, notarized: false, containedSymlinks: links, ...runtimeReport }
   await writeFile(join(output, 'package-report.json'), JSON.stringify(report, null, 2))
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
 }

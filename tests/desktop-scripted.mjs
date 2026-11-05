@@ -36,19 +36,14 @@ await writeFile(script, JSON.stringify([
 await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, onboardingComplete: true, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'scripted', baseURL: 'https://scripted.invalid', api: 'openai-completions' }, workspaces: {} }))
 const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_ACP: '1', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
-let visionReads = 0
+let recognitionReads = 0
 const voiceServer = createServer((req, res) => {
-  if (req.url === '/v1/chat/completions' && req.method === 'POST') {
-    visionReads++
-    let body = ''
-    req.on('data', (chunk) => { body += chunk })
-    req.on('end', () => {
-      const request = JSON.parse(body)
-      assert.match(request.messages[1].content[1].image_url.url, /^data:image\/jpeg;base64,/)
-      assert.equal(request.tools, undefined)
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ choices: [{ message: { content: '测试画面中有一个深色矩形。' } }] }))
-    })
+  if (req.url === '/v1/audio/transcriptions' && req.method === 'POST') {
+    recognitionReads++
+    assert.match(req.headers['content-type'], /^multipart\/form-data; boundary=/)
+    assert.equal(req.headers.authorization, 'Bearer fixture-asr-key')
+    req.resume()
+    req.on('end', () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ text: '合成录音用于验证语音链路。' })) })
     return
   }
   if (req.url !== '/v1/audio/speech' || req.method !== 'POST') { res.writeHead(404); res.end(); return }
@@ -95,16 +90,9 @@ try {
     evidence.checks.push(`Chromium sandbox ${sandboxed ? 'on' : 'off'}, as expected`)
   }
   const page = await desktop.firstWindow()
-  await page.route('http://127.0.0.1:17865/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Gateway fixture</title><p>Gateway fixture</p>' }))
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
-  await menu(page, '服务工作台')
-  await page.getByRole('dialog', { name: 'Anna 服务工作台' }).waitFor()
-  assert.equal(await page.locator('iframe[title="Anna 网关管理页面"]').getAttribute('src'), 'http://127.0.0.1:17865/')
-  assert.match(await page.locator('iframe[title="Anna 网关管理页面"]').getAttribute('sandbox'), /allow-downloads/)
-  await page.getByRole('button', { name: '关闭服务工作台', exact: true }).click()
-  evidence.checks.push('Gateway: opens and closes the isolated in-app workbench without touching real services')
   // Anna's own body is what a fresh start shows; the anime form is one click away.
   if (!packaged) {
     assert.equal(await page.locator('.model-canvas').getAttribute('data-renderer'), 'mesh')
@@ -181,7 +169,7 @@ try {
   evidence.checks.push('Brain cards: pi is selected; catalogued agents remain visible even when unavailable')
 
   // Real Chromium decoding + app/Host wiring, with playback events and time controlled silently.
-  assert.equal((await page.evaluate(baseURL => window.anna.senses({ type: 'voice-configure', config: { baseURL, model: 'fixture-tts', voice: 'fixture' }, key: '' }), `http://127.0.0.1:${voicePort}/v1`)).ok, true)
+  assert.equal((await page.evaluate(baseURL => window.anna.voice({ type: 'voice-configure', config: { baseURL, model: 'fixture-tts', voice: 'fixture' }, key: '' }), `http://127.0.0.1:${voicePort}/v1`)).ok, true)
   await page.evaluate(() => {
     const state = { original: window.Audio, player: undefined }
     window.__annaAudioFixture = state
@@ -463,171 +451,68 @@ try {
   }
   assert.equal(await page.getByRole('button', { name: '开启模型语音', exact: true }).getAttribute('aria-pressed'), 'false')
   // A loopback fake validates the entire renderer → preload → Main → Core → audio response chain silently.
-  await page.getByRole('button', { name: '感官', exact: true }).click()
-  const senses = page.getByRole('dialog', { name: 'Anna 感官', exact: true })
-  await page.evaluate(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 320; canvas.height = 180
-    canvas.getContext('2d').fillRect(0, 0, 320, 180)
-    const state = { original: navigator.mediaDevices.getUserMedia, calls: [], tracks: [], timer: setInterval(() => canvas.getContext('2d').fillRect(0, 0, 320, 180), 50) }
-    window.__annaTestMedia = state
-    navigator.mediaDevices.getUserMedia = async (constraints) => {
-      state.calls.push(constraints)
-      if (state.calls.length === 1)
-        throw new Error('fixture permission denied')
-      const stream = canvas.captureStream(1)
-      state.tracks.push(...stream.getTracks())
-      return stream
-    }
-  })
-  await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '摄像头未开启' }).waitFor()
-  // Closing while play() is pending must release the device and the request lock.
-  await page.evaluate(() => {
-    const original = HTMLMediaElement.prototype.play
-    window.__annaTestMedia.play = original
-    HTMLMediaElement.prototype.play = function () {
-      if (this instanceof HTMLVideoElement)
-        return new Promise((resolve) => { window.__annaTestMedia.resumePlay = resolve })
-      return original.call(this)
-    }
-  })
-  await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
-  await page.waitForFunction(() => Boolean(window.__annaTestMedia.resumePlay))
-  await senses.getByRole('button', { name: '关闭摄像头', exact: true }).click()
-  assert.equal(await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).isDisabled(), false, 'Closing pending preview must unlock capture controls')
-  assert.equal(await page.evaluate(() => window.__annaTestMedia.tracks.every(track => track.readyState === 'ended')), true)
-  await page.evaluate(() => {
-    window.__annaTestMedia.resumePlay()
-    HTMLMediaElement.prototype.play = window.__annaTestMedia.play
-  })
-  evidence.checks.push('Closing a camera preview before playback is ready releases its fake track and unlocks device controls')
-  await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
-  await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2)
-  await senses.getByRole('button', { name: '取一帧供 Anna 查看', exact: true }).click()
-  await senses.getByRole('img', { name: '待分析画面预览', exact: true }).waitFor()
-  assert.equal(await page.evaluate(() => window.__annaTestMedia.calls[0].audio), false)
-  await senses.getByRole('button', { name: '关闭摄像头', exact: true }).click()
-  assert.equal(await page.evaluate(() => window.__annaTestMedia.tracks.every(track => track.readyState === 'ended')), true)
-  const visionPanel = senses.getByRole('region', { name: '视觉理解', exact: true })
-  await visionPanel.getByLabel('视觉服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
-  await visionPanel.getByLabel('视觉模型', { exact: true }).fill('fixture-vision')
-  await visionPanel.getByLabel('视觉 API Key', { exact: true }).fill('fixture-vision-key')
-  await visionPanel.getByRole('button', { name: '保存视觉配置', exact: true }).click()
-  await visionPanel.getByRole('status').filter({ hasText: '视觉配置已保存' }).waitFor()
-  assert.equal(visionReads, 0)
-  await visionPanel.getByLabel('视觉模型', { exact: true }).fill('unsaved-model')
-  assert.equal(await visionPanel.getByRole('button', { name: '发送预览画面并分析', exact: true }).isDisabled(), true)
-  await visionPanel.getByLabel('视觉模型', { exact: true }).fill('fixture-vision')
-  await visionPanel.getByRole('button', { name: '保存视觉配置', exact: true }).click()
-  await visionPanel.getByRole('button', { name: '发送预览画面并分析', exact: true }).click()
-  await visionPanel.getByRole('textbox', { name: '视觉观察结果', exact: true }).waitFor()
-  assert.match(await visionPanel.getByRole('textbox', { name: '视觉观察结果', exact: true }).inputValue(), /深色矩形/)
-  assert.equal(visionReads, 1)
-  await visionPanel.getByRole('button', { name: '将观察带到对话', exact: true }).click()
-  assert.match(await page.getByRole('textbox', { name: '消息', exact: true }).inputValue(), /来源：摄像头单帧/)
-  await page.getByRole('textbox', { name: '消息', exact: true }).fill('')
-  await page.getByRole('button', { name: '感官', exact: true }).click()
-  await visionPanel.getByLabel('视觉 API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
-  assert.equal(await visionPanel.getByLabel('视觉 API Key', { exact: true }).inputValue(), '')
-  evidence.checks.push('Vision: no automatic upload; an explicit frame request reaches the loopback model and returns an editable sourced observation to the unsent composer; key remains masked after reopen')
-
-  await senses.getByRole('button', { name: '开启摄像头预览', exact: true }).click()
-  await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2)
-  await senses.getByRole('button', { name: '关闭', exact: true }).click()
-  assert.equal(await page.evaluate(() => window.__annaTestMedia.tracks.every(track => track.readyState === 'ended')), true)
-  await page.evaluate(() => { clearInterval(window.__annaTestMedia.timer); navigator.mediaDevices.getUserMedia = window.__annaTestMedia.original; delete window.__annaTestMedia })
-  await page.getByRole('button', { name: '感官', exact: true }).click()
-  evidence.checks.push('Camera: generated canvas stream previews and captures one frame; explicit stop and panel close release all fake tracks, no physical device accessed')
-  await desktop.evaluate(({ desktopCapturer, nativeImage }) => {
-    globalThis.__annaOriginalSources = desktopCapturer.getSources
-    const thumbnail = nativeImage.createFromBitmap(Buffer.alloc(64, 255), { width: 4, height: 4 })
-    desktopCapturer.getSources = async () => [{ id: 'window:fixture:0', name: '测试共享窗口', thumbnail, display_id: 'fixture', appIcon: null }]
-  })
-  await page.evaluate(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 320; canvas.height = 180
-    const state = { original: navigator.mediaDevices.getDisplayMedia, calls: [], tracks: [], timer: setInterval(() => canvas.getContext('2d').fillRect(0, 0, 320, 180), 50) }
-    window.__annaTestDisplay = state
-    navigator.mediaDevices.getDisplayMedia = async (constraints) => {
-      state.calls.push(constraints)
-      const stream = canvas.captureStream(2)
-      state.tracks.push(...stream.getTracks())
-      return stream
-    }
-  })
-  const screens = senses.getByRole('region', { name: '屏幕感知', exact: true })
-  await screens.getByRole('button', { name: '获取可共享窗口', exact: true }).click()
-  await screens.getByRole('status').filter({ hasText: '请选择一个来源' }).waitFor()
-  await screens.getByRole('radio', { name: '测试共享窗口', exact: true }).check()
-  const invalidSelection = await page.evaluate(() => window.anna.senses({ type: 'screen-select', id: 'unlisted' }))
-  assert.equal(invalidSelection.ok, false)
-  await screens.getByRole('button', { name: '预览所选窗口', exact: true }).click()
-  await page.waitForFunction(() => document.querySelector('video[aria-label="共享窗口本机预览"]')?.readyState >= 2)
-  assert.equal(await page.evaluate(() => window.__annaTestDisplay.calls[0].audio), false)
-  await screens.getByRole('button', { name: '取共享窗口的一帧', exact: true }).click()
-  await senses.getByRole('img', { name: '待分析画面预览', exact: true }).waitFor()
-  await screens.getByRole('button', { name: '停止屏幕共享', exact: true }).click()
-  assert.equal(await page.evaluate(() => window.__annaTestDisplay.tracks.every(track => track.readyState === 'ended')), true)
-  await page.evaluate(() => { clearInterval(window.__annaTestDisplay.timer); navigator.mediaDevices.getDisplayMedia = window.__annaTestDisplay.original; delete window.__annaTestDisplay })
-  await desktop.evaluate(({ desktopCapturer }) => { desktopCapturer.getSources = globalThis.__annaOriginalSources; delete globalThis.__annaOriginalSources })
-  evidence.checks.push('Screen: native source listing mocked before access; explicit selection, invalid ID rejection, generated preview, frame capture and stop work without reading the real desktop')
-  await senses.getByRole('button', { name: '检查本地识别运行时', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '本地识别运行时可用' }).waitFor({ timeout: 120000 })
-  evidence.checks.push('Hearing: bundled Sherpaw WASM initializes in an isolated Worker under the production CSP without microphone or playback')
-  const hearingMetadataPath = join(data, 'preload.js.metadata')
-  const hearingModelPath = join(data, 'preload.data')
-  await writeFile(hearingModelPath, Buffer.from([1, 2, 3]))
-  await writeFile(hearingMetadataPath, JSON.stringify({ remote_package_size: 3, files: [{ filename: 'encoder.onnx', start: 0, end: 1 }, { filename: 'decoder.onnx', start: 1, end: 2 }, { filename: 'tokens.txt', start: 2, end: 3 }] }))
-  await desktop.evaluate(({ dialog }) => {
-    globalThis.__annaHearingDialog = dialog.showOpenDialog
-    dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
-  })
-  await senses.getByRole('button', { name: '导入并保存本地模型包', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '模型选择已取消' }).waitFor()
-  await desktop.evaluate(({ dialog }, paths) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: paths }) }, [hearingMetadataPath, hearingModelPath])
-  await senses.getByRole('button', { name: '导入并保存本地模型包', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '模型已保存在本机' }).waitFor()
-  await senses.getByRole('button', { name: '加载已保存的本地模型', exact: true }).waitFor()
-  const storedHearing = await page.evaluate(() => window.anna.senses({ type: 'hearing-status' }))
-  assert.equal(storedHearing.ok, true)
-  assert.equal(storedHearing.hearingModel.size, 3)
-  const storedChunk = await page.evaluate(id => window.anna.senses({ type: 'hearing-read', id, offset: 0 }), storedHearing.hearingModel.id)
-  assert.equal(storedChunk.chunk, 'AQID')
-  await senses.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('button', { name: '感官', exact: true }).click()
-  await senses.getByRole('button', { name: '加载已保存的本地模型', exact: true }).waitFor()
-  await senses.getByRole('button', { name: '删除 Anna 的模型副本', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '模型副本已删除' }).waitFor()
-  assert.deepEqual(await readFile(hearingModelPath), Buffer.from([1, 2, 3]))
-  await desktop.evaluate(({ dialog }) => { dialog.showOpenDialog = globalThis.__annaHearingDialog; delete globalThis.__annaHearingDialog })
-  evidence.checks.push('Hearing cache: mocked native two-file picker cancellation, Host import and bounded read, panel reopen and cache deletion preserve original fixture files; no real model recognition claim')
-  await senses.getByLabel('服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
-  await senses.getByLabel('语音模型', { exact: true }).fill('fixture-tts')
-  await senses.getByLabel('音色 ID', { exact: true }).fill('fixture-voice')
-  await senses.getByLabel('API Key', { exact: true }).fill('fixture-senses-key')
-  await senses.getByRole('button', { name: '保存语音配置', exact: true }).click()
-  await senses.getByRole('status').filter({ hasText: '配置已保存' }).waitFor()
-  await senses.getByLabel('语音模型', { exact: true }).fill('unsaved-tts')
-  assert.equal(await senses.getByRole('button', { name: '生成语音文件', exact: true }).isDisabled(), true)
-  await senses.getByLabel('语音模型', { exact: true }).fill('fixture-tts')
-  await senses.getByRole('button', { name: '保存语音配置', exact: true }).click()
-  await senses.getByRole('button', { name: '生成语音文件', exact: true }).click()
-  await senses.getByRole('link', { name: '下载生成的语音', exact: true }).waitFor()
-  assert.match(await senses.getByRole('link', { name: '下载生成的语音', exact: true }).getAttribute('href'), /^blob:/)
+  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  const voice = page.getByRole('dialog', { name: '语音对话', exact: true })
+  assert.equal(await voice.getByRole('button', { name: '开启麦克风录音', exact: true }).isDisabled(), true)
+  assert.equal(await page.locator('video, iframe').count(), 0)
+  const recognition = voice.getByRole('group', { name: '语音识别', exact: true })
+  const synthesis = voice.getByRole('group', { name: '语音合成', exact: true })
+  await recognition.getByLabel('服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
+  await recognition.getByLabel('模型 ID', { exact: true }).fill('fixture-asr')
+  await recognition.getByLabel('API Key', { exact: true }).fill('fixture-asr-key')
+  await recognition.getByRole('button', { name: '保存语音识别配置', exact: true }).click()
+  await voice.getByRole('status').filter({ hasText: '语音识别配置已保存' }).waitFor()
+  await synthesis.getByLabel('服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
+  await synthesis.getByLabel('模型 ID', { exact: true }).fill('fixture-tts')
+  await synthesis.getByLabel('音色 ID', { exact: true }).fill('fixture-voice')
+  await synthesis.getByLabel('API Key', { exact: true }).fill('fixture-voice-key')
+  await synthesis.getByRole('button', { name: '保存语音合成配置', exact: true }).click()
+  await voice.getByRole('status').filter({ hasText: '语音合成配置已保存' }).waitFor()
+  await voice.getByText('语音合成测试', { exact: true }).click()
+  await synthesis.getByLabel('模型 ID', { exact: true }).fill('unsaved-tts')
+  assert.equal(await voice.getByRole('button', { name: '生成语音文件', exact: true }).isDisabled(), true)
+  await synthesis.getByLabel('模型 ID', { exact: true }).fill('fixture-tts')
+  await synthesis.getByRole('button', { name: '保存语音合成配置', exact: true }).click()
+  await voice.getByRole('status').filter({ hasText: '语音合成配置已保存' }).waitFor()
+  await voice.getByRole('button', { name: '生成语音文件', exact: true }).click()
+  const download = voice.getByRole('link', { name: '下载生成的语音', exact: true })
+  await download.waitFor()
+  const audio = await download.evaluate(async link => Array.from(new Uint8Array(await (await fetch(link.href)).arrayBuffer())))
   assert.equal(await page.locator('audio, video').count(), 0)
+  await voice.getByLabel('音频文件', { exact: true }).setInputFiles({ name: 'synthetic.wav', mimeType: 'audio/wav', buffer: Buffer.from(audio) })
+  await voice.getByRole('status').filter({ hasText: '识别完成，请核对文字' }).waitFor()
+  assert.equal(await voice.getByRole('textbox', { name: '识别结果', exact: true }).inputValue(), '合成录音用于验证语音链路。')
+  assert.equal(recognitionReads, 1)
+  await voice.getByRole('button', { name: '将文字带到对话', exact: true }).click()
+  assert.equal(await page.getByRole('textbox', { name: '消息', exact: true }).inputValue(), '合成录音用于验证语音链路。')
+  await page.getByRole('textbox', { name: '消息', exact: true }).fill('')
+  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await voice.getByText('语音设置', { exact: true }).click()
+  await synthesis.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
+  assert.equal(await synthesis.getByLabel('API Key', { exact: true }).inputValue(), '')
+  assert.equal(await recognition.getByLabel('API Key', { exact: true }).inputValue(), '')
+  // Cloud selection is explicit, and changing endpoints never carries the local secret along.
+  await recognition.getByLabel('接入方式', { exact: true }).selectOption('cloud')
+  assert.equal(await recognition.getByLabel('服务地址', { exact: true }).inputValue(), '')
+  assert.equal(await recognition.getByLabel('替换密钥（输入框为空则清除）', { exact: true }).isChecked(), true)
+  assert.equal(await voice.getByRole('button', { name: '开启麦克风录音', exact: true }).isDisabled(), true)
+  await voice.getByRole('button', { name: '关闭', exact: true }).click()
   evidence.secretsMode = (await snapshot(page)).platform.secrets
-  if (evidence.secretsMode === 'system')
-    assert.equal((await readFile(join(data, 'senses.bin'))).includes(Buffer.from('fixture-senses-key')), false)
-  await senses.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('button', { name: '感官', exact: true }).click()
-  await senses.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
-  assert.equal(await senses.getByLabel('API Key', { exact: true }).inputValue(), '')
-  await senses.getByRole('button', { name: '关闭', exact: true }).click()
-  evidence.checks.push(`Senses: model voice configuration persists, key stays in the Host credential store (${evidence.secretsMode}) and masked, loopback synthesis produces a download with no audio playback`)
+  if (evidence.secretsMode === 'system') {
+    const vault = await readFile(join(data, 'senses.bin'))
+    assert.equal(vault.includes(Buffer.from('fixture-voice-key')), false)
+    assert.equal(vault.includes(Buffer.from('fixture-asr-key')), false)
+  }
+  evidence.checks.push('Voice: direct local ASR/TTS via synthetic WAV and fake HTTP service, editable transcription reaches the unsent composer, saved keys remain masked, cloud mode requires explicit endpoint setup; no physical device or playback')
   if (packaged && process.platform === 'darwin')
     evidence.checks.push('Packaged macOS scripted credentials use isolated file fixtures; native Keychain authorization is not exercised')
   assert.deepEqual(evidence.consoleErrors, [])
+}
+catch (error) {
+  const page = desktop.windows()[0]
+  if (page && !page.isClosed())
+    await page.screenshot({ path: 'artifacts/scripted-failure.png' }).catch(() => {})
+  throw error
 }
 finally {
   await desktop.close()

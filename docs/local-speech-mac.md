@@ -1,3 +1,5 @@
+> Historical deployment record. The current desktop uses direct ASR/TTS service APIs; see [voice configuration](voice.md). The Worker/WASM hearing UI described below has been removed. Its model files and existing services are preserved; this record does not imply that they have been migrated or tested with the new client.
+
 # Mac mini 本地语音
 
 本机部署日期：2026-11-04。TTS 和 ASR 都在电脑上运行，不需要 API Key，也不会按次产生 API 费用。安装模型时需要联网，准备好后推理不需要外网。

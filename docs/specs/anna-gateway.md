@@ -1,3 +1,5 @@
+> Historical specification: retired on 2026-11-05. The current desktop scope is documented in [voice conversation](../voice.md). Camera/screen/vision and the local gateway/workbench are removed. Historical evidence below is preserved.
+
 # Anna 服务工作台与独立网关
 
 日期：2026-11-04。状态：数据入口、共享工作台与桌面入口已实现，可试用；使用与限制见 `docs/gateway-workbench.md` 和 `docs/gateway-deployment.md`。现有后端/模型未迁移；本机新增回环数据入口 17864 与工作台 17865，未修改旧设备地址或 Key。

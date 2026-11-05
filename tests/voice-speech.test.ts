@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { speechSegments, SpeechSession } from '../packages/senses/speech'
+import { speechSegments, SpeechSession } from '../packages/voice/speech'
 
 describe('model speech output', () => {
   it('retains long Chinese replies and omits code blocks from speech', () => {

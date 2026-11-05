@@ -96,7 +96,7 @@ jobs:
         run: |
           Start-Process -Wait -FilePath dist\windows\Anna-Setup-windows-x64.exe -ArgumentList '/S'
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Anna'
-          foreach ($path in @("$app\Anna.exe", "$app\resources\app\dist\renderer\anna.ico", (Join-Path ([Environment]::GetFolderPath('Programs')) 'Anna.lnk'))) {
+          foreach ($path in @("$app\Anna.exe", "$app\resources\app.asar", "$app\resources\anna.ico", (Join-Path ([Environment]::GetFolderPath('Programs')) 'Anna.lnk'))) {
             if (-not (Test-Path $path)) { throw "missing after install: $path" }
           }
           $uninstall = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna').QuietUninstallString

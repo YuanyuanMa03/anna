@@ -1,20 +1,22 @@
-"""Local neural Kokoro TTS for Anna. Never captures or plays audio."""
+"""Local neural ASR and Kokoro TTS for Anna. Never captures or plays audio."""
 import argparse
 import io
 import json
 import math
+from email.parser import BytesParser
+from email.policy import default
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import BoundedSemaphore
 import wave
 
 import numpy as np
-import sherpa_onnx
 
 MODEL = "kokoro-local"
+ASR_MODEL = "paraformer-local"
 
 
-def create_server(tts, port):
+def create_server(tts, port, recognizer=None):
     busy = BoundedSemaphore(1)
 
     class Handler(BaseHTTPRequestHandler):
@@ -43,11 +45,17 @@ def create_server(tts, port):
                 self.respond(200, {"status": "ready", "model": MODEL, "local": True,
                                    "speakers": tts.num_speakers, "sample_rate": tts.sample_rate})
             elif self.path == "/v1/models":
-                self.respond(200, {"object": "list", "data": [{"id": MODEL, "object": "model", "owned_by": "local"}]})
+                models = [{"id": MODEL, "object": "model", "owned_by": "local"}]
+                if recognizer is not None:
+                    models.append({"id": ASR_MODEL, "object": "model", "owned_by": "local"})
+                self.respond(200, {"object": "list", "data": models})
             else:
                 self.respond(404, {"error": "Unknown endpoint"})
 
         def do_POST(self):
+            if self.path == "/v1/audio/transcriptions":
+                self.transcribe()
+                return
             if self.path != "/v1/audio/speech":
                 self.respond(404, {"error": "Unknown endpoint"})
                 return
@@ -96,10 +104,64 @@ def create_server(tts, port):
             finally:
                 busy.release()
 
+        def transcribe(self):
+            if self.headers.get("Origin") or self.headers.get("Transfer-Encoding"):
+                self.respond(403, {"error": "Browser and chunked requests are not supported"})
+                return
+            if recognizer is None:
+                self.respond(503, {"error": "Start with --asr-model and --asr-tokens to enable local recognition"})
+                return
+            if self.headers.get_content_type() != "multipart/form-data":
+                self.respond(415, {"error": "Use multipart/form-data with a WAV file"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 20 * 1024 * 1024:
+                    raise ValueError()
+                content_type = self.headers.get("Content-Type", "").encode("ascii")
+                if len(content_type) > 256:
+                    raise ValueError()
+                payload = self.rfile.read(length)
+                if len(payload) != length:
+                    raise ValueError()
+                message = BytesParser(policy=default).parsebytes(b"Content-Type: " + content_type + b"\r\nMIME-Version: 1.0\r\n\r\n" + payload)
+                fields = {}
+                for part in message.iter_parts():
+                    name = part.get_param("name", header="content-disposition")
+                    if name not in ("model", "file", "response_format") or name in fields:
+                        raise ValueError()
+                    fields[name] = part.get_payload(decode=True)
+                if fields.get("model") != ASR_MODEL.encode() or fields.get("response_format", b"json") != b"json":
+                    raise ValueError()
+                with wave.open(io.BytesIO(fields["file"]), "rb") as wav:
+                    if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or wav.getframerate() != 16000 or not 0 < wav.getnframes() <= 16000 * 120:
+                        raise ValueError()
+                    frames = wav.readframes(wav.getnframes())
+                    if len(frames) != wav.getnframes() * 2:
+                        raise ValueError()
+                    samples = np.frombuffer(frames, dtype="<i2").astype(np.float32) / 32768
+            except (ValueError, TypeError, KeyError, OverflowError, wave.Error, EOFError):
+                self.respond(400, {"error": "Invalid model, multipart fields or PCM16 mono 16 kHz WAV"})
+                return
+            if not busy.acquire(blocking=False):
+                self.respond(429, {"error": "Local model is busy; retry after the current request"})
+                return
+            try:
+                stream = recognizer.create_stream()
+                stream.accept_waveform(16000, samples)
+                recognizer.decode_stream(stream)
+                self.respond(200, {"text": stream.result.text})
+            except Exception:
+                self.respond(500, {"error": "Local recognition failed"})
+            finally:
+                busy.release()
+
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
 
 def load_model(directory):
+    import sherpa_onnx
+
     root = Path(directory).resolve()
     config = sherpa_onnx.OfflineTtsConfig(
         model=sherpa_onnx.OfflineTtsModelConfig(
@@ -118,8 +180,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", required=True)
     parser.add_argument("--port", type=int, default=17861)
+    parser.add_argument("--asr-model", help="Optional offline Paraformer ONNX model")
+    parser.add_argument("--asr-tokens", help="Token file for the offline Paraformer model")
     args = parser.parse_args()
-    server = create_server(load_model(args.model_dir), args.port)
+    if bool(args.asr_model) != bool(args.asr_tokens):
+        parser.error("--asr-model and --asr-tokens must be supplied together")
+    recognizer = None
+    if args.asr_model:
+        import sherpa_onnx
+        for filename in (args.asr_model, args.asr_tokens):
+            if not Path(filename).is_file():
+                parser.error(f"Model file does not exist: {filename}")
+        recognizer = sherpa_onnx.OfflineRecognizer.from_paraformer(
+            paraformer=str(Path(args.asr_model).resolve()), tokens=str(Path(args.asr_tokens).resolve()),
+            num_threads=4, sample_rate=16000, feature_dim=80, decoding_method="greedy_search", provider="cpu")
+    server = create_server(load_model(args.model_dir), args.port, recognizer)
     print(f"Anna local Kokoro ready at http://127.0.0.1:{server.server_port}/v1", flush=True)
     try:
         server.serve_forever()
