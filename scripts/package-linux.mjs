@@ -4,6 +4,7 @@ import { chmod, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'node
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { pruneRuntime, runtimeDeployFlags } from './package-runtime.mjs'
 
 /** Portable Linux build: a directory with the `anna` launcher and the `anna-bin` Electron binary, packed as tar.gz. Sandbox needs bubblewrap, socat and ripgrep. */
 async function main() {
@@ -18,7 +19,8 @@ async function main() {
   await rm(app, { recursive: true, force: true })
   await cp(dirname(electron), app, { recursive: true, verbatimSymlinks: true })
   await rm(join(app, 'resources/default_app.asar'), { force: true })
-  pnpm(['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', runtime])
+  pnpm(['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', ...runtimeDeployFlags, runtime])
+  await pruneRuntime(join(runtime, 'node_modules'))
   for (const entry of await readdir(runtime)) {
     if (entry !== 'node_modules')
       await rm(join(runtime, entry), { recursive: true, force: true })

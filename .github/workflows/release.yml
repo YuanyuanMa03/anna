@@ -69,6 +69,10 @@ jobs:
           sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/anna.pem"
           security find-identity -v -p codesigning "$KEYCHAIN"
       - run: pnpm ${{ matrix.script }}
+      # An installer that installs proves nothing until the app it installs has started.
+      - name: Start the packaged app
+        if: runner.os != 'Linux'
+        run: pnpm smoke:package
       - name: Install NSIS (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

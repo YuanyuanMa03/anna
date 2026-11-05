@@ -4,6 +4,7 @@ import { cp, mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { pruneRuntime, runtimeDeployFlags } from './package-runtime.mjs'
 
 /** Stage the production dependency closure and a complete Electron application. No user data enters the bundle. */
 async function main() {
@@ -17,7 +18,7 @@ async function main() {
   execFileSync('pnpm', ['build'], { stdio: 'inherit' })
   await mkdir(output, { recursive: true })
   await rm(stage, { recursive: true, force: true })
-  execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', stage], { stdio: 'inherit' })
+  execFileSync('pnpm', ['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', '--prefer-offline', ...runtimeDeployFlags, stage], { stdio: 'inherit' })
   await rm(app, { recursive: true, force: true })
   execFileSync('/usr/bin/ditto', [resolve(dirname(electron), '../..'), app])
   const resources = join(app, 'Contents/Resources')
@@ -25,6 +26,7 @@ async function main() {
   const runtime = join(resources, 'app')
   await mkdir(runtime, { recursive: true })
   await cp(join(stage, 'node_modules'), join(runtime, 'node_modules'), { recursive: true, verbatimSymlinks: true })
+  await pruneRuntime(join(runtime, 'node_modules'))
   for (const path of ['dist/host', 'dist/renderer', 'plugins/anna-persona/persona.md', 'LICENSE', 'NOTICE.md']) {
     await mkdir(dirname(join(runtime, path)), { recursive: true })
     await cp(join(root, path), join(runtime, path), { recursive: true })

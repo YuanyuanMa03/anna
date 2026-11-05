@@ -4,6 +4,7 @@ import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/pro
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { longestPath, pruneRuntime, runtimeDeployFlags } from './package-runtime.mjs'
 
 async function main() {
   if (process.platform !== 'win32')
@@ -17,7 +18,8 @@ async function main() {
   await rm(app, { recursive: true, force: true })
   await cp(dirname(electron), app, { recursive: true })
   await rm(join(app, 'resources/default_app.asar'), { force: true })
-  pnpm(['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', runtime])
+  pnpm(['--filter', 'anna', 'deploy', '--legacy', '--prod', '--ignore-scripts', '--frozen-lockfile', ...runtimeDeployFlags, runtime])
+  await pruneRuntime(join(runtime, 'node_modules'))
   for (const entry of await readdir(runtime)) {
     if (entry !== 'node_modules')
       await rm(join(runtime, entry), { recursive: true, force: true })
@@ -27,6 +29,10 @@ async function main() {
     await mkdir(dirname(join(runtime, path)), { recursive: true })
     await cp(resolve(path), join(runtime, path), { recursive: true })
   }
+  // With the install folder in front, this leaves room for long user names below Windows' 260 characters.
+  const longest = await longestPath(app)
+  if (longest > 190)
+    throw new Error(`A packaged path is ${longest} characters long; Windows tools fail near 260`)
   const original = JSON.parse(await readFile('package.json', 'utf8'))
   await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'anna', productName: 'Anna', version: original.version, type: 'module', main: 'dist/host/apps/desktop/main.js', dependencies: original.dependencies }, null, 2))
   const zip = `Anna-${original.version}-windows-${process.arch}.zip`

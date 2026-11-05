@@ -59,7 +59,7 @@ async function until(page, predicate, label, timeout = 20000) {
     if (state && predicate(state))
       return state
     if (Date.now() > deadline)
-      throw new Error(`Timed out: ${label} (${JSON.stringify({ state: state?.state, error: state?.error, anna: state?.anna })})`)
+      throw new Error(`Timed out: ${label} (${JSON.stringify({ state: state?.state, error: state?.error, anna: state?.anna, routing: state?.agents?.global?.codex?.routing })})`)
     await page.waitForTimeout(150)
   }
 }

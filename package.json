@@ -23,6 +23,7 @@
     "package:dmg": "node scripts/create-dmg.mjs",
     "install:mac": "python3 scripts/install-mac.py",
     "package:windows": "node scripts/package-windows.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs",
     "package:windows-installer": "node scripts/package-windows-installer.mjs",
     "test:unconfigured": "node tests/unconfigured.mjs",
     "build:website": "node scripts/build-website.mjs",

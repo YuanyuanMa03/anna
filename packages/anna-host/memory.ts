@@ -2,7 +2,7 @@ import type { AnnaTool } from '../kernels/types'
 import type { MemoryItem } from '../shared/contracts'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { readJson, writeJson } from './json-file'
+import { isRecordList, readJson, writeJson } from './json-file'
 
 const limit = 80
 
@@ -24,7 +24,7 @@ export class MemoryStore {
   constructor(private directory: string) {}
   private get file() { return join(this.directory, 'memory.json') }
 
-  async load() { this.items = await readJson(this.file, this.items) }
+  async load() { this.items = await readJson(this.file, this.items, isRecordList) }
   private async save() { await writeJson(this.file, this.items) }
 
   /** The stored line (an existing one keeps its first writer), or undefined for a line that looks like a credential. */

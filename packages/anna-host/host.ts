@@ -139,7 +139,11 @@ export class Host {
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
-    this.hasKey = Boolean(await this.vault.read())
+    // A key that cannot be decrypted (a copied profile, say) means asking for it again, not refusing to open. The file stays.
+    this.hasKey = Boolean(await this.vault.read().catch((error: unknown) => {
+      console.error('[anna-core] the saved key could not be read', error instanceof Error ? error.message : '')
+      return ''
+    }))
     this.sandboxStatus = this.options.sandbox ?? await CommandSandbox.probe()
     this.state = this.canConnect(this.hasKey ? 'key' : '') ? 'stopped' : 'unconfigured'
     this.secretsMode = await this.options.secretsMode?.().catch(() => 'system' as const) ?? 'system'
@@ -232,7 +236,7 @@ export class Host {
    * the default workspace (`workspace`) is the one folder here tools may use.
    */
   private protectedPaths() {
-    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
+    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'logs', 'quarantine', 'transcript.legacy.json'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
