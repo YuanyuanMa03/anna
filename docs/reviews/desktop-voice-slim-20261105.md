@@ -40,3 +40,7 @@ The optional Python service adds native offline Paraformer ASR beside Kokoro TTS
 No release tag, public release, production deployment or merge is part of this candidate. A manual branch package build can produce test artifacts without publishing; target-platform evidence must be attached before calling those installers accepted.
 
 Final local macOS ZIP SHA-256: `8e82b66a6a362a60bda57e6bd6f3d7e7332f186b124f340428c8d87dd62c195a`. Evidence files: `artifacts/slim-source-acceptance.json`, `artifacts/slim-packaged-acceptance.json`, `dist/macos/package-report.json`.
+
+## First native package run
+
+Runtime candidate `3185ba86ea71e2a0afbb77dc16044d79b4635f61`, manual run [42011690566](https://github.com/YuanyuanMa03/anna/actions/runs/42011690566): macOS DMG and Linux .deb installation/removal succeeded. Windows packaging and NSIS compilation succeeded, but packaged desktop startup timed out before `.scene` (no checks completed). This is a failed candidate, not Windows acceptance. The test did not retain process stderr in the report and Release skipped artifact upload after failure, so this run lacks the causal startup error. Add bounded stderr/UI failure capture and always-upload diagnostics, then reproduce only the Windows package/startup step before another full matrix. No timeout increase or unchanged-code retry.

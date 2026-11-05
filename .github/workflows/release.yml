@@ -8,10 +8,16 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      windows_only:
+        description: Reproduce and validate only the Windows package before another full matrix
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
   build:
+    if: github.event.inputs.windows_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -118,9 +124,61 @@ jobs:
           sudo apt-get remove -y -q anna
           test ! -e /opt/Anna/anna && test ! -e /etc/apparmor.d/anna-deb
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
           name: ${{ matrix.key }}
-          path: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            artifacts/scripted-acceptance.json
+            artifacts/scripted-failure.png
+  windows-package:
+    if: github.event.inputs.windows_only == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check native paths and archive dependency links
+        run: pnpm exec vitest run tests/runtime-package.test.ts tests/voice-service.test.ts tests/voice-audio.test.ts
+      - run: pnpm package:windows
+      - name: Packaged desktop acceptance before installer compression
+        env:
+          ANNA_PACKAGED_APP: ${{ github.workspace }}\dist\windows\Anna
+          ANNA_TEST_VERBOSE: '1'
+        run: pnpm test:scripted
+      - name: Install NSIS
+        shell: pwsh
+        run: if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) { choco install nsis -y --no-progress }
+      - run: pnpm package:windows-installer
+      - name: Check install and uninstall
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath dist\windows\Anna-Setup-windows-x64.exe -ArgumentList '/S'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Anna'
+          foreach ($path in @("$app\Anna.exe", "$app\resources\app.asar", "$app\resources\anna.ico")) {
+            if (-not (Test-Path $path)) { throw "missing after install: $path" }
+          }
+          Start-Process -Wait -FilePath (Join-Path $env:LOCALAPPDATA 'Programs\Anna Uninstaller\Uninstall Anna.exe') -ArgumentList '/S'
+          Start-Sleep -Seconds 3
+          if (Test-Path "$app\Anna.exe") { throw 'Anna.exe remains after uninstall' }
+          if (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna') { throw 'uninstall registration remains' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: windows-package
+          path: |
+            dist/windows/*.zip
+            dist/windows/*.exe
+            dist/windows/*.sha256
+            dist/windows/package-report.json
+            artifacts/scripted-acceptance.json
+            artifacts/scripted-failure.png
+
   publish:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')

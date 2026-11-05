@@ -62,6 +62,8 @@ await new Promise(resolve => voiceServer.listen(0, '127.0.0.1', resolve))
 const voicePort = voiceServer.address().port
 const packaged = process.env.ANNA_PACKAGED_APP
 const desktop = await _electron.launch(desktopLaunch(data, env))
+let processErrors = ''
+desktop.process().stderr.on('data', (chunk) => { processErrors = (processErrors + chunk.toString()).slice(-32000) })
 if (process.env.ANNA_TEST_VERBOSE)
   desktop.process().stderr.on('data', chunk => process.stderr.write(`[app] ${chunk}`))
 const snapshot = async page => (await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))).snapshot
@@ -510,8 +512,11 @@ try {
 }
 catch (error) {
   const page = desktop.windows()[0]
-  if (page && !page.isClosed())
+  evidence.processErrors = processErrors
+  if (page && !page.isClosed()) {
+    evidence.failureText = await page.locator('body').textContent().catch(() => '')
     await page.screenshot({ path: 'artifacts/scripted-failure.png' }).catch(() => {})
+  }
   throw error
 }
 finally {
