@@ -47,6 +47,14 @@ try {
   const missing = flow.locator('.brain-tile.unavailable [role=radio]')
   assert(await missing.count() > 0)
   assert.equal(await missing.first().isDisabled(), true)
+  // A missing brain explains, step by step, how to install it on this system.
+  await flow.getByRole('button', { name: '安装说明', exact: true }).first().click()
+  const guide = flow.locator('.install-guide')
+  assert(await guide.locator('.install-steps li').count() >= 2)
+  await guide.getByText(/重新检测/).first().waitFor()
+  await page.waitForFunction(() => { const box = document.querySelector('.install-guide')?.getBoundingClientRect(); return box && box.top >= 0 && box.top < window.innerHeight })
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/install-guide.png' })
+  await guide.getByRole('button', { name: '收起', exact: true }).click()
   await flow.getByRole('button', { name: '确认大脑，接通模型' }).click()
   // Vendor tiles. Picking a vendor whose address differs from the saved key's asks for a new key and fetches nothing.
   const vendors = flow.getByRole('radiogroup', { name: '模型厂商' })

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Command, ModelSettings, RuntimeSnapshot } from '../../../packages/shared/contracts'
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { brainChoices } from '../../../packages/agents/brains'
 import { catalog } from '../../../packages/agents/catalog'
-import { installationGuide } from '../../../packages/agents/installation'
+import { installSteps } from '../../../packages/agents/installation'
 import { companion } from '../../../packages/character/manifest'
 import { firstModel, listsModels, modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
 import ProvidersPanel from './components/providers-panel.vue'
@@ -28,7 +28,23 @@ const cards = computed(() => [
   }),
 ].sort((a, b) => a.id === 'pi' ? -1 : b.id === 'pi' ? 1 : Number(b.available) - Number(a.available) || Number(Boolean(props.snapshot.agents.detected.find(item => item.id === b.agent)?.installed)) - Number(Boolean(props.snapshot.agents.detected.find(item => item.id === a.agent)?.installed))))
 const installConfirm = ref<string>()
-const guide = computed(() => { const agent = catalog.find(agent => agent.id === installConfirm.value); return agent ? installationGuide(agent, props.snapshot.platform.os) : undefined })
+const guide = computed(() => { const agent = catalog.find(agent => agent.id === installConfirm.value); return agent ? installSteps(agent, props.snapshot.platform.os) : undefined })
+const copied = ref(false)
+// The guide opens below the cards: bring it into view so the click visibly does something.
+watch(installConfirm, async (agent) => {
+  if (!agent)
+    return
+  await nextTick()
+  document.querySelector('.install-guide')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+})
+async function copyCommand(command: string) {
+  try {
+    await navigator.clipboard.writeText(command)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  }
+  catch {}
+}
 function selectBrain(id: string) {
   source.value = 'official'
   emit('command', { type: 'kernel', id: id as RuntimeSnapshot['settings']['kernel'] })
@@ -118,10 +134,13 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback) })
             <button v-if="brain.id !== 'pi' && !snapshot.agents.detected.find(agent => agent.id === brain.agent)?.installed" class="link" :disabled="busy" @click="installConfirm = brain.agent">安装说明</button>
           </div>
         </div>
-        <div v-if="installConfirm" class="card" role="status">
+        <div v-if="installConfirm && guide" class="card install-guide" role="status">
           <strong>安装 {{ catalog.find(agent => agent.id === installConfirm)?.label }}</strong>
-          <p v-if="guide?.command">{{ snapshot.platform.os === 'win32' ? '在开始菜单搜索并打开 PowerShell' : snapshot.platform.os === 'darwin' ? '打开“应用程序 → 实用工具 → 终端”' : '从应用菜单打开终端' }}，按官方说明运行以下命令。</p><p v-else>前往官方说明，选择适合当前系统的安装包或安装方法。</p><pre v-if="guide?.command">{{ guide.command }}</pre><p v-if="guide?.needsNode" class="small muted">这条命令需要先安装 Node.js 与 npm，可从 <a href="https://nodejs.org/en/download" target="_blank" rel="noreferrer">Node.js 官网</a>获取。</p><p v-if="guide?.url"><a :href="guide.url" target="_blank" rel="noreferrer">查看官方安装说明</a></p>
-          <p class="small muted">安装完成后重新检测。标记为“待适配”的大脑仍需接入验证，安装不会自动解锁。</p>
+          <ol class="install-steps"><li v-for="(step, index) in guide.steps" :key="index">{{ step }}</li></ol>
+          <div v-if="guide.command" class="install-command"><pre>{{ guide.command }}</pre><button type="button" @click="copyCommand(guide.command)">{{ copied ? '已复制' : '复制命令' }}</button></div>
+          <p v-if="guide.oneClick" class="small">不想用命令行？电脑上已有 Node.js 的话，也可以<button type="button" class="link" :disabled="busy" @click="emit('command', { type: 'agent-install', agent: installConfirm! })">让 Anna 帮你装</button>。</p>
+          <p v-if="guide.url"><a :href="guide.url" target="_blank" rel="noreferrer">打开官方安装说明</a></p>
+          <p class="small muted">{{ guide.after }}</p>
           <button :disabled="busy" @click="emit('command', { type: 'agents-refresh' }); installConfirm = undefined">我已安装，重新检测</button><button @click="installConfirm = undefined">收起</button>
         </div>
         <button :disabled="busy" @click="emit('command', { type: 'agents-refresh' })">重新检测本机大脑</button>

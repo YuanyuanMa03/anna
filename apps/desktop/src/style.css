@@ -422,3 +422,8 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 
 /* With the talk controls the actions can outgrow one line: the box grows a second line instead of squeezing the text. */
 .composer { flex-wrap: wrap; row-gap: 6px; border-radius: 26px }
+
+/* ── Installing a brain, step by step ─────────────── */
+.install-steps { margin: 8px 0; padding-left: 20px; line-height: 1.7; font-size: 13px }
+.install-command { display: flex; gap: 8px; align-items: center }
+.install-command pre { flex: 1; margin: 0; padding: 8px 10px; border-radius: 10px; background: #f3eef7; overflow-x: auto; font-size: 12px }
