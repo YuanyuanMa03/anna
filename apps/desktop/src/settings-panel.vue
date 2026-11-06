@@ -213,15 +213,15 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback); clearTimeou
           </form>
         </template>
         <template v-if="!web">
-        <h3>她的声音</h3>
-        <p class="small muted">点输入框旁的麦克风就能和她说话；这里配置语音识别和语音合成。打开“开口说话”后，打字聊天时她也会把回复的要点说出来。</p>
-        <div class="card-actions left"><button type="button" @click="voiceState.settingsOpen = true">语音设置</button><button type="button" :aria-pressed="voiceState.enabled" @click="voiceState.enabled = !voiceState.enabled">{{ voiceState.enabled ? '关闭模型语音' : '开启模型语音' }}</button></div>
-        <h3>共用 pi 的模型</h3>
-        <p class="small muted">Chat Completions 模型可供 Claude Code、Codex 共用；Anthropic 协议仅供 Claude Code，Responses 仅供 Codex。只切换 Anna 内的大脑和派活配置，终端配置由服务商页单独管理。</p>
-        <div v-if="sharingPreview" class="card"><p>将跟随 pi：{{ shareTargets }}。其余大脑尚未适配，将跳过。</p><p class="small muted">仅影响 Anna 内调用。首次保存原选择，可恢复；手动选择其他服务商后退出跟随。</p><button :disabled="busy" @click="emit('command', { type: 'share-pi-model' }); sharingPreview = false">确认应用</button><button @click="sharingPreview = false">取消</button></div>
-        <div class="card-actions left"><button :disabled="busy || !snapshot.hasKey" @click="sharingPreview = true">一键共用 pi 模型</button><button v-if="snapshot.settings.sharedModelBackup" :disabled="busy" @click="emit('command', { type: 'share-pi-model', restore: true })">恢复切换前的模型选择</button></div>
-        <button :disabled="busy || (!snapshot.hasKey && snapshot.settings.kernel === 'pi')" @click="emit('command', { type: 'connection-test' })">验证连接（少量调用）</button>
-        <p class="muted small">连接状态：{{ snapshot.state }}<template v-if="snapshot.model"> · {{ snapshot.model.id }}</template><template v-else-if="snapshot.settings.kernel === 'pi' && snapshot.hasKey"> · {{ snapshot.settings.model.model }}</template><template v-if="snapshot.credential"> · 密钥{{ snapshot.credential === 'verified' ? '已验证可用' : snapshot.credential === 'rejected' ? '被服务商拒绝' : '还没验证过（发一条消息或点“验证连接（少量调用）”）' }}</template>{{ snapshot.model ? ` · 思考 ${snapshot.model.thinking} · 上下文 ${Math.round(snapshot.model.contextWindow / 1000)}K` : '' }}<br>会话：{{ snapshot.sessionId ?? '首次对话后保存' }}<br>{{ snapshot.restored ? '已恢复上次的 pi 会话' : '新会话' }}</p>
+          <h3>她的声音</h3>
+          <p class="small muted">点输入框旁的麦克风就能和她说话；这里配置语音识别和语音合成。打开“开口说话”后，打字聊天时她也会把回复的要点说出来。</p>
+          <div class="card-actions left"><button type="button" @click="voiceState.settingsOpen = true">语音设置</button><button type="button" :aria-pressed="voiceState.enabled" @click="voiceState.enabled = !voiceState.enabled">{{ voiceState.enabled ? '关闭模型语音' : '开启模型语音' }}</button></div>
+          <h3>共用 pi 的模型</h3>
+          <p class="small muted">Chat Completions 模型可供 Claude Code、Codex 共用；Anthropic 协议仅供 Claude Code，Responses 仅供 Codex。只切换 Anna 内的大脑和派活配置，终端配置由服务商页单独管理。</p>
+          <div v-if="sharingPreview" class="card"><p>将跟随 pi：{{ shareTargets }}。其余大脑尚未适配，将跳过。</p><p class="small muted">仅影响 Anna 内调用。首次保存原选择，可恢复；手动选择其他服务商后退出跟随。</p><button :disabled="busy" @click="emit('command', { type: 'share-pi-model' }); sharingPreview = false">确认应用</button><button @click="sharingPreview = false">取消</button></div>
+          <div class="card-actions left"><button :disabled="busy || !snapshot.hasKey" @click="sharingPreview = true">一键共用 pi 模型</button><button v-if="snapshot.settings.sharedModelBackup" :disabled="busy" @click="emit('command', { type: 'share-pi-model', restore: true })">恢复切换前的模型选择</button></div>
+          <button :disabled="busy || (!snapshot.hasKey && snapshot.settings.kernel === 'pi')" @click="emit('command', { type: 'connection-test' })">验证连接（少量调用）</button>
+          <p class="muted small">连接状态：{{ snapshot.state }}<template v-if="snapshot.model"> · {{ snapshot.model.id }}</template><template v-else-if="snapshot.settings.kernel === 'pi' && snapshot.hasKey"> · {{ snapshot.settings.model.model }}</template><template v-if="snapshot.credential"> · 密钥{{ snapshot.credential === 'verified' ? '已验证可用' : snapshot.credential === 'rejected' ? '被服务商拒绝' : '还没验证过（发一条消息或点“验证连接（少量调用）”）' }}</template>{{ snapshot.model ? ` · 思考 ${snapshot.model.thinking} · 上下文 ${Math.round(snapshot.model.contextWindow / 1000)}K` : '' }}<br>会话：{{ snapshot.sessionId ?? '首次对话后保存' }}<br>{{ snapshot.restored ? '已恢复上次的 pi 会话' : '新会话' }}</p>
         </template>
         <button :disabled="busy" @click="emit('command', { type: 'new-session' })">开始新会话</button>
         <p class="muted small">新会话会清空当前界面的对话，旧会话文件继续保留。长任务会自动压缩上下文。</p>

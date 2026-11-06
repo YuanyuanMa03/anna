@@ -607,7 +607,7 @@ if (web) {
       </div>
       <div class="drifts" aria-hidden="true"><p v-for="item in drifts" :key="item.id" class="drift">{{ item.text }}</p></div>
 
-      <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
+      <aside class="props" :aria-label="`${character.name} 手上的事`">
         <div v-if="web && !messages.length && !running" class="card tour-card">
           <span class="eyebrow">Anna 不只是会聊天</span>
           <dl><template v-for="item in tour.online" :key="item.title"><dt>{{ item.title }}</dt><dd>{{ item.body }}</dd></template></dl>
