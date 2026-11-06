@@ -34,7 +34,10 @@ export async function recordingWav(file: Blob, signal: AbortSignal): Promise<str
   const context = new OfflineAudioContext(1, 1, 16000)
   const decoded = await context.decodeAudioData(await file.arrayBuffer())
   signal.throwIfAborted()
-  const bytes = pcmWav(Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index)), decoded.sampleRate)
+  return toBase64(pcmWav(Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index)), decoded.sampleRate))
+}
+
+export function toBase64(bytes: Uint8Array) {
   let binary = ''
   for (let i = 0; i < bytes.length; i += 32768)
     binary += String.fromCharCode(...bytes.subarray(i, i + 32768))

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { createFauxCore, fauxAssistantMessage, fauxText, fauxToolCall } from '@earendil-works/pi-ai/providers/faux'
 import { ModelRuntime } from '@earendil-works/pi-coding-agent'
+import { isLocalEndpoint } from '../../shared/model-vendors'
 
 export interface Backend { modelRuntime: ModelRuntime, model: Model<any> }
 
@@ -29,7 +30,9 @@ export async function resolveBackend(settings: ModelSettings, key: string, data:
     name: '自定义模型',
     baseUrl: settings.baseURL,
     api: settings.api,
-    models: [{ id: settings.model, name: settings.model, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, reasoning: false, contextWindow: 131072, maxTokens: 16384 }],
+    // A server on this computer usually loads a model with a far smaller context than a cloud API: pi compacts within
+    // 32k so the server never silently cuts her instructions and tools.
+    models: [{ id: settings.model, name: settings.model, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, reasoning: false, ...(isLocalEndpoint(settings.baseURL) ? { contextWindow: 32768, maxTokens: 4096 } : { contextWindow: 131072, maxTokens: 16384 }) }],
   })
   await modelRuntime.setRuntimeApiKey('anna-custom', key)
   const model = modelRuntime.getModel('anna-custom', settings.model)

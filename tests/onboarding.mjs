@@ -20,6 +20,8 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   const flow = page.getByRole('dialog', { name: 'Anna 档案' })
   await flow.waitFor()
+  // On a Mac the run stays hidden and out of the Dock unless ANNA_TEST_SHOW=1.
+  assert.equal(await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible()), process.platform !== 'darwin' || process.env.ANNA_TEST_SHOW === '1')
   assert.equal(await flow.getByRole('button', { name: '2 选择大脑' }).isDisabled(), true)
   // Only the OS dialog is stubbed; the user's button, IPC and Host path validation run normally.
   await desktop.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }) })
@@ -45,6 +47,14 @@ try {
   const missing = flow.locator('.brain-tile.unavailable [role=radio]')
   assert(await missing.count() > 0)
   assert.equal(await missing.first().isDisabled(), true)
+  // A missing brain explains, step by step, how to install it on this system.
+  await flow.getByRole('button', { name: '安装说明', exact: true }).first().click()
+  const guide = flow.locator('.install-guide')
+  assert(await guide.locator('.install-steps li').count() >= 2)
+  await guide.getByText(/重新检测/).first().waitFor()
+  await page.waitForFunction(() => { const box = document.querySelector('.install-guide')?.getBoundingClientRect(); return box && box.top >= 0 && box.top < window.innerHeight })
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/install-guide.png' })
+  await guide.getByRole('button', { name: '收起', exact: true }).click()
   await flow.getByRole('button', { name: '确认大脑，接通模型' }).click()
   // Vendor tiles. Picking a vendor whose address differs from the saved key's asks for a new key and fetches nothing.
   const vendors = flow.getByRole('radiogroup', { name: '模型厂商' })
@@ -71,6 +81,14 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '已保存，留空保持原密钥')
+  // A model on this computer: no key field, an editable local address, and its list fetched right away.
+  await vendors.getByRole('radio', { name: /^本机模型/ }).click()
+  assert.equal(await flow.getByLabel('API Key', { exact: true }).count(), 0)
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:11434/v1')
+  await flow.getByRole('button', { name: 'LM Studio', exact: true }).click()
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:1234/v1')
+  await flow.getByText('这台电脑上有 2 个模型').waitFor()
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/onboarding-local-model.png' })
   await vendors.getByRole('radio', { name: /^DeepSeek/ }).click()
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '输入这个服务的 API Key')
   await flow.getByText('DeepSeek 的模型由 pi 内置的目录提供').waitFor()
@@ -82,6 +100,14 @@ try {
   await flow.getByRole('textbox', { name: '怎么称呼你（选填）' }).fill('小麦')
   await flow.getByRole('radio', { name: /好奇探索者/ }).click()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
+  // Her body keeps drawing frames even while a background run keeps the window hidden: two frames differ within a few seconds.
+  const first = await page.locator('.model-canvas canvas').screenshot()
+  let advanced = false
+  for (let i = 0; i < 10 && !advanced; i++) {
+    await new Promise(resolve => setTimeout(resolve, 300))
+    advanced = !first.equals(await page.locator('.model-canvas canvas').screenshot())
+  }
+  assert(advanced, 'Live2D idle animation did not advance')
   const stage = await page.locator('.stage').boundingBox()
   const card = await flow.boundingBox()
   assert(stage.x + stage.width <= card.x, 'Onboarding must leave Anna visible beside the guide')
@@ -152,12 +178,19 @@ try {
   await candidate.getByRole('button', { name: '确认记住', exact: true }).click()
   assert((await pending).ok)
   await page.locator('.brain-chip').click()
-  await flow.getByRole('button', { name: '共同记忆', exact: true }).click()
-  await flow.getByText('喜欢淡一点的绿茶', { exact: true }).waitFor()
+  await flow.getByRole('button', { name: '我们', exact: true }).click()
+  // Their time together: real counts, how she sees you, and their story, all from records.
+  const together = flow.getByRole('region', { name: '我们的关系' })
+  await together.getByText('一起完成', { exact: true }).waitFor()
+  await together.getByRole('group', { name: '她眼中的你' }).getByText('喜欢淡一点的绿茶', { exact: true }).waitFor()
+  await together.getByRole('list', { name: '我们的故事' }).getByText('记住了：喜欢淡一点的绿茶', { exact: true }).waitFor()
+  assert(await together.getByRole('list', { name: '我们的故事' }).getByText(/^第一次一起完成：/).count() === 1)
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/memory-together.png' })
+  await flow.locator('article.card').getByText('喜欢淡一点的绿茶', { exact: true }).waitFor()
   await flow.getByRole('button', { name: '修改记忆', exact: true }).click()
   await flow.getByLabel('记忆内容').fill('喜欢红茶')
   await flow.getByRole('button', { name: '保存修改', exact: true }).click()
-  await flow.getByText('喜欢红茶', { exact: true }).waitFor()
+  await flow.locator('article.card').getByText('喜欢红茶', { exact: true }).waitFor()
   await flow.getByRole('button', { name: '忘记', exact: true }).click()
   await flow.getByText('还没有记忆，可以告诉 Anna“记住：……”', { exact: true }).waitFor()
   assert.deepEqual(errors, [])

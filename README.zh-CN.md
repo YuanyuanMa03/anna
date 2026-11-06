@@ -170,6 +170,7 @@ export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # 单元测试、真实 pi 工具循环（faux 模型）、真实沙箱
 pnpm build && pnpm test:scripted           # 桌面验收，使用脚本模型，不需要 API Key
+ANNA_TEST_SHOW=1 pnpm test:scripted       # 同上，但显示窗口（Mac 上默认在后台运行）
 pnpm package:mac                           # 或 package:windows / package:linux；然后 package:dmg、package:windows-installer、package:deb
 pnpm verify:package windows                # 或 linux：不运行，只检查安装包
 pnpm smoke:package                         # 启动本机系统对应的包；也可以传入已安装应用的路径

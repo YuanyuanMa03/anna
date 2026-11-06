@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { listModels, sameEndpoint } from '../packages/anna-host/model-list'
 import { validateModel } from '../packages/anna-host/settings'
-import { firstModel, listsModels, modelVendors, vendorFor, vendorSettings } from '../packages/shared/model-vendors'
+import { firstModel, isLocalEndpoint, listsModels, modelVendors, vendorFor, vendorSettings } from '../packages/shared/model-vendors'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
@@ -103,5 +103,30 @@ describe('model list contents', () => {
     expect(firstModel('kimi-k3', ['kimi-k4'], ['kimi-k3'])).toBe('')
     expect(firstModel('my-own', ['kimi-k4'], ['kimi-k3'])).toBe('my-own')
     expect(firstModel('kimi-k3', [], ['kimi-k3'])).toBe('kimi-k3')
+  })
+})
+
+describe('a model on this computer', () => {
+  it('accepts plain HTTP only on this machine, and never elsewhere', () => {
+    expect(() => validateModel({ provider: 'custom', model: 'qwen3.5:9b', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' })).not.toThrow()
+    expect(() => validateModel({ provider: 'custom', model: 'q', baseURL: 'http://localhost:1234/v1', api: 'openai-completions' })).not.toThrow()
+    expect(() => validateModel({ provider: 'custom', model: 'q', baseURL: 'http://[::1]:8080/v1', api: 'openai-completions' })).not.toThrow()
+    expect(() => validateModel({ provider: 'custom', model: 'q', baseURL: 'http://192.168.1.5:11434/v1', api: 'openai-completions' })).toThrow(/HTTPS/)
+    expect(() => validateModel({ provider: 'custom', model: 'q', baseURL: 'http://evil.example/v1', api: 'openai-completions' })).toThrow(/HTTPS/)
+    expect(isLocalEndpoint('http://127.0.0.1:11434/v1')).toBe(true)
+    expect(isLocalEndpoint('https://api.deepseek.com')).toBe(false)
+  })
+
+  it('offers a local tile that needs no key', () => {
+    const local = modelVendors.find(vendor => vendor.id === 'local')!
+    expect(local.baseURL).toBe('http://127.0.0.1:11434/v1')
+    expect(local.keyless).toBe(true)
+    expect(vendorFor({ provider: 'custom', baseURL: 'http://localhost:1234/v1', api: 'openai-completions' })?.id).toBe('local')
+  })
+
+  it('lists the models of a local server without a key', async () => {
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => json({ data: [{ id: 'qwen3.5:9b' }] }))
+    expect(await listModels({ baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' }, '', fetcher)).toEqual(['qwen3.5:9b'])
+    expect((fetcher.mock.calls[0]![1].headers as Record<string, string>).authorization).toBeUndefined()
   })
 })
