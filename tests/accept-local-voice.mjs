@@ -28,7 +28,7 @@ try {
   })
   await page.reload()
   await page.locator('.scene').waitFor()
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await page.getByRole('button', { name: '语音设置', exact: true }).click()
   const voice = page.getByRole('dialog', { name: '语音对话', exact: true })
   for (const [label, model] of [['语音识别', 'paraformer-local'], ['语音合成', 'kokoro-local']]) {
     const group = voice.getByRole('group', { name: label, exact: true })

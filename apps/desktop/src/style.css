@@ -141,10 +141,10 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .dock { padding: 8px 26px 18px; display: flex; flex-direction: column; gap: 8px; z-index: 3 }
 /* The whisper line at her feet: one line to talk to her, the mode and controls tucked beside it. */
 .composer { max-width: 920px; width: 100%; margin: 0 auto; padding: 6px 8px 6px 18px; border: 1px solid #e3d9ea; border-radius: 999px; background: var(--glass); box-shadow: var(--shadow); backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px }
-.composer textarea { flex: 1; min-width: 0; height: 26px; border: 0; resize: none; outline: none; background: transparent; padding: 3px 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden }
+.composer textarea { flex: 1; min-width: 240px; height: 26px; border: 0; resize: none; outline: none; background: transparent; padding: 3px 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden }
 .composer textarea:focus { white-space: normal; overflow: auto }
 .composer textarea::placeholder { color: #b1a2bc; overflow: hidden; text-overflow: ellipsis }
-.composer-actions { display: flex; align-items: center; gap: 8px; flex: none }
+.composer-actions { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end }
 .composer-actions label { font-size: 11px; color: #a491b2; display: flex; align-items: center; gap: 5px; margin-right: auto }
 .composer-actions input { accent-color: #947aae }
 .composer-actions button { font-size: 12px; padding: 8px 15px }
@@ -410,3 +410,15 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .story li[data-kind=milestone]::before { background: var(--accent); box-shadow: 0 0 0 4px #f0e9f7 }
 .story li[data-kind=milestone] span { font-weight: 600 }
 .story time { color: var(--muted) }
+
+/* ── Talking with her ─────────────────────────────── */
+.talk-button[aria-pressed=true] { background: var(--accent); color: #fff; border-color: var(--accent) }
+.talk-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #f0e9f7; color: #5a4670; font-size: 12px; white-space: nowrap }
+.talk-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #c0392b; animation: talk-pulse 1.2s ease-in-out infinite }
+.talk-state[data-state=hearing]::before { background: #2e9e6b }
+.talk-state[data-state=recognising]::before, .talk-state[data-state=thinking]::before { background: var(--accent) }
+@keyframes talk-pulse { 50% { opacity: .35 } }
+@media (prefers-reduced-motion: reduce) { .talk-state::before { animation: none } }
+
+/* With the talk controls the actions can outgrow one line: the box grows a second line instead of squeezing the text. */
+.composer { flex-wrap: wrap; row-gap: 6px; border-radius: 26px }

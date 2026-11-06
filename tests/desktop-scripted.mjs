@@ -468,7 +468,7 @@ try {
   }
   assert.equal(await page.getByRole('button', { name: '开启模型语音', exact: true }).getAttribute('aria-pressed'), 'false')
   // A loopback fake validates the entire renderer → preload → Main → Core → audio response chain silently.
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await page.getByRole('button', { name: '语音设置', exact: true }).click()
   const voice = page.getByRole('dialog', { name: '语音对话', exact: true })
   assert.equal(await voice.getByRole('button', { name: '开启麦克风录音', exact: true }).isDisabled(), true)
   assert.equal(await page.locator('video, iframe').count(), 0)
@@ -513,7 +513,7 @@ try {
   await voice.getByRole('button', { name: '将文字带到对话', exact: true }).click()
   assert.equal(await page.getByRole('textbox', { name: '消息', exact: true }).inputValue(), '合成录音用于验证语音链路。')
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('')
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await page.getByRole('button', { name: '语音设置', exact: true }).click()
   await voice.getByText('语音设置', { exact: true }).click()
   await synthesis.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
   assert.equal(await synthesis.getByLabel('API Key', { exact: true }).inputValue(), '')
