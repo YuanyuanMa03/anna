@@ -7,7 +7,8 @@ runPnpm(['exec', 'tsc', '-p', 'tsconfig.host.json'])
 await build({ entryPoints: ['apps/desktop/preload.ts'], outfile: 'dist/host/apps/desktop/preload.cjs', bundle: true, platform: 'browser', format: 'cjs', external: ['electron'] })
 // Main (window, menus, credential store) and core (kernel, permissions, channels) are separate processes.
 const dependencies = new Set()
-for (const entry of ['main', 'core']) {
+// `boot` loads main only at run time, so that a failure to load it can still be reported.
+for (const entry of ['boot', 'main', 'core']) {
   const result = await build({ entryPoints: [`apps/desktop/${entry}.ts`], outfile: `dist/host/apps/desktop/${entry}.js`, bundle: true, platform: 'node', format: 'esm', packages: 'external', sourcemap: true, metafile: true })
   for (const output of Object.values(result.metafile.outputs)) {
     for (const dependency of output.imports) {

@@ -95,6 +95,9 @@ function perform() {
 }
 
 async function load() {
+  // No WebGL: keep saying so, whichever character is asked for.
+  if (!app)
+    return
   const current = ++generation
   state.value = 'loading'
   error.value = ''
@@ -192,7 +195,19 @@ function track(event: PointerEvent) {
 }
 
 onMounted(() => {
-  app = new Application({ backgroundAlpha: 0, antialias: true, resolution: Math.min(window.devicePixelRatio, 2), autoDensity: true })
+  try { app = new Application({ backgroundAlpha: 0, antialias: true, resolution: Math.min(window.devicePixelRatio, 2), autoDensity: true }) }
+  catch (cause) {
+    // No WebGL at all: say so rather than "waking her" forever. Everything else in the app still works.
+    state.value = 'error'
+    error.value = `这台电脑的显卡没法显示她（${cause instanceof Error ? cause.message : String(cause)}）`
+    return
+  }
+  app.view.addEventListener('webglcontextlost', () => {
+    state.value = 'error'
+    error.value = '显卡上下文丢失，重新打开 Anna 可以恢复'
+  })
+  // Pixi restores the context after a driver reset or sleep; her model has to be loaded into it again.
+  app.view.addEventListener('webglcontextrestored', () => void load())
   app.ticker.maxFPS = 45
   element.value!.appendChild(app.view)
   observer = new ResizeObserver(layout)

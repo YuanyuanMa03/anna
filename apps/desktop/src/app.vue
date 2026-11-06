@@ -537,5 +537,5 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
     <CapabilitiesSheet v-if="pluginsOpen" :snapshot="snapshot" :locked="configuring || running" :error="error" :form="usesBody ? form : 'anime'" :has-mine="Boolean(mine)" :body-failure="bodyFailure" @close="pluginsOpen = false" @command="run" @form="chooseForm" @make="pluginsOpen = false; makerOpen = true" @forget="forgetAvatar" />
     <AvatarMaker v-if="makerOpen" :name="character.name" :can-ask="canChat && !running && Boolean(snapshot?.workspace.trusted) && mode !== 'plan'" @close="makerOpen = false" @made="madeAvatar" @ask="askForAvatar" />
   </main>
-  <main v-else class="boot">Anna 正在醒来…<p v-if="error">{{ error }}</p></main>
+  <main v-else class="boot">Anna 正在醒来…<p v-if="notice" role="alert">{{ notice }}</p><p v-else-if="error" role="alert">{{ error }}</p></main>
 </template>

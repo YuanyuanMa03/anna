@@ -1,4 +1,5 @@
 import type { MenuItemConstructorOptions, UtilityProcess } from 'electron'
+import type { Buffer } from 'node:buffer'
 import type { AnnaEvent, Command, RuntimeSnapshot } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
 import type { TrayItem } from './tray-menu'
@@ -9,9 +10,11 @@ import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray, utilityProcess } from 'electron'
 import { moveDataHome } from '../../packages/anna-host/data-home'
+import { createAppLog } from '../../packages/shared/app-log'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
 import { dataDirectory, earlierDataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
+import { packagedCoreEnv } from '../../packages/shared/search-path'
 import { createVault } from '../../packages/shared/vault'
 import { voiceCommand } from '../../packages/voice/contracts'
 import { externalUrl } from './external-link'
@@ -27,10 +30,25 @@ if (earlier) {
   catch (error) { dialog.showErrorBox('Anna 的数据没能搬家', `以前的数据还在 ${earlier}，这次先用新的。\n${error instanceof Error ? error.message : String(error)}`) }
 }
 const mac = process.platform === 'darwin'
+// Software WebGL when a driver is missing or blocked. Anna's window only ever shows her own pages, and without it she has no body at all.
+if (process.platform === 'win32')
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader')
 // The Keychain entry backing safeStorage is keyed by this name; changing it would orphan saved credentials.
 app.setName('Anna Reborn')
 mkdirSync(join(data, 'electron'), { recursive: true, mode: 0o700 })
 app.setPath('userData', join(data, 'electron'))
+const log = createAppLog(join(data, 'logs'))
+// Only the test harness has a stderr to forward to, and it may go away first.
+process.stderr.on('error', () => {})
+log.write('main', `Anna ${app.getVersion()} on ${process.platform} ${process.arch}`)
+/** The window cannot explain this itself: say what happened and where the details are, once. */
+let reportedFatal = false
+function reportFatal(message: string) {
+  if (reportedFatal || process.env.ANNA_QUIET_FAILURES)
+    return
+  reportedFatal = true
+  dialog.showErrorBox('Anna 遇到了问题', `${message}\n\n日志在 ${log.path}`)
+}
 /** An import link the OS handed over on the command line (Windows, Linux). */
 function linkIn(argv: string[]) {
   return argv.find(arg => arg.startsWith('anna://'))
@@ -48,7 +66,8 @@ app.on('second-instance', (_event, argv) => {
 // anna://v1/import?… (and cc-switch's format behind it) opens a confirmation in the providers tab. Registered only
 // for the installed app, so a development build never takes over the scheme.
 const links: string[] = []
-if (app.isPackaged)
+// A run against its own data folder (the package smoke test, say) must not take anna:// from the installed app.
+if (app.isPackaged && !process.env.ANNA_DATA_DIR)
   app.setAsDefaultProtocolClient('anna')
 app.on('open-url', (event, url) => {
   event.preventDefault()
@@ -72,6 +91,7 @@ let window: BrowserWindow | undefined
 let core: UtilityProcess | undefined
 let peer: RpcPeer | undefined
 let closing = false
+let coreAnswered = false
 let restarts: number[] = []
 let emitToRenderer: (event: AnnaEvent) => void = () => {}
 const updater = new Updater(process.env.ANNA_RELEASE_BASE ?? 'https://anna.mayuanyuan.top', state => emitToRenderer({ type: 'update', ...state }))
@@ -134,6 +154,10 @@ async function openLink(url: string) {
 
 function onCoreEvent(event: AnnaEvent) {
   emitToRenderer(event)
+  if (event.type === 'core' && event.status === 'ready') {
+    coreAnswered = true
+    log.write('main', 'core ready')
+  }
   if (event.type === 'snapshot')
     refreshTray(event.snapshot)
   if (event.type === 'notify' && window && !window.isFocused() && Notification.isSupported())
@@ -144,8 +168,21 @@ function onCoreEvent(event: AnnaEvent) {
 function startCore() {
   const child = utilityProcess.fork(join(root, 'dist/host/apps/desktop/core.js'), [], {
     serviceName: 'Anna Core',
-    stdio: 'inherit',
-    env: { ...process.env, ANNA_CORE_ROOT: root, ANNA_CORE_DATA: data },
+    stdio: 'pipe',
+    // The packaged agent finds the ripgrep and fd shipped beside the archive instead of downloading them.
+    env: { ...(app.isPackaged ? packagedCoreEnv(process.env, process.resourcesPath, process.platform) : process.env), ANNA_CORE_ROOT: root, ANNA_CORE_DATA: data },
+  })
+  // A packaged app has no console: the file is the only place a core crash can be read afterwards.
+  const output = [child.stdout, child.stderr].map((stream) => {
+    const lines = log.stream('core')
+    stream?.on('data', (chunk: Buffer) => {
+      lines.push(chunk)
+      // An installed Windows app has no stderr to write to; only the test harness reads this.
+      if (!app.isPackaged || process.env.ANNA_TEST_SCRIPT)
+        process.stderr.write(chunk)
+    })
+    stream?.on('end', () => lines.flush())
+    return lines
   })
   const rpc = new RpcPeer(message => child.postMessage(message), {
     'vault.read': ({ name }: { name: string }) => {
@@ -163,12 +200,17 @@ function startCore() {
   child.on('message', message => void rpc.receive(message as Wire))
   child.on('exit', (code) => {
     rpc.fail('Anna 核心进程正在重启，请稍候再试')
+    for (const lines of output)
+      lines.flush()
+    log.write('main', `core exited with code ${code}`)
     if (core !== child || closing)
       return
     const now = Date.now()
     restarts = [...restarts.filter(time => now - time < 60000), now]
     if (restarts.length > 3) {
-      emitToRenderer({ type: 'core', status: 'restarting', message: `Anna 核心进程反复退出（代码 ${code}），已停止自动重启。请查看日志后重新打开 Anna。` })
+      log.write('main', 'core gave up after repeated exits')
+      emitToRenderer({ type: 'core', status: 'restarting', message: `Anna 核心进程反复退出（代码 ${code}），已停止自动重启。日志在 ${log.path}` })
+      reportFatal(`Anna 的核心进程反复退出（代码 ${code}），已停止自动重启。`)
       return
     }
     emitToRenderer({ type: 'core', status: 'restarting', message: `Anna 核心进程意外退出（代码 ${code}），正在重启…` })
@@ -206,6 +248,14 @@ function menu(context: ReturnType<typeof createContext>['context']) {
 
 async function start() {
   await app.whenReady()
+  log.write('main', `graphics: webgl ${app.getGPUFeatureStatus().webgl}, webgl2 ${app.getGPUFeatureStatus().webgl2}`)
+  // Nothing has crashed, yet nothing has answered: don't leave a person watching "waking up" forever.
+  setTimeout(() => {
+    if (!coreAnswered && !closing && restarts.length <= 3) {
+      log.write('main', 'core has not answered after a minute')
+      emitToRenderer({ type: 'core', status: 'restarting', message: `Anna 醒得比平时慢，可能是杀毒软件在扫描或安装不完整。日志在 ${log.path}` })
+    }
+  }, 60000).unref()
   window = new BrowserWindow({ width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
   const win = window
   win.webContents.session.setDisplayMediaRequestHandler((_request, callback) => callback({}))
@@ -239,6 +289,25 @@ async function start() {
     event.preventDefault()
     browse(event.url)
   })
+  win.webContents.on('did-finish-load', () => log.write('main', 'window loaded'))
+  win.webContents.on('did-fail-load', (_event, code, description, _url, mainFrame) => {
+    // -3 is a navigation Anna itself cancelled.
+    if (mainFrame && code !== -3) {
+      log.write('main', `window failed to load: ${code} ${description}`)
+      reportFatal('Anna 的窗口没能打开，安装可能不完整，请重新安装一次。')
+    }
+  })
+  win.webContents.on('preload-error', (_event, _path, error) => log.write('main', `window failed to load: preload ${error.message}`))
+  win.webContents.on('console-message', (details) => {
+    if (details.level === 'error')
+      log.write('window', details.message)
+  })
+  win.webContents.on('render-process-gone', (_event, details) => {
+    log.write('main', `window process gone: ${details.reason} (${details.exitCode})`)
+    if (!closing)
+      reportFatal('Anna 的窗口意外关闭了，请重新打开 Anna。')
+  })
+  app.on('child-process-gone', (_event, details) => log.write('main', `${details.type} process gone: ${details.reason} (${details.exitCode})`))
   const { context, dispose } = createContext(ipcMain, win, { onlySameWindow: false })
   emitToRenderer = event => context.emit(runtimeEvent, event)
   win.on('closed', () => { dispose(); emitToRenderer = () => {} })
@@ -311,8 +380,9 @@ async function start() {
 void start().catch((error) => {
   const message = error instanceof Error ? error.message : 'Anna startup failed'
   console.error(message)
-  if (app.isReady())
-    dialog.showErrorBox('Anna 启动失败', message)
+  log.write('main', `startup failed: ${error instanceof Error ? error.stack ?? message : message}`)
+  if (app.isReady() && !process.env.ANNA_QUIET_FAILURES)
+    dialog.showErrorBox('Anna 启动失败', `${message}\n\n日志在 ${log.path}`)
   app.quit()
 })
 app.on('window-all-closed', () => app.quit())

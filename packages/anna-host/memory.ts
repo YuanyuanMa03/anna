@@ -2,7 +2,7 @@ import type { AnnaTool } from '../kernels/types'
 import type { MemoryDraft, MemoryItem, MemoryKind } from '../shared/contracts'
 import { createHash, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { readJson, writeJson } from './json-file'
+import { isRecordList, readJson, writeJson } from './json-file'
 
 const limit = 80
 
@@ -31,8 +31,8 @@ export class MemoryStore {
   private get file() { return join(this.directory, 'memory.json') }
 
   async load() {
-    this.items = await readJson(this.file, this.items)
-    this.dismissed = await readJson(join(this.directory, 'memory-dismissed.json'), [])
+    this.items = await readJson(this.file, this.items, isRecordList)
+    this.dismissed = await readJson(join(this.directory, 'memory-dismissed.json'), [], Array.isArray)
   }
 
   private async save() { await writeJson(this.file, this.items) }

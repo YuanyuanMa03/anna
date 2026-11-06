@@ -1,6 +1,6 @@
 import type { FileChange, TaskRecord } from '../shared/contracts'
 import { join } from 'node:path'
-import { readJson, writeJson } from './json-file'
+import { isRecordList, readJson, writeJson } from './json-file'
 
 export type JournalEntry = TaskRecord
 
@@ -25,7 +25,7 @@ export class TaskJournal {
   constructor(private directory: string) {}
   private get file() { return join(this.directory, 'journal.json') }
 
-  async load() { this.entries = await readJson(this.file, this.entries) }
+  async load() { this.entries = await readJson(this.file, this.entries, isRecordList) }
   private async save() { await writeJson(this.file, this.entries) }
 
   async record(entry: JournalEntry) {

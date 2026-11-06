@@ -6,6 +6,7 @@ import * as v from 'valibot'
 import { characters } from '../character/manifest'
 import { profileSchema } from '../character/personality'
 import { emptyRules } from '../permissions/rules'
+import { quarantine } from './json-file'
 
 const modelSchema = v.object({ provider: v.picklist(['deepseek-official', 'custom']), model: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[\w./:@+-]+$/)), baseURL: v.pipe(v.string(), v.url()), api: v.picklist(['anthropic-messages', 'openai-completions', 'openai-responses']) })
 const ruleList = v.optional(v.array(v.pipe(v.string(), v.maxLength(500))), [])
@@ -81,12 +82,14 @@ export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', char
 export class SettingsStore {
   value: Settings = defaultSettings()
   migratedFrom?: number
+  /** Where settings that could not be read were kept; Anna then started with defaults. */
+  quarantined?: string
   private writing = Promise.resolve()
   constructor(readonly directory: string) {}
   async load() {
     await mkdir(this.directory, { recursive: true, mode: 0o700 })
     try {
-      const raw = JSON.parse(await readFile(join(this.directory, 'settings.json'), 'utf8')) as Record<string, unknown>
+      const raw = JSON.parse((await readFile(join(this.directory, 'settings.json'), 'utf8')).replace(/^\uFEFF/, '')) as Record<string, unknown>
       this.value = migrate(raw)
       if (raw.version !== this.value.version) {
         this.migratedFrom = typeof raw.version === 'number' ? raw.version : 1
@@ -94,8 +97,15 @@ export class SettingsStore {
       }
     }
     catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+      if (error instanceof SyntaxError || v.isValiError(error)) {
+        this.quarantined = await quarantine(join(this.directory, 'settings.json'))
+        // Starting with defaults would let the next save replace the only copy.
+        if (!this.quarantined)
+          throw error
+      }
+      else if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error
+      }
     }
   }
 
