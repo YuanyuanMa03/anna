@@ -7,6 +7,7 @@ import { installSteps } from '../../../packages/agents/installation'
 import { companion } from '../../../packages/character/manifest'
 import { firstModel, isLocalEndpoint, listsModels, modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
 import ProvidersPanel from './components/providers-panel.vue'
+import { voiceState } from './voice-state'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean, inline?: boolean, section?: 'brain' | 'connection' }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
@@ -208,6 +209,9 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback); clearTimeou
             <button class="primary" :disabled="busy || !model.model.trim() || !haveKey" type="submit">保存并连接</button>
           </form>
         </template>
+        <h3>她的声音</h3>
+        <p class="small muted">点输入框旁的麦克风就能和她说话；这里配置语音识别和语音合成。打开“开口说话”后，打字聊天时她也会把回复的要点说出来。</p>
+        <div class="card-actions left"><button type="button" @click="voiceState.settingsOpen = true">语音设置</button><button type="button" :aria-pressed="voiceState.enabled" @click="voiceState.enabled = !voiceState.enabled">{{ voiceState.enabled ? '关闭模型语音' : '开启模型语音' }}</button></div>
         <h3>共用 pi 的模型</h3>
         <p class="small muted">Chat Completions 模型可供 Claude Code、Codex 共用；Anthropic 协议仅供 Claude Code，Responses 仅供 Codex。只切换 Anna 内的大脑和派活配置，终端配置由服务商页单独管理。</p>
         <div v-if="sharingPreview" class="card"><p>将跟随 pi：{{ shareTargets }}。其余大脑尚未适配，将跳过。</p><p class="small muted">仅影响 Anna 内调用。首次保存原选择，可恢复；手动选择其他服务商后退出跟随。</p><button :disabled="busy" @click="emit('command', { type: 'share-pi-model' }); sharingPreview = false">确认应用</button><button @click="sharingPreview = false">取消</button></div>
