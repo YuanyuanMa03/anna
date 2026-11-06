@@ -27,7 +27,9 @@ export const motionSeconds = {
   spaceOut: 7.4,
 } as const
 export type BodyMotion = keyof typeof motionSeconds
-const motionMs = (motion: BodyMotion) => motionSeconds[motion] * 1000
+const calmMotion: Partial<Record<BodyMotion, BodyMotion>> = { lookAround: 'sway', no: 'tilt', shy: 'giggle', glance: 'nod', tap: 'hum', think: 'tilt', waiting: 'tilt', lean: 'hum', spaceOut: 'hum', sigh: 'readNote', stretch: 'hum', doze: 'hum' }
+// Timed by what actually plays, after the calm swap.
+const motionMs = (motion: BodyMotion) => motionSeconds[calmMotion[motion] ?? motion] * 1000
 /** The runtime's live expressions, layered over motions and lip sync. */
 export type BodyExpression = 'neutral' | 'smile' | 'shy' | 'surprise' | 'halfLidded' | 'angry' | 'sad' | 'wink'
 /** Where she looks: at the person's pointer, wherever her idle wandering takes her, or a fixed direction (-1..1, up is +y). */
@@ -73,7 +75,7 @@ export const beats: Record<AnnaPhase, Beat> = {
 interface Reaction { motion: BodyMotion, expression?: BodyExpression, hold?: number }
 export type Touch = 'head' | 'face' | 'hands' | 'body'
 const touches: Record<Touch, Reaction> = {
-  head: { motion: 'shy', expression: 'shy' },
+  head: { motion: 'shy', expression: 'smile' },
   face: { motion: 'giggle', expression: 'smile' },
   hands: { motion: 'nod' },
   body: { motion: 'nod' },
@@ -94,8 +96,7 @@ const gestures: Record<GestureKind, Reaction> = { nod: { motion: 'nod' }, tilt: 
  * Her body's mesh deforms the face when the head turns far, and some motions half-close the eyes under a frown: both
  * read as uncanny. Those motions are swapped for calm ones and those faces for neutral ones, wherever they come from.
  */
-const calmMotion: Partial<Record<BodyMotion, BodyMotion>> = { lookAround: 'sway', no: 'tilt', shy: 'giggle', glance: 'nod', tap: 'hum', think: 'tilt', waiting: 'tilt', lean: 'hum', spaceOut: 'hum', sigh: 'nod', stretch: 'sway', doze: 'sway' }
-const calmFace: Partial<Record<BodyExpression, BodyExpression>> = { halfLidded: 'neutral', sad: 'neutral', angry: 'surprise' }
+const calmFace: Partial<Record<BodyExpression, BodyExpression>> = { halfLidded: 'neutral', sad: 'neutral', angry: 'neutral' }
 export const calm = { motion: (motion: BodyMotion) => calmMotion[motion] ?? motion, face: (expression: BodyExpression) => calmFace[expression] ?? expression }
 
 /** Alone this long while idle, she dozes off, carrying herself as when offline. */

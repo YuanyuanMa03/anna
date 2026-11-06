@@ -131,9 +131,9 @@ function tick() {
     expression.value = next.expression
     avatar.setExpression(next.expression)
   }
-  const idle = next.idle && !reduced.matches
-  avatar.setAutoIdle(idle)
-  // The runtime's own random idle motions include the uncanny ones; her director plays calm idle motions instead.
+  // The runtime's own random motions (idle and emotion sets) include the uncanny ones; her director plays calm ones.
+  // Blinking and breathing continue without them.
+  avatar.setAutoIdle(false)
   avatar.setAutoMotion(false)
   playing.value = now < gestureUntil ? playing.value : ''
 
@@ -197,7 +197,7 @@ onMounted(async () => {
     traceSilhouette(opened.assets['base.png']!).catch(() => {})
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: herLipSync })
+    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', ...(props.body.archive ? {} : { lipSync: herLipSync }) })
     if (disposed) {
       loaded.destroy()
       return

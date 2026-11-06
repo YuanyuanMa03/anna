@@ -32,7 +32,7 @@ describe('body beats', () => {
 describe('body director', () => {
   it('greets the person when she wakes from offline into idle', () => {
     const director = new BodyDirector()
-    expect(director.frame('offline', 0, awake(0)).motion).toBe('sway')
+    expect(director.frame('offline', 0, awake(0)).motion).toBe('hum')
     expect(director.frame('idle', 1000, awake(1000)).motion).toBe('greet')
   })
   it('greets the person when she first appears', () => {
@@ -68,7 +68,7 @@ describe('body director', () => {
     director.touch('head', 100)
     const frame = director.frame('idle', 150, awake(150))
     expect(frame.motion).toBe('giggle')
-    expect(frame.expression).toBe('shy')
+    expect(frame.expression).toBe('smile')
     expect(director.frame('idle', 6000, awake(6000)).expression).toBe('neutral')
   })
   it('giggles when her cheek is poked and winks on a double click', () => {
@@ -81,13 +81,13 @@ describe('body director', () => {
     expect(director.frame('idle', 9010, awake(9010)).motion).toBe('wink')
   })
   it('tells the stage how long a mode gesture plays', () => {
-    expect(new BodyDirector().gesture('shake', 0)).toBe(motionSeconds.no * 1000)
+    expect(new BodyDirector().gesture('shake', 0)).toBe(motionSeconds.tilt * 1000)
   })
   it('pouts when poked three times in a row', () => {
     const director = new BodyDirector()
     for (const at of [0, 400, 800])
       director.touch('face', at)
-    expect(director.frame('idle', 850, awake(850))).toMatchObject({ motion: 'tilt', expression: 'surprise' })
+    expect(director.frame('idle', 850, awake(850))).toMatchObject({ motion: 'tilt', expression: 'neutral' })
   })
   it('dozes off after a long while alone and greets the person who comes back', () => {
     const director = new BodyDirector()
