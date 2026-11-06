@@ -28,6 +28,7 @@ import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
 import { approvalRules } from '../shared/approval-rules'
+import { relationshipOf } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -276,6 +277,7 @@ export class Host {
       starterTasks: this.starterTasks,
       welcome: this.welcome(),
       workRecords: this.journal.entries.filter(entry => entry.workspace === this.workspacePath),
+      relationship: relationshipOf(this.journal.entries, this.memory.items),
       agents: { ...this.agentsCache, usage: { ...this.agentsCache.usage, ...this.nativeUsage } },
     }
   }

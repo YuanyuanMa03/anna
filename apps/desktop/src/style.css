@@ -391,3 +391,22 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .approval-request label { display: flex; flex-direction: column; gap: 6px; font-size: 12px }
 .approval-request textarea, .life-sheet textarea { width: 100%; min-height: 90px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; font: inherit; resize: vertical }
 .approval-request select { border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit }
+
+/* ── 我们: their time together ───────────────────── */
+.together-stats { margin: 10px 0 14px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) }
+.together-stats article { padding: 10px 14px }
+.together-stats span { display: block; margin-top: 2px }
+.portrait { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: var(--glass); margin-bottom: 14px }
+.portrait h4 { margin: 0 0 6px }
+.portrait-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px }
+.portrait-group > small { min-width: 56px; color: var(--muted) }
+.memory-chip { padding: 4px 10px; border-radius: 999px; background: #f0e9f7; color: #5a4670; font-size: 13px }
+.portrait-group[data-kind=agreement] .memory-chip { background: #fbefe2; color: #7a5530 }
+.portrait-group[data-kind=experience] .memory-chip { background: #e6f1ec; color: #3f6654 }
+.story { list-style: none; margin: 0 0 18px; padding: 0 0 0 16px; border-left: 2px solid #e8dff0 }
+.story li { position: relative; display: grid; grid-template-columns: 72px 1fr; gap: 8px; padding: 6px 0; font-size: 13px }
+.story li::before { content: ''; position: absolute; left: -22px; top: 11px; width: 10px; height: 10px; border-radius: 50%; background: #d9cce6 }
+.story li[data-kind=memory]::before { background: #c9a6e4 }
+.story li[data-kind=milestone]::before { background: var(--accent); box-shadow: 0 0 0 4px #f0e9f7 }
+.story li[data-kind=milestone] span { font-weight: 600 }
+.story time { color: var(--muted) }

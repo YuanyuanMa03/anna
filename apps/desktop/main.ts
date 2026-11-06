@@ -126,6 +126,8 @@ async function runTray(run: NonNullable<TrayItem['run']>) {
   if (run === 'quit')
     return app.quit()
   if (run === 'show') {
+    if (background && mac)
+      app.setActivationPolicy('regular')
     window?.show()
     window?.focus()
     return
