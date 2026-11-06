@@ -22,7 +22,30 @@ The Intel local-AI track requires at least one inference operator or model layer
   - a keyless list;
   - a host test showing that a keyless local setup with a cloud key saved first failed (the changed-address guard fired before the keyless rule), and passes after reordering.
 - `tests/onboarding.mjs` checks the tile: no key field, the address presets, the list (`artifacts/onboarding-local-model.png`).
-- `pnpm preflight`: 984 passed, 19 skipped. `pnpm build` and `pnpm test:scripted` pass.
+- `pnpm preflight`: 985 passed, 19 skipped (after the review fixes). `pnpm build` and `pnpm test:scripted` pass.
+
+## Review
+
+**Standards and Spec reviews in parallel: no code blocker.** Both raised the same contest risk: stock Ollama on Windows does not use an Intel GPU or NPU, so the rule could fail even though Anna works.
+
+Fixed:
+
+- **GPU and NPU guidance.** The tile now leads with OpenVINO Model Server (`:8000/v3`), then LM Studio (Vulkan) and Ollama. A tips panel says which runtimes use an Intel GPU or NPU, and to watch Task Manager while she replies.
+- **Context.** Local models are registered with a 32k context and 4k replies, so pi compacts before a server with a small window cuts her instructions. The tips say how to raise the server's context.
+- **Thinking and tool calls.** The tips say to turn off thinking and to enable tool calls (`--jinja` for llama.cpp).
+- **First-token wait.** The connection test waits up to 180 s for a local model (60 s otherwise), because the first prompt can take minutes on an iGPU.
+- **The cloud key is replaced.** Saving a local model overwrites the saved cloud key. That is deliberate: keeping it would hand it to whatever listens on that port. The tips say so, and a test checks that the cloud key is asked for again.
+- **Nits.** An unreachable branch is removed and a misplaced doc comment is fixed.
+
+Checked by the Standards review and fine:
+
+- **The loopback match.** `127.1` and `LOCALHOST` normalise to loopback. `0.0.0.0`, `127.0.0.1.nip.io`, `localhost.evil.com` and `[::ffff:7f00:1]` are rejected.
+- **Other paths.** Sharing pi's model with Claude Code and Codex accepts this-machine HTTP, and no usage check runs for a loopback address.
+
+Not changed:
+
+- One key per address, so switching back keeps the cloud key: later.
+- A separate always-on local job, such as rewriting what she says, as a fallback for the rule: suggested by the Spec review and not done here.
 
 ## Not verified
 

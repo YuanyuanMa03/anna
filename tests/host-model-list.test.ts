@@ -96,3 +96,10 @@ it('connects to a model on this computer without a key, and lists its models', a
   expect(host.snapshot().settings.model.baseURL).toBe(local.baseURL)
   await host.close()
 })
+
+it('asks for the cloud key again after a local model replaced it', async () => {
+  const { host } = await setup(async () => [])
+  await host.execute({ type: 'configure', model: { provider: 'custom', model: 'q', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' }, key: '' })
+  await expect(host.execute({ type: 'configure', model: saved, key: '' })).rejects.toThrow(/填写.*API Key/)
+  await host.close()
+})

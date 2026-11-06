@@ -34,7 +34,7 @@ export const modelVendors: readonly ModelVendor[] = [
   { id: 'openrouter', label: 'OpenRouter', hint: '海外多家模型', api: 'openai-completions', baseURL: 'https://openrouter.ai/api/v1', keyPage: 'https://openrouter.ai/keys', models: [] },
   { id: 'openai', label: 'OpenAI', hint: 'GPT 系列', api: 'openai-responses', baseURL: 'https://api.openai.com/v1', keyPage: 'https://platform.openai.com/api-keys', models: [] },
   { id: 'anthropic', label: 'Anthropic', hint: 'Claude 系列', api: 'anthropic-messages', baseURL: 'https://api.anthropic.com', keyPage: 'https://console.anthropic.com/settings/keys', models: [] },
-  { id: 'local', label: '本机模型', hint: 'Ollama / LM Studio / OpenVINO · 不出这台电脑', api: 'openai-completions', baseURL: 'http://127.0.0.1:11434/v1', keyPage: 'https://ollama.com/download', models: [], keyless: true },
+  { id: 'local', label: '本机模型', hint: 'OpenVINO / LM Studio / Ollama · 用本机 GPU、NPU', api: 'openai-completions', baseURL: 'http://127.0.0.1:11434/v1', keyPage: 'https://ollama.com/download', models: [], keyless: true },
   { id: 'gemini', label: 'Google Gemini', hint: 'Gemini 系列', api: 'openai-completions', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyPage: 'https://aistudio.google.com/apikey', models: [] },
 ]
 
@@ -49,7 +49,6 @@ export function sameEndpoint(a: string, b: string) {
   catch { return false }
 }
 
-/** The vendor a saved setting belongs to, or nothing for a custom endpoint. */
 /** A model server on this computer (loopback): the only place plain HTTP is allowed, and no key is needed. */
 export function isLocalEndpoint(url: string) {
   try {
@@ -68,6 +67,7 @@ export function modelEndpointAllowed(url: string) {
   catch { return false }
 }
 
+/** The vendor a saved setting belongs to, or nothing for a custom endpoint. */
 export function vendorFor(model: Pick<ModelSettings, 'provider' | 'baseURL' | 'api'>): ModelVendor | undefined {
   if (model.provider === 'deepseek-official')
     return modelVendors.find(vendor => vendor.id === 'deepseek')

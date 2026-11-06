@@ -1262,7 +1262,8 @@ export class Host {
           await this.connect(key)
           const kernel = this.kernel!
           let timedOut = false
-          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, 60000)
+          // A model on this computer may take minutes to read pi's long prompt the first time.
+          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, isLocalEndpoint(this.store.value.model.baseURL) ? 180_000 : 60_000)
           try {
             const outcome = await kernel.prompt('这是连接验证。只用一句话问好，不调用任何工具。', { origin: 'desktop', hidden: true })
             if (timedOut)
@@ -1308,14 +1309,12 @@ export class Host {
         const model = validateModel(command.model)
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
+        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
         if (!command.key.trim() && isLocalEndpoint(model.baseURL))
           key = 'local'
         else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
           throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
-        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
-        if (!key && isLocalEndpoint(model.baseURL))
-          key = 'local'
         if (!key)
           throw new Error('请填写 API Key')
         await this.close()

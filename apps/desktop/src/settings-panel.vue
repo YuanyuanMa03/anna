@@ -73,7 +73,7 @@ const savedKeyFits = computed(() => props.snapshot.hasKey && sameEndpoint(props.
 const keyless = computed(() => isLocalEndpoint(model.baseURL))
 const haveKey = computed(() => keyless.value || Boolean(key.value.trim()) || savedKeyFits.value)
 /** Where each local tool serves its OpenAI-compatible API by default. */
-const localServers = [{ label: 'Ollama', url: 'http://127.0.0.1:11434/v1' }, { label: 'LM Studio', url: 'http://127.0.0.1:1234/v1' }, { label: 'llama.cpp', url: 'http://127.0.0.1:8080/v1' }, { label: 'OpenVINO', url: 'http://127.0.0.1:8000/v3' }]
+const localServers = [{ label: 'OpenVINO', url: 'http://127.0.0.1:8000/v3' }, { label: 'LM Studio', url: 'http://127.0.0.1:1234/v1' }, { label: 'Ollama', url: 'http://127.0.0.1:11434/v1' }, { label: 'llama.cpp', url: 'http://127.0.0.1:8080/v1' }]
 function useLocal(url: string) {
   model.baseURL = url
   fetchModels()
@@ -179,7 +179,16 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback); clearTimeou
           </div>
           <form @submit.prevent="save">
             <template v-if="vendor?.keyless">
-              <p class="small muted">先在这台电脑上用 Ollama、LM Studio 等工具把模型跑起来，再选它用的地址。模型在本机运行，对话内容不出这台电脑。</p>
+              <p class="small muted">先在这台电脑上把模型跑起来，再选它用的地址。模型在本机运行，对话内容不出这台电脑。</p>
+              <details class="small muted local-tips">
+                <summary>让它用上 GPU / NPU，并且好用</summary><ul>
+                  <li>Intel 显卡或 NPU：用 OpenVINO Model Server、LM Studio（Vulkan 运行时）或 IPEX-LLM 版 Ollama；官方 Ollama 在 Windows 上通常只用 CPU。回复时看任务管理器“性能”里的 GPU / NPU 是否升高。</li>
+                  <li>上下文长度设为 32k 左右（Ollama：OLLAMA_CONTEXT_LENGTH=32768；LM Studio：加载时调 Context Length），否则她的说明和工具会被截掉。</li>
+                  <li>Qwen 等模型请关掉“思考”，并确认运行时开启了工具调用（llama.cpp 加 --jinja）。</li>
+                  <li>第一次回复可能要等一两分钟；先在运行时里把模型加载好。</li>
+                  <li>保存本机模型后，再换回云端厂商时需要重新填那家的 API Key。</li>
+                </ul>
+              </details>
               <div class="card-actions left"><button v-for="server in localServers" :key="server.url" type="button" :aria-pressed="model.baseURL === server.url" @click="useLocal(server.url)">{{ server.label }}</button></div>
               <label>本机地址<input v-model="model.baseURL" type="url" required aria-label="API 端点" @change="fetchModels"></label>
             </template>
