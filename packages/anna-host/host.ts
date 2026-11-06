@@ -3,7 +3,7 @@ import type { AgentKernel, AnnaTool, GateVerdict, KernelFactory } from '../kerne
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
 import type { SandboxStatus } from '../permissions/sandbox'
-import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
+import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, ModelSettings, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
 import type { DelegationOutcome } from './delegator'
 import { Buffer } from 'node:buffer'
@@ -28,6 +28,8 @@ import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
 import { approvalRules } from '../shared/approval-rules'
+import { isLocalEndpoint } from '../shared/model-vendors'
+import { advanceTogether, relationshipOf, seedTogether, undoTogether } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -35,6 +37,7 @@ import { delegateAgents, Delegator, labelOf, parseMention } from './delegator'
 import { TaskJournal } from './journal'
 import { explicitMemory, MemoryStore, signature } from './memory'
 import { describeModelError } from './model-errors'
+import { listModels, sameEndpoint } from './model-list'
 import { Presence } from './presence'
 import { SettingsStore, validateModel } from './settings'
 import { resolveWorkspace } from './workspace'
@@ -57,6 +60,8 @@ export interface HostOptions {
   /** A section for this edition's brain (the online demo says what it lacks), after the persona and the rest. */
   notes?: string
   histories?: Pick<ExternalHistory, 'list' | 'preview' | 'fork'>
+  /** How a vendor's model list is fetched (tests use a fake). */
+  listModels?: (model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string, signal: AbortSignal) => Promise<string[]>
 }
 
 /** ACP brains stay off until one real agent has run as her brain: only protocol fakes have so far. */
@@ -71,6 +76,8 @@ export class Host {
   private nativeUsage: RuntimeSnapshot['agents']['usage'] = {}
   private capabilityCache?: RuntimeSnapshot['capabilities']
   private historyPage?: RuntimeSnapshot['externalHistory']
+  private modelList?: RuntimeSnapshot['modelList']
+  private modelListRequest?: AbortController
   private kernel?: AgentKernel
   private approvals: ApprovalBroker
   private presence: Presence
@@ -158,6 +165,11 @@ export class Host {
     await this.store.character()
     await this.memory.load()
     await this.journal.load()
+    // The running tally starts from whatever the journal and diary still hold the first time this version runs.
+    if (!this.store.value.together) {
+      this.store.value.together = seedTogether(this.journal.entries, this.memory.items)
+      await this.store.save().catch(() => {})
+    }
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
@@ -266,10 +278,12 @@ export class Host {
       platform: this.platform(),
       memories: [...this.memory.items],
       externalHistory: this.historyPage,
+      modelList: this.modelList,
       capabilities: this.kernel?.capabilityReport ?? this.capabilityCache,
       starterTasks: this.starterTasks,
       welcome: this.welcome(),
       workRecords: this.journal.entries.filter(entry => entry.workspace === this.workspacePath),
+      relationship: relationshipOf(this.journal.entries, this.memory.items, new Date(), this.store.value.together),
       agents: { ...this.agentsCache, usage: { ...this.agentsCache.usage, ...this.nativeUsage } },
     }
   }
@@ -758,7 +772,10 @@ export class Host {
         summary: outcome.text.split('\n').find(item => item.trim())?.slice(0, 160) ?? '',
         origin: task.origin,
       }
-      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      const recordedAt = new Date().toISOString()
+      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: recordedAt, workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      if (outcome.status === 'completed')
+        this.store.value.together = advanceTogether(this.store.value.together ?? seedTogether([], []), { at: recordedAt, request: task.text })
       this.store.value.sessionFile = kernel.sessionFile
       this.rememberSession()
       await this.store.save()
@@ -943,7 +960,14 @@ export class Host {
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
-        await this.journal.markUndone(command.taskId).catch(() => {})
+        const undone = this.journal.entries.find(entry => entry.taskId === command.taskId)
+        const counted = undone?.status === 'completed' && !undone.undone
+        // Taken back only once the journal has marked it, so a failed mark cannot be counted twice.
+        const marked = await this.journal.markUndone(command.taskId).then(() => true, () => false)
+        if (counted && marked && this.store.value.together) {
+          this.store.value.together = undoTogether(this.store.value.together)
+          await this.store.save().catch(() => {})
+        }
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)
         this.publish()
@@ -966,6 +990,39 @@ export class Host {
         }
         else {
           this.capabilityCache = this.kernel?.capabilityReport ?? { at: new Date().toISOString(), source: '等待大脑初始化报告', entries: [], unknown: ['skills', 'plugins', 'mcp'] }
+        }
+        this.publish()
+        return this.snapshot()
+      }
+      case 'model-list': {
+        // Only the newest request may answer: a pause while typing a key starts one, the finished key another.
+        this.modelListRequest?.abort()
+        const request = new AbortController()
+        this.modelListRequest = request
+        const { baseURL, api } = command.model
+        const at = new Date().toISOString()
+        const answer = (result: { models: string[] } | { error: string }) => {
+          if (this.modelListRequest !== request)
+            return
+          this.modelList = { baseURL: String(baseURL), api, models: [], at, ...result }
+          this.modelListRequest = undefined
+        }
+        try {
+          if (!['anthropic-messages', 'openai-completions', 'openai-responses'].includes(api) || typeof baseURL !== 'string')
+            throw new Error('API 协议或端点无效')
+          const typed = typeof command.key === 'string' ? command.key.trim() : ''
+          if (typed.length > 8192 || /[\r\n\0]/.test(typed))
+            throw new Error('API Key 格式无效')
+          // Checked again after the read: a save to another vendor may land in between.
+          const fits = () => sameEndpoint(this.store.value.model.baseURL, baseURL)
+          const saved = !typed && fits() ? await this.vault.read().catch(() => '') : ''
+          const key = typed || (fits() ? saved : '')
+          if (!key && !isLocalEndpoint(baseURL))
+            throw new Error('请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
+          answer({ models: await (this.options.listModels ?? ((model, key, signal) => listModels(model, key, fetch, { signal })))({ baseURL, api }, key, request.signal) })
+        }
+        catch (error) {
+          answer({ error: error instanceof Error ? error.message : String(error) })
         }
         this.publish()
         return this.snapshot()
@@ -1205,7 +1262,8 @@ export class Host {
           await this.connect(key)
           const kernel = this.kernel!
           let timedOut = false
-          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, 60000)
+          // A model on this computer may take minutes to read pi's long prompt the first time.
+          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, isLocalEndpoint(this.store.value.model.baseURL) ? 180_000 : 60_000)
           try {
             const outcome = await kernel.prompt('这是连接验证。只用一句话问好，不调用任何工具。', { origin: 'desktop', hidden: true })
             if (timedOut)
@@ -1251,6 +1309,12 @@ export class Host {
         const model = validateModel(command.model)
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
+        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
+        // A local server with its own key keeps it when only the model changes; a new local address gets the placeholder.
+        if (!command.key.trim() && isLocalEndpoint(model.baseURL))
+          key = key && sameEndpoint(this.store.value.model.baseURL, model.baseURL) ? key : 'local'
+        else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
+          throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
         if (!key)
           throw new Error('请填写 API Key')

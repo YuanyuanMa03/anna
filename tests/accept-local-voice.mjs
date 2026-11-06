@@ -7,6 +7,16 @@ import process from 'node:process'
 import { _electron } from 'playwright'
 import { desktopLaunch } from './desktop-launch.mjs'
 
+/** The voice controls live in Anna 档案 → 3 接通模型 → 她的声音. */
+async function voiceControl(page, name) {
+  await page.locator('.brain-chip').click()
+  const sheet = page.getByRole('dialog', { name: 'Anna 档案' })
+  await sheet.getByRole('button', { name: '3 接通模型', exact: true }).click()
+  await sheet.getByRole('button', { name, exact: true }).click()
+  if (name !== '语音设置')
+    await sheet.getByRole('button', { name: '关闭设置', exact: true }).click()
+}
+
 assert.equal(process.env.ANNA_LOCAL_VOICE_ACCEPT, '1', 'Opt in with ANNA_LOCAL_VOICE_ACCEPT=1')
 const url = new URL(process.env.ANNA_LOCAL_VOICE_URL ?? 'http://127.0.0.1:17861/v1')
 assert(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash, 'Acceptance only uses an uncredentialed loopback HTTP endpoint')
@@ -28,7 +38,7 @@ try {
   })
   await page.reload()
   await page.locator('.scene').waitFor()
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await voiceControl(page, '语音设置')
   const voice = page.getByRole('dialog', { name: '语音对话', exact: true })
   for (const [label, model] of [['语音识别', 'paraformer-local'], ['语音合成', 'kokoro-local']]) {
     const group = voice.getByRole('group', { name: label, exact: true })

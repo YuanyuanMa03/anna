@@ -9,6 +9,16 @@ import process from 'node:process'
 import { _electron } from 'playwright'
 import { desktopLaunch } from './desktop-launch.mjs'
 
+/** The voice controls live in Anna 档案 → 3 接通模型 → 她的声音. */
+async function voiceControl(page, name) {
+  await page.locator('.brain-chip').click()
+  const sheet = page.getByRole('dialog', { name: 'Anna 档案' })
+  await sheet.getByRole('button', { name: '3 接通模型', exact: true }).click()
+  await sheet.getByRole('button', { name, exact: true }).click()
+  if (name !== '语音设置')
+    await sheet.getByRole('button', { name: '关闭设置', exact: true }).click()
+}
+
 /**
  * Deterministic desktop acceptance with a scripted model (no API key, runs in CI on macOS, Windows and Linux):
  * trust → modes and their stage reactions → approvals → result card, diff and undo → interruption → core crash recovery.
@@ -191,7 +201,7 @@ try {
       removeAttribute() {}
     }
   })
-  await page.getByRole('button', { name: '开启模型语音', exact: true }).click()
+  await voiceControl(page, '开启模型语音')
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('你好')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()
   await until(page, s => s.state === 'ready' && s.messages?.length === 2, 'greeting')
@@ -209,7 +219,7 @@ try {
     delete window.__annaAudioFixture
   })
   assert.equal(await page.locator('.body-stage').getAttribute('data-speaking'), 'false')
-  await page.getByRole('button', { name: '关闭模型语音', exact: true }).click()
+  await voiceControl(page, '关闭模型语音')
   evidence.checks.push('Mouth: real offline decoding of synthetic WAV follows the controlled playback clock, silence closes it, stop ignores late events; audio playback is mocked and no speakers are used')
 
   // Switch to ask mode: Anna tilts her head (stricter) and greets the change.
@@ -466,9 +476,10 @@ try {
   else {
     evidence.checks.push('ACP brain: not run, no sandbox on this machine (an ACP brain only runs inside one)')
   }
-  assert.equal(await page.getByRole('button', { name: '开启模型语音', exact: true }).getAttribute('aria-pressed'), 'false')
+  // Model speech is off again, and the chat box carries only the microphone.
+  assert.equal(await page.locator('.composer').getByRole('button', { name: /模型语音|语音设置/ }).count(), 0)
   // A loopback fake validates the entire renderer → preload → Main → Core → audio response chain silently.
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await voiceControl(page, '语音设置')
   const voice = page.getByRole('dialog', { name: '语音对话', exact: true })
   assert.equal(await voice.getByRole('button', { name: '开启麦克风录音', exact: true }).isDisabled(), true)
   assert.equal(await page.locator('video, iframe').count(), 0)
@@ -513,7 +524,7 @@ try {
   await voice.getByRole('button', { name: '将文字带到对话', exact: true }).click()
   assert.equal(await page.getByRole('textbox', { name: '消息', exact: true }).inputValue(), '合成录音用于验证语音链路。')
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('')
-  await page.getByRole('button', { name: '语音对话', exact: true }).click()
+  await voiceControl(page, '语音设置')
   await voice.getByText('语音设置', { exact: true }).click()
   await synthesis.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
   assert.equal(await synthesis.getByLabel('API Key', { exact: true }).inputValue(), '')

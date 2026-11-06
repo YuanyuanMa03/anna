@@ -32,6 +32,8 @@ export interface Settings {
   brainSessions?: Record<string, string>
   onboardingComplete?: boolean
   firstTaskPending?: boolean
+  /** A running tally of their time together; the journal and diary only keep recent entries. */
+  together?: import('./relationship').Together
   memoryRevision?: number
   connectionVerified?: string
   personality?: PersonalityProfile
@@ -222,6 +224,10 @@ export interface RuntimeSnapshot {
   starterTasks?: string[]
   welcome?: string
   externalHistory?: ExternalHistoryPage
+  /** The last model list asked for while setting up pi's model; `error` says why it is empty. */
+  modelList?: { baseURL: string, api: ModelSettings['api'], models: string[], error?: string, at: string }
+  /** Their time together, from every work record and her diary. */
+  relationship?: import('./relationship').Relationship
   capabilities?: CapabilityReport
   actualModel?: string
   workRecords?: TaskRecord[]
@@ -270,6 +276,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'plugin', enabled: boolean }
   | { type: 'avatar-job', image: string }
   | { type: 'configure', model: ModelSettings, key: string } | { type: 'connect' }
+  /** The models a vendor offers: with the typed key, or the saved one when the address is the one it was saved for. */
+  | { type: 'model-list', model: Pick<ModelSettings, 'baseURL' | 'api'>, key?: string }
   | { type: 'restart' } | { type: 'stop' } | { type: 'new-session' }
   | { type: 'workspace', path: string }
   | { type: 'choose-workspace' }
