@@ -5,10 +5,11 @@ import type { Launch } from './launch'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { delimiter, dirname } from 'node:path'
+import { dirname } from 'node:path'
 import process from 'node:process'
+import { withSearchTools } from '../shared/search-path'
 import { decoderFor } from './adapters'
-import { unwrapCmdShim } from './windows-shim'
+import { scriptLaunch } from './windows-shim'
 
 export interface RunOptions {
   agent: DelegateAgent
@@ -34,18 +35,21 @@ export interface RunResult { status: 'completed' | 'failed' | 'aborted', text: s
 export function runAgent(options: RunOptions): Promise<RunResult> {
   const { agent, command, launch, cwd } = options
   const decoder = decoderFor(agent)
+  // Never a shell: the task text is an argument, and cmd.exe would read `&` or a line break in it as commands.
+  const args = [...(options.prefix ?? []), ...launch.args]
+  const started = process.platform === 'win32' ? scriptLaunch(command, args) : { command, args }
+  if (!started)
+    return Promise.resolve({ status: 'failed', text: '', error: `无法安全启动 ${command}：请用 npm 或官方安装包重新安装这个 agent` })
+  // Provider settings are written only for an agent that will actually start.
   for (const [path, text] of Object.entries(launch.files ?? {})) {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
     writeFileSync(path, text, { mode: 0o600 })
   }
-  const script = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command)
-  const shim = script ? unwrapCmdShim(command) : undefined
-  const child = spawn(shim?.command ?? command, [...(shim?.prefix ?? []), ...(options.prefix ?? []), ...launch.args], {
+  const child = spawn(started.command, started.args, {
     cwd,
     windowsHide: true,
-    // Node refuses a .cmd without a shell. Only a wrapper that is not npm's own shim still gets one.
-    shell: script && !shim,
-    env: { ...process.env, ...launch.env, PATH: [dirname(command), process.env.PATH].filter(Boolean).join(delimiter), NO_COLOR: '1' },
+    windowsVerbatimArguments: started.verbatim,
+    env: { ...withSearchTools({ ...process.env, ...launch.env }, dirname(command), process.platform), NO_COLOR: '1' },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   const write = (line: string) => {

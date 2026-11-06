@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
-import { delimiter, dirname } from 'node:path'
+import { dirname } from 'node:path'
 import process from 'node:process'
-import { unwrapCmdShim } from './windows-shim'
+import { withSearchTools } from '../shared/search-path'
+import { scriptLaunch } from './windows-shim'
 
 export interface AgentLocation { command: string, prefix?: string[] }
 export class RpcError extends Error {
@@ -10,10 +11,11 @@ export class RpcError extends Error {
 
 /** A bounded, local metadata connection. Never sends turn/start or executes a model request. */
 export async function withCodex<T>(location: AgentLocation, cwd: string, work: (request: (method: string, params?: object) => Promise<any>) => Promise<T>): Promise<T> {
-  const shim = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(location.command) ? unwrapCmdShim(location.command) : undefined
-  if (process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(location.command) && !shim)
+  const args = [...(location.prefix ?? []), 'app-server']
+  const started = process.platform === 'win32' ? scriptLaunch(location.command, args) : { command: location.command, args }
+  if (!started)
     throw new Error('无法安全启动这个 Codex 包装脚本，请使用原生可执行文件或 npm 安装')
-  const child = spawn(shim?.command ?? location.command, [...(shim?.prefix ?? []), ...(location.prefix ?? []), 'app-server'], { cwd, windowsHide: true, env: { ...process.env, PATH: [dirname(location.command), process.env.PATH].filter(Boolean).join(delimiter), NO_COLOR: '1' }, stdio: ['pipe', 'pipe', 'pipe'] })
+  const child = spawn(started.command, started.args, { cwd, windowsHide: true, windowsVerbatimArguments: started.verbatim, env: { ...withSearchTools({ ...process.env }, dirname(location.command), process.platform), NO_COLOR: '1' }, stdio: ['pipe', 'pipe', 'pipe'] })
   let id = 0
   let buffer = ''
   const pending = new Map<number, { resolve: (value: any) => void, reject: (error: Error) => void, timeout: ReturnType<typeof setTimeout> }>()

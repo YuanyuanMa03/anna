@@ -12,6 +12,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, s
 import { moveDataHome } from '../../packages/anna-host/data-home'
 import { createAppLog } from '../../packages/shared/app-log'
 import { command, runtimeEvent } from '../../packages/shared/contracts'
+import { graphicsSummary } from '../../packages/shared/graphics'
 import { dataDirectory, earlierDataDirectory } from '../../packages/shared/platform'
 import { RpcPeer } from '../../packages/shared/rpc'
 import { packagedCoreEnv } from '../../packages/shared/search-path'
@@ -248,7 +249,6 @@ function menu(context: ReturnType<typeof createContext>['context']) {
 
 async function start() {
   await app.whenReady()
-  log.write('main', `graphics: webgl ${app.getGPUFeatureStatus().webgl}, webgl2 ${app.getGPUFeatureStatus().webgl2}`)
   // Nothing has crashed, yet nothing has answered: don't leave a person watching "waking up" forever.
   setTimeout(() => {
     if (!coreAnswered && !closing && restarts.length <= 3) {
@@ -290,6 +290,12 @@ async function start() {
     browse(event.url)
   })
   win.webContents.on('did-finish-load', () => log.write('main', 'window loaded'))
+  // By the first page load the GPU process has reported; at startup the status is only a placeholder.
+  win.webContents.once('did-finish-load', () => {
+    void app.getGPUInfo('basic')
+      .then(info => log.write('main', graphicsSummary(app.getGPUFeatureStatus(), info as Parameters<typeof graphicsSummary>[1])))
+      .catch((error: unknown) => log.write('main', `graphics: unavailable (${error instanceof Error ? error.message : String(error)})`))
+  })
   win.webContents.on('did-fail-load', (_event, code, description, _url, mainFrame) => {
     // -3 is a navigation Anna itself cancelled.
     if (mainFrame && code !== -3) {

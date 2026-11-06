@@ -57,6 +57,18 @@ export function searchDirectories(env: DetectEnvironment) {
   return dirs
 }
 
+/** A command on the search path, with the extensions Windows would try. */
+export function findCommand(name: string, env: DetectEnvironment): string | undefined {
+  const path = env.platform === 'win32' ? win32 : posix
+  const names = env.platform === 'win32' ? [`${name}.cmd`, `${name}.exe`, name] : [name]
+  for (const dir of searchDirectories(env)) {
+    for (const candidate of names.map(item => path.join(dir, item))) {
+      if (env.exists(candidate))
+        return candidate
+    }
+  }
+}
+
 function locate(agent: AgentDescriptor, env: DetectEnvironment, dirs: string[]) {
   const path = env.platform === 'win32' ? win32 : posix
   const names = env.platform === 'win32' ? agent.binaries.flatMap(name => [`${name}.cmd`, `${name}.exe`, `${name}.ps1`, name]) : agent.binaries
