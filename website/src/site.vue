@@ -203,7 +203,7 @@ const year = new Date().getFullYear()
 
 <template>
   <header class="nav">
-    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.6.0</span></a>
+    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v1.0.0</span></a>
     <nav :aria-label="t.nav.home">
       <a href="#meet">{{ t.nav.meet }}</a>
       <a href="#demo">{{ t.nav.demo }}</a>

@@ -248,10 +248,12 @@ tools. Her data lives in `~/Library/Application Support/Anna` on macOS, `%APPDAT
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
 pnpm build && pnpm test:scripted           # desktop acceptance with a scripted model, no API key needed
-pnpm package:mac                           # or package:windows / package:linux
+pnpm package:mac                           # or package:windows / package:linux; then package:dmg, package:windows-installer, package:deb
+pnpm verify:package windows                # or linux: checks a package without running it
+pnpm smoke:package                         # starts this system's package; pass a path for an installed app
 ```
 
-CI runs all of this on macOS, Windows and Linux. To test against the agents installed on your machine, run
+The Windows and Linux packages can also be built on a Mac. The installers need `makensis` and `dpkg-deb` (on macOS: `brew install makensis dpkg`). A package built this way still has to be started on its own system before it counts as working. To test against the agents installed on your machine, run
 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`.
 
 <details>

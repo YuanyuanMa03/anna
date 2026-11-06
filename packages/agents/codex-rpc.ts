@@ -54,7 +54,7 @@ export async function withCodex<T>(location: AgentLocation, cwd: string, work: (
     })
   })
   try {
-    await request('initialize', { clientInfo: { name: 'anna', title: 'Anna', version: '0.6.0' }, capabilities: {} })
+    await request('initialize', { clientInfo: { name: 'anna', title: 'Anna', version: '1.0.0' }, capabilities: {} })
     child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n`)
     return await work(request)
   }

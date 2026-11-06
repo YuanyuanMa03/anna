@@ -170,10 +170,12 @@ export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # 单元测试、真实 pi 工具循环（faux 模型）、真实沙箱
 pnpm build && pnpm test:scripted           # 桌面验收，使用脚本模型，不需要 API Key
-pnpm package:mac                           # 或 package:windows / package:linux
+pnpm package:mac                           # 或 package:windows / package:linux；然后 package:dmg、package:windows-installer、package:deb
+pnpm verify:package windows                # 或 linux：不运行，只检查安装包
+pnpm smoke:package                         # 启动本机系统对应的包；也可以传入已安装应用的路径
 ```
 
-CI 会在 macOS、Windows、Linux 上运行以上全部检查。想用你电脑上真实安装的 agent 测试，运行 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`。
+Windows 和 Linux 包也可以在 Mac 上构建。安装器需要 `makensis` 和 `dpkg-deb`（macOS 上运行 `brew install makensis dpkg`）。这样构建的包，仍然要在对应系统上启动过才算可用。想用你电脑上真实安装的 agent 测试，运行 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`。
 
 ## 一路走来
 

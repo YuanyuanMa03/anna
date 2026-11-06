@@ -87,7 +87,7 @@ implements `AgentKernel`:
   does not make an agent ask before every call, and its own settings (auto-accept, yolo) can skip asking. So:
   - The whole agent process runs inside Anna's sandbox (`context.sandbox.wrap`): her data stays unreadable and
     unwritable, writes are limited to the workspace, temp and package caches, and every network host goes through her
-    network approval. Wherever the sandbox is unavailable (Windows; Linux without bubblewrap, socat and ripgrep; a
+    network approval. Wherever the sandbox is unavailable (Windows; Linux without bubblewrap or socat, or without ripgrep in a source build; a
     failed self-test; `ANNA_DISABLE_SANDBOX=1`) no ACP brain is offered or started.
   - A tool call that starts without having asked is checked when it is reported (`in_progress` or `completed`): a
     change (edit, shell, anything unknown) stops the turn at once with a message to switch the agent's own approvals to
