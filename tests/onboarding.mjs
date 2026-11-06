@@ -84,11 +84,14 @@ try {
   await flow.getByRole('textbox', { name: '怎么称呼你（选填）' }).fill('小麦')
   await flow.getByRole('radio', { name: /好奇探索者/ }).click()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
-  // Her body keeps drawing frames even while a background run keeps the window hidden (after the card click's reaction).
-  await page.waitForTimeout(1200)
-  const frame = await page.locator('.model-canvas canvas').screenshot()
-  await page.waitForTimeout(750)
-  assert(!frame.equals(await page.locator('.model-canvas canvas').screenshot()), 'Live2D idle animation did not advance')
+  // Her body keeps drawing frames even while a background run keeps the window hidden: two frames differ within a few seconds.
+  const first = await page.locator('.model-canvas canvas').screenshot()
+  let advanced = false
+  for (let i = 0; i < 10 && !advanced; i++) {
+    await new Promise(resolve => setTimeout(resolve, 300))
+    advanced = !first.equals(await page.locator('.model-canvas canvas').screenshot())
+  }
+  assert(advanced, 'Live2D idle animation did not advance')
   const stage = await page.locator('.stage').boundingBox()
   const card = await flow.boundingBox()
   assert(stage.x + stage.width <= card.x, 'Onboarding must leave Anna visible beside the guide')
@@ -159,11 +162,11 @@ try {
   await candidate.getByRole('button', { name: '确认记住', exact: true }).click()
   assert((await pending).ok)
   await page.locator('.brain-chip').click()
-  await flow.getByRole('button', { name: '共同记忆', exact: true }).click()
+  await flow.getByRole('button', { name: '我们', exact: true }).click()
   // Their time together: real counts, how she sees you, and their story, all from records.
   const together = flow.getByRole('region', { name: '我们的关系' })
   await together.getByText('一起完成', { exact: true }).waitFor()
-  await together.getByLabel('她眼中的你').getByText('喜欢淡一点的绿茶', { exact: true }).waitFor()
+  await together.getByRole('group', { name: '她眼中的你' }).getByText('喜欢淡一点的绿茶', { exact: true }).waitFor()
   await together.getByRole('list', { name: '我们的故事' }).getByText('记住了：喜欢淡一点的绿茶', { exact: true }).waitFor()
   assert(await together.getByRole('list', { name: '我们的故事' }).getByText(/^第一次一起完成：/).count() === 1)
   await page.screenshot({ animations: 'disabled', path: 'artifacts/memory-together.png' })

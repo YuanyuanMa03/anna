@@ -9,8 +9,12 @@ const draft = reactive<MemoryDraft>({ text: '', kind: 'preference' })
 const kinds = { preference: '偏好', agreement: '约定', experience: '共同经历' }
 const together = computed(() => props.snapshot.relationship)
 /** What she knows about you, by kind; the newest first in each group. */
-const portrait = computed(() => (['preference', 'agreement', 'experience'] as const).map(kind => ({ kind, name: kinds[kind], items: props.snapshot.memories.filter(item => (item.kind ?? 'preference') === kind).toReversed() })).filter(group => group.items.length))
-const purposes = { work: '工作与创作', study: '学习与探索', company: '聊天与日常陪伴' }
+const portrait = computed(() => (['preference', 'agreement', 'experience'] as const).map((kind) => {
+  const all = props.snapshot.memories.filter(item => (item.kind ?? 'preference') === kind).toReversed()
+  return { kind, name: kinds[kind], items: all.slice(0, 8), more: Math.max(0, all.length - 8) }
+}).filter(group => group.items.length))
+const purposes: Record<string, string> = { work: '工作与创作', study: '学习与探索', company: '聊天与日常陪伴' }
+const purpose = computed(() => purposes[props.snapshot.settings.personality?.purpose ?? ''])
 const when = (at: string) => new Date(at).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
 function edit(item: MemoryItem) {
   editing.value = item.id
@@ -25,15 +29,17 @@ function edit(item: MemoryItem) {
       <article><small>认识</small><strong>第 {{ together.days }} 天</strong><span class="small muted">从 {{ when(together.since) }} 的第一条记录算起</span></article>
       <article><small>一起完成</small><strong>{{ together.done }} 件事</strong></article>
       <article><small>她记得你</small><strong>{{ together.remembered }} 件事</strong></article>
-      <article><small>约定</small><strong>{{ together.agreements }} 条</strong></article>
+      <article><small>约定</small><strong>{{ together.agreements ? `${together.agreements} 条` : '还没有约定' }}</strong></article>
     </div>
     <p v-else class="muted">我们刚认识。一起做完第一件事、或者告诉她“记住：……”之后，这里会慢慢长出你们的故事。</p>
-    <div v-if="portrait.length || snapshot.settings.personality?.nickname" class="portrait" aria-label="她眼中的你">
-      <h4>她眼中的你</h4>
-      <p v-if="snapshot.settings.personality" class="small muted">{{ snapshot.settings.personality.nickname ? `她叫你“${snapshot.settings.personality.nickname}”，` : '' }}你们主要一起{{ purposes[snapshot.settings.personality.purpose] }}。</p>
-      <div v-for="group in portrait" :key="group.kind" class="portrait-group" :data-kind="group.kind"><small>{{ group.name }}</small><span v-for="item in group.items" :key="item.id" class="memory-chip">{{ item.text }}</span></div>
+    <div v-if="portrait.length || snapshot.settings.personality?.nickname" class="portrait" role="group" aria-labelledby="portrait-title">
+      <h4 id="portrait-title">她眼中的你</h4>
+      <p v-if="snapshot.settings.personality?.nickname || purpose" class="small muted">{{ snapshot.settings.personality?.nickname ? `她叫你“${snapshot.settings.personality.nickname}”。` : '' }}{{ purpose ? `你们主要一起${purpose}。` : '' }}</p>
+      <p v-if="!snapshot.settings.memoryEnabled && portrait.length" class="small muted">记忆已关闭：下面是关闭前记得的，她现在不会再用到。</p>
+      <div v-for="group in portrait" :key="group.kind" class="portrait-group" :data-kind="group.kind"><small>{{ group.name }}</small><span v-for="item in group.items" :key="item.id" class="memory-chip">{{ item.text }}</span><small v-if="group.more">还有 {{ group.more }} 条</small></div>
     </div>
-    <ol v-if="together?.moments.length" class="story" aria-label="我们的故事">
+    <h4 v-if="together?.moments.length" id="story-title">我们的故事</h4>
+    <ol v-if="together?.moments.length" class="story" aria-labelledby="story-title">
       <li v-for="(moment, index) in together.moments" :key="`${moment.at}-${index}`" :data-kind="moment.kind"><time :datetime="moment.at">{{ when(moment.at) }}</time><span>{{ moment.text }}</span></li>
     </ol>
   </section>

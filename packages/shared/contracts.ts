@@ -32,6 +32,8 @@ export interface Settings {
   brainSessions?: Record<string, string>
   onboardingComplete?: boolean
   firstTaskPending?: boolean
+  /** A running tally of their time together; the journal and diary only keep recent entries. */
+  together?: import('./relationship').Together
   memoryRevision?: number
   connectionVerified?: string
   personality?: PersonalityProfile

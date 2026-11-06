@@ -28,7 +28,7 @@ import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
 import { approvalRules } from '../shared/approval-rules'
-import { relationshipOf } from '../shared/relationship'
+import { advanceTogether, relationshipOf, seedTogether, undoTogether } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -164,6 +164,11 @@ export class Host {
     await this.store.character()
     await this.memory.load()
     await this.journal.load()
+    // The running tally starts from whatever the journal and diary still hold the first time this version runs.
+    if (!this.store.value.together) {
+      this.store.value.together = seedTogether(this.journal.entries, this.memory.items)
+      await this.store.save().catch(() => {})
+    }
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
@@ -277,7 +282,7 @@ export class Host {
       starterTasks: this.starterTasks,
       welcome: this.welcome(),
       workRecords: this.journal.entries.filter(entry => entry.workspace === this.workspacePath),
-      relationship: relationshipOf(this.journal.entries, this.memory.items),
+      relationship: relationshipOf(this.journal.entries, this.memory.items, new Date(), this.store.value.together),
       agents: { ...this.agentsCache, usage: { ...this.agentsCache.usage, ...this.nativeUsage } },
     }
   }
@@ -766,7 +771,10 @@ export class Host {
         summary: outcome.text.split('\n').find(item => item.trim())?.slice(0, 160) ?? '',
         origin: task.origin,
       }
-      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      const recordedAt = new Date().toISOString()
+      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: recordedAt, workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      if (outcome.status === 'completed')
+        this.store.value.together = advanceTogether(this.store.value.together ?? seedTogether([], []), { at: recordedAt, request: task.text })
       this.store.value.sessionFile = kernel.sessionFile
       this.rememberSession()
       await this.store.save()
@@ -951,6 +959,11 @@ export class Host {
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
+        const undone = this.journal.entries.find(entry => entry.taskId === command.taskId)
+        if (undone?.status === 'completed' && !undone.undone && this.store.value.together) {
+          this.store.value.together = undoTogether(this.store.value.together)
+          await this.store.save().catch(() => {})
+        }
         await this.journal.markUndone(command.taskId).catch(() => {})
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)

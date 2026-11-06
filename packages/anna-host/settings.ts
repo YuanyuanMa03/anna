@@ -18,6 +18,7 @@ const settingsSchema = v.object({
   onboardingComplete: v.optional(v.boolean()),
   firstTaskPending: v.optional(v.boolean()),
   memoryRevision: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  together: v.optional(v.object({ since: v.optional(v.string()), done: v.pipe(v.number(), v.integer(), v.minValue(0)), firstTask: v.optional(v.object({ at: v.string(), text: v.pipe(v.string(), v.maxLength(200)) })), milestones: v.optional(v.array(v.object({ at: v.string(), text: v.pipe(v.string(), v.maxLength(200)) })), []) })),
   connectionVerified: v.optional(v.string()),
   personality: v.optional(profileSchema),
   sharedModelBackup: v.optional(v.object({ claude: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })), codex: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })) })),
