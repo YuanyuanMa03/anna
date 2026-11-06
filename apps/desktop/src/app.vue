@@ -153,6 +153,11 @@ let talkSession = 0
 let voiceBeforeTalk = false
 /** Whether this talk switched model speech on, so ending it knows what to put back. */
 let voiceTaken = false
+// A voice setting changed during a talk is the person's choice: ending the talk keeps it.
+watch(voiceEnabled, () => {
+  if (talking.value)
+    voiceTaken = false
+})
 /** Counts sends, so a transcript that arrives after the person typed something instead is dropped. */
 let sends = 0
 /** Her reply, from synthesis until the last sentence has played: her voice is about, so the bar stays raised. */
@@ -436,7 +441,11 @@ function pickBrain(choice: BrainChoice) {
     void run({ type: 'kernel', id: choice.id })
   }
 }
-const decide = (id: string, allow: boolean, scope: ApprovalScope, memory?: MemoryDraft) => run({ type: 'approval', id, allow, scope, memory })
+function decide(id: string, allow: boolean, scope: ApprovalScope, memory?: MemoryDraft) {
+  // Her spoken request ends when the person answers it.
+  voicePlayer.stop()
+  return run({ type: 'approval', id, allow, scope, memory })
+}
 async function showChanges() {
   if (snapshot.value?.result && await run({ type: 'changes', taskId: snapshot.value.result.taskId }))
     drawer.value = 'changes'
@@ -472,10 +481,11 @@ onMounted(async () => {
       case 'anna': anna.value = event.state; break
       case 'stream': stream.value = event.text; break
       case 'result':
-        if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply) {
+        // A finished, failed or stopped task is reported in a line; a failure is never met with silence.
+        if (voiceEnabled.value && event.result.origin === 'desktop' && (event.reply || event.result.status !== 'completed')) {
           const token = ++replyToken
           preparing.value = replying.value = talking.value
-          void voicePlayer.speak(spokenReport(event.reply, event.result)).catch((cause: Error) => { notice.value = cause.message }).finally(() => {
+          void voicePlayer.speak(spokenReport(event.reply ?? '', event.result)).catch((cause: Error) => { notice.value = cause.message }).finally(() => {
             if (token === replyToken)
               preparing.value = replying.value = false
           })
@@ -631,7 +641,7 @@ onBeforeUnmount(() => { stopTalk(); voicePlayer.stop(); window.removeEventListen
         <div class="composer-actions">
           <button type="button" class="talk-button" :aria-pressed="talking" :aria-label="talking || starting ? '结束对话' : '和她说话'" :title="talking || starting ? '结束对话（Esc）' : '和她说话'" :disabled="!talking && (configuring || !canChat || needsTrust)" @click="toggleTalk"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" /></svg></button>
           <span v-if="talking" class="talk-state" role="status" :data-state="recognising ? 'recognising' : running ? 'thinking' : preparing || speaking ? 'speaking' : talkState">{{ talkLabel }}</span>
-          <button v-if="speaking && !talking" type="button" @click="voicePlayer.stop()">停止说话</button>
+          <button v-if="(speaking || preparing) && !talking" type="button" @click="voicePlayer.stop()">停止说话</button>
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :platform="snapshot.platform.os" :sandboxed="snapshot.platform.sandbox.available" :auto-acknowledged="snapshot.settings.windowsAutoAcknowledged" :disabled="!canChat" @change="(next, acknowledge) => run({ type: 'mode', mode: next, acknowledge })" />
           <button v-if="running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
           <button class="primary" :disabled="configuring || !input.trim() || !canChat || needsTrust" type="submit">{{ running ? '插话 ↗' : '发送 ↗' }}</button>

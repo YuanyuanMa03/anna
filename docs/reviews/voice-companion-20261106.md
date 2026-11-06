@@ -22,3 +22,20 @@ Branch `codex/voice-companion`, stacked on #60.
 ## Not verified
 
 - Real voices and real tasks: the report wording was checked only with fixed inputs.
+
+## Review
+
+Standards and Spec reviews in parallel: no blockers. Fixed:
+
+- Failed and stopped tasks are now spoken (the app only spoke completed ones).
+- The path pattern no longer eats "1/2", dates, "TCP/IP" or "和/或". Links are dropped whole.
+- Her words and the numbers are separated by "。".
+- "细节在屏幕上" is said only when more is on screen than was spoken.
+- A short opener carries on into the next sentence; English is cut at a word.
+- A code-only reply says "好了，细节在屏幕上".
+- Approvals use the permission system's own reason plus a file name or the command's first words.
+- A spoken approval stops when it is answered.
+- 停止说话 shows during synthesis too.
+- A voice setting changed during a talk is kept when the talk ends.
+
+Not re-reviewed: the owner asked to ship 1.0 now.
