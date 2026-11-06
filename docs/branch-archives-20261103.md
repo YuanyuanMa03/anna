@@ -70,3 +70,20 @@
 - `release/online-v0.6.0`
 
 完整恢复标签：`archive/20261103/pr-44`、`archive/20261103/pr-46`、`archive/20261103/pr-47`。所有历史归档继续保留；没有通过强推改写历史。
+
+## 2026-11-06: 1.0 consolidation
+
+The 1.0 candidate was committed to `release/v1.0` (based on `1149134`, which contains every commit of the branches below). Covered branches and the stash were tagged, the remote tag SHAs were verified, and only then deleted. `release/online-v0.6.0` stays.
+
+| Source | Original | Commit | Archive tag |
+|---|---|---|---|
+| local | codex/desktop-voice-slim | 11491342b8b57c1ba718257d8bedc1fc83fb3abb | archive/20261106/local/codex/desktop-voice-slim |
+| remote | codex/desktop-voice-slim | 11491342b8b57c1ba718257d8bedc1fc83fb3abb | archive/20261106/remote/codex/desktop-voice-slim |
+| local | work/anna-senses-v1-20261103 | 4e19b91b8bfc988e41c515d9d5a7deb431ce1a8d | archive/20261106/local/work/anna-senses-v1-20261103 |
+| remote | work/anna-senses-v1-20261103 | 4e19b91b8bfc988e41c515d9d5a7deb431ce1a8d | archive/20261106/remote/work/anna-senses-v1-20261103 |
+| remote | work/anna-life-v1-20261103 | 9f65ac6a2a312962205f9d78fa7a072b6f31ab24 | archive/20261106/remote/work/anna-life-v1-20261103 |
+| stash | stash@{0} "startup reliability work on main base" | 8343c04d5d34ae477f19717daf7e55626d319f47 | archive/20261106/stash/startup-reliability-main-base |
+
+`fix/install-and-startup-reliability` pointed at `main` (bbc9279) and was deleted without a tag. The local-only `release/v1.0-windows` (1149134) was replaced by `release/v1.0`, which contains it. The stash's changes were checked line by line against the 1.0 candidate; its `scripts/package-runtime.mjs` pruning was superseded by the rewritten `stage-runtime.mjs`. Restore a stash with `git stash apply archive/20261106/stash/startup-reliability-main-base`.
+
+Remaining branches: `main`, `release/v1.0`, `release/online-v0.6.0`.
