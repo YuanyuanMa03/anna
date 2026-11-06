@@ -6,11 +6,12 @@ import { Host } from '../packages/anna-host/host'
 
 const saved = { provider: 'custom', model: 'kimi-k3', baseURL: 'https://api.moonshot.cn/v1', api: 'openai-completions' } as const
 
-async function setup(listModels: (model: { baseURL: string, api: string }, key: string, signal: AbortSignal) => Promise<string[]>) {
+async function setup(listModels: (model: { baseURL: string, api: string }, key: string, signal: AbortSignal) => Promise<string[]>, initial: Record<string, string> = saved) {
   const data = await mkdtemp(join(tmpdir(), 'anna-models-'))
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: saved, workspaces: {} }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: initial, workspaces: {} }))
   const written: string[] = []
-  const host = new Host(resolve('.'), data, { read: async () => 'sk-saved', write: async (key: string) => { written.push(key) } }, () => {}, { sandbox: { available: false, reason: 'test' }, listModels })
+  // The vault remembers what was written last, like the real one.
+  const host = new Host(resolve('.'), data, { read: async () => written.at(-1) ?? 'sk-saved', write: async (key: string) => { written.push(key) } }, () => {}, { sandbox: { available: false, reason: 'test' }, listModels })
   await host.initialize()
   return { host, written }
 }
@@ -101,5 +102,13 @@ it('asks for the cloud key again after a local model replaced it', async () => {
   const { host } = await setup(async () => [])
   await host.execute({ type: 'configure', model: { provider: 'custom', model: 'q', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' }, key: '' })
   await expect(host.execute({ type: 'configure', model: saved, key: '' })).rejects.toThrow(/填写.*API Key/)
+  await host.close()
+})
+
+it('keeps the key of a local server that uses one when only the model changes', async () => {
+  const lmstudio = { provider: 'custom', model: 'a', baseURL: 'http://127.0.0.1:1234/v1', api: 'openai-completions' } as const
+  const { host, written } = await setup(async () => [], lmstudio)
+  await host.execute({ type: 'configure', model: { ...lmstudio, model: 'b' }, key: '' })
+  expect(written).toEqual(['sk-saved'])
   await host.close()
 })

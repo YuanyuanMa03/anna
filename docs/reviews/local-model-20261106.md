@@ -37,6 +37,8 @@ Fixed:
 - **The cloud key is replaced.** Saving a local model overwrites the saved cloud key. That is deliberate: keeping it would hand it to whatever listens on that port. The tips say so, and a test checks that the cloud key is asked for again.
 - **Nits.** An unreachable branch is removed and a misplaced doc comment is fixed.
 
+Re-review: no blocker. Should-fix, fixed: a local server that uses its own key (LM Studio, OVMS with a key) keeps it when only the model changes, and a new local address gets the placeholder; the test vault now returns what was written last. Nits fixed: the tips name OVMS's `--rest_port 8000` and `--tool_parser`.
+
 Checked by the Standards review and fine:
 
 - **The loopback match.** `127.1` and `LOCALHOST` normalise to loopback. `0.0.0.0`, `127.0.0.1.nip.io`, `localhost.evil.com` and `[::ffff:7f00:1]` are rejected.

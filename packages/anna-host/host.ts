@@ -1310,8 +1310,9 @@ export class Host {
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
         // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
+        // A local server with its own key keeps it when only the model changes; a new local address gets the placeholder.
         if (!command.key.trim() && isLocalEndpoint(model.baseURL))
-          key = 'local'
+          key = key && sameEndpoint(this.store.value.model.baseURL, model.baseURL) ? key : 'local'
         else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
           throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
