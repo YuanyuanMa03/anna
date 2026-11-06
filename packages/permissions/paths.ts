@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, join, posix, win32 } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -19,6 +19,7 @@ function windowsShellPath(path: string) {
  * so the policy judges the same file the tool will touch.
  */
 export function resolveToolPath(input: string, cwd: string, platform: NodeJS.Platform = process.platform, home = homedir()) {
+  const pathApi = platform === 'win32' ? win32 : posix
   let path = input.replace(unicodeSpaces, ' ')
   if (path.startsWith('@'))
     path = path.slice(1)
@@ -27,14 +28,18 @@ export function resolveToolPath(input: string, cwd: string, platform: NodeJS.Pla
   if (path === '~')
     path = home
   else if (path.startsWith('~/') || (platform === 'win32' && path.startsWith('~\\')))
-    path = join(home, path.slice(2))
+    path = pathApi.join(home, path.slice(2))
   if (path.startsWith('file://'))
-    path = fileURLToPath(path)
-  return isAbsolute(path) ? resolve(path) : resolve(cwd, path)
+    path = fileURLToPath(path, { windows: platform === 'win32' })
+  return pathApi.resolve(cwd, path)
 }
 
 /** Follow symlinks on the longest existing prefix, so links inside the workspace cannot point writes outside it. */
 export function canonical(path: string): string {
+  // Cross-platform policy tests cannot resolve a Windows drive or UNC share on a Unix host.
+  // On Windows itself the native realpath below still follows junctions and symlinks.
+  if (process.platform !== 'win32' && /^(?:[a-z]:[\\/]|\\)/i.test(path))
+    return win32.normalize(path)
   try { return realpathSync.native(path) }
   catch {
     const parent = dirname(path)
@@ -43,9 +48,10 @@ export function canonical(path: string): string {
 }
 
 export function isInside(root: string, target: string, platform: NodeJS.Platform = process.platform) {
+  const pathApi = platform === 'win32' ? win32 : posix
   const fold = (value: string) => platform === 'win32' || platform === 'darwin' ? value.toLowerCase() : value
-  const path = relative(fold(root), fold(target))
-  return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path))
+  const path = pathApi.relative(fold(root), fold(target))
+  return path === '' || (path !== '..' && !path.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(path))
 }
 
 /** A path and the location it resolves to (one entry when they are the same). */
@@ -110,11 +116,12 @@ const credentialNames = new Set(['.npmrc', '.netrc', '_netrc', '.pypirc', '.git-
 const credentialPaths = ['.codex/auth.json', '.codex/config.toml', '.claude/settings.json', '.claude/.credentials.json', '.claude.json', '.gemini/oauth_creds.json', '.cc-switch/cc-switch.db', '.aws/credentials', '.docker/config.json', '.config/gh/hosts.yml', '.kube/config']
 
 /** Files that usually hold secrets: by name anywhere (`.env`, private keys, `.npmrc` …), or a known credential file in `home`. */
-export function isSecretFile(path: string, home = homedir()) {
-  const name = basename(path).toLowerCase()
+export function isSecretFile(path: string, home = homedir(), platform: NodeJS.Platform = process.platform) {
+  const pathApi = platform === 'win32' ? win32 : posix
+  const name = pathApi.basename(path).toLowerCase()
   if (name === '.env' || (name.startsWith('.env.') && !name.endsWith('.example') && !name.endsWith('.sample') && !name.endsWith('.template')) || /^id_(?:rsa|ed25519|ecdsa|dsa)$/.test(name) || name.endsWith('.pem') || name.endsWith('.p12') || name.endsWith('.key') || credentialNames.has(name))
     return true
-  const inHome = relative(home, path).split(sep).join('/')
-  const fold = (value: string) => process.platform === 'win32' || process.platform === 'darwin' ? value.toLowerCase() : value
+  const inHome = pathApi.relative(home, path).split(pathApi.sep).join('/')
+  const fold = (value: string) => platform === 'win32' || platform === 'darwin' ? value.toLowerCase() : value
   return credentialPaths.some(known => fold(inHome) === fold(known))
 }

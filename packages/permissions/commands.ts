@@ -1,3 +1,4 @@
+import { win32 } from 'node:path'
 import process from 'node:process'
 
 /**
@@ -25,6 +26,12 @@ const dangerous = [
   /\b(?:npm|pnpm|yarn|bun)\s+publish\b|\bcargo\s+publish\b|\btwine\s+upload\b/,
   /\bdocker\s+(?:rm|rmi|system\s+prune|volume\s+rm)\b/,
   /\bRemove-Item\b.*-Recurse|\brd\s+\/s\b|\bdel\s+\/[sq]\b/i,
+  /\b(?:Remove-Item|ri|rm|del|erase|rd|rmdir)\b[^\r\n|;&]*\s-r(?:e(?:c(?:u(?:r(?:se?)?)?)?)?)?(?=\s|:|$)/i,
+  /\b(?:Stop-Process|spps|kill)\b[^\r\n|;&]*\s-f(?:o(?:r(?:ce?)?)?)?(?=\s|:|$)/i,
+  /\btaskkill(?:\.exe)?\b[^\r\n|;&]*\s\/f(?=\s|$)/i,
+  /\b(?:Set-ExecutionPolicy|Remove-ItemProperty|rp|Invoke-Expression|iex|icacls(?:\.exe)?|takeown(?:\.exe)?)\b/i,
+  /\breg(?:\.exe)?\s+(?:delete|add)\b|\bschtasks(?:\.exe)?\b[^\r\n|;&]*\s\/create\b/i,
+  /\b(?:Start-Process|saps|start)\b[^\r\n|;&]*\s-v(?:e(?:rb?)?)?(?::|\s+)['"]?runas\b/i,
   /\bcrontab\s+-r\b|\blaunchctl\s+(?:unload|remove|bootout)\b/,
 ]
 const network = [
@@ -64,6 +71,8 @@ const verifiers = [
   /^dotnet\s+(?:test|build)\b/,
 ]
 
+const windowsInspectors = /^(?:Get-Process|Get-Date|Set-Location|sl|where(?:\.exe)?|findstr(?:\.exe)?|Get-Help|Select-Object|Where-Object|Sort-Object|Format-Table)\b/i
+
 const opaque = /^(?:xargs|eval|exec|source|\.|env|nohup|time|timeout|nice|watch|tee|sh|bash|zsh|fish|dash|pwsh|powershell|cmd|python3?\s+-c|node\s+(?:-e|-p|--eval|--print)|bun\s+-e|deno\s+eval|perl|ruby\s+-e)(?:\s|$)/
 
 /**
@@ -72,7 +81,7 @@ const opaque = /^(?:xargs|eval|exec|source|\.|env|nohup|time|timeout|nice|watch|
  * variable assignments, wrappers that run their arguments, a dangling operator or an unclosed quote.
  * Like Claude Code, an unparseable line never matches an allow rule and is never read-only.
  */
-export function segments(command: string): string[] | undefined {
+export function segments(command: string, platform: NodeJS.Platform = process.platform): string[] | undefined {
   const text = command.trim().replace(/\s\d?>\s*\/dev\/null|\s2>&1|\s\d?>\s*\$null/g, ' ')
   if (!text || text.length > 10000)
     return undefined
@@ -98,7 +107,7 @@ export function segments(command: string): string[] | undefined {
       current += char
       continue
     }
-    if (char === '\\') {
+    if (char === '\\' && platform !== 'win32') {
       if (next === undefined || next === '\n')
         return undefined
       current += char + next
@@ -165,8 +174,12 @@ export function stripWrappers(part: string) {
  * where a backslash is a path separator rather than an escape, so `C:\Users\a` stays one word.
  */
 export function shellWords(part: string, platform: NodeJS.Platform = process.platform) {
-  if (platform === 'win32')
-    return (part.match(/(?:"[^"]*"|'[^']*'|[^\s"'])+/g) ?? []).map(word => word.replace(/"([^"]*)"|'([^']*)'/g, '$1$2'))
+  if (platform === 'win32') {
+    // A comma outside quotes separates literal PowerShell array arguments; quoted commas stay in the filename.
+    return (part.match(/(?:"[^"]*"|'[^']*'|[^\s"'])+/g) ?? [])
+      .flatMap(word => word.match(/(?:"[^"]*"|'[^']*'|[^,"'])+/g) ?? [])
+      .map(word => word.replace(/"([^"]*)"|'([^']*)'/g, '$1$2'))
+  }
   return (part.match(/(?:"[^"]*"|'[^']*'|\\.|[^\s"'\\])+/g) ?? []).map(word => word.replace(/"([^"]*)"|'([^']*)'|\\(.)/g, '$1$2$3'))
 }
 
@@ -175,37 +188,47 @@ function expandsVariables(part: string) {
   return /\$(?!HOME\b)[\w@*#?$!-]/.test(part.replace(/'[^']*'/g, ''))
 }
 
-function inspects(part: string) {
-  return !expandsVariables(part) && inspectors.some(([pattern, unsafe]) => pattern.test(part) && !(unsafe?.test(part)))
+function inspects(part: string, platform: NodeJS.Platform) {
+  if (platform === 'win32' && /^\$PSVersionTable$/i.test(part.trim()))
+    return true
+  if (expandsVariables(part))
+    return false
+  // Calculated properties and filter scriptblocks can execute arbitrary code.
+  if (platform === 'win32' && !segments(part, platform))
+    return false
+  if (platform === 'win32' && windowsInspectors.test(part))
+    return !/^Get-Help\b.*\s-Online\b/i.test(part)
+  return inspectors.some(([pattern, unsafe]) => pattern.test(part) && !(unsafe?.test(part)))
 }
 
-function kindOf(part: string): CommandClass {
-  return inspects(part) ? 'inspect' : verifiers.some(pattern => pattern.test(part)) ? 'verify' : network.some(pattern => pattern.test(part)) ? 'network' : 'change'
+function kindOf(part: string, platform: NodeJS.Platform): CommandClass {
+  return inspects(part, platform) ? 'inspect' : verifiers.some(pattern => pattern.test(part)) ? 'verify' : network.some(pattern => pattern.test(part)) ? 'network' : 'change'
 }
 
 /** Classify one simple command (a part from `segments`). */
-export function classifyPart(part: string): CommandClass {
-  return dangerous.some(pattern => pattern.test(part)) ? 'danger' : kindOf(part)
+export function classifyPart(part: string, platform: NodeJS.Platform = process.platform): CommandClass {
+  return dangerous.some(pattern => pattern.test(part)) ? 'danger' : kindOf(part, platform)
 }
 
 /**
  * Classify one part as it runs inside its whole command line. As in Claude Code, git after a `cd` runs that
  * directory's hooks and config, so it is not read-only there.
  */
-export function classifyIn(parts: string[], part: string): CommandClass {
-  const kind = classifyPart(part)
-  return kind === 'inspect' && /^git\s/.test(part) && parts.some(other => /^(?:cd|pushd)\s/.test(other)) ? 'change' : kind
+export function classifyIn(parts: string[], part: string, platform: NodeJS.Platform = process.platform): CommandClass {
+  const kind = classifyPart(part, platform)
+  const changedDirectory = parts.some(other => /^(?:cd|pushd)\s/.test(other) || (platform === 'win32' && /^(?:Set-Location|sl|chdir)\s/i.test(other)))
+  return kind === 'inspect' && /^git\s/.test(part) && changedDirectory ? 'change' : kind
 }
 
 /** Classify a shell line by its most consequential part. */
-export function classify(command: string): CommandClass {
+export function classify(command: string, platform: NodeJS.Platform = process.platform): CommandClass {
   const text = command.trim()
   if (dangerous.some(pattern => pattern.test(text)))
     return 'danger'
-  const parts = segments(text)
+  const parts = segments(text, platform)
   if (!parts)
     return network.some(pattern => pattern.test(text)) ? 'network' : 'change'
-  return parts.map(part => classifyIn(parts, part)).reduce<CommandClass>((worst, next) => commandRank[next] > commandRank[worst] ? next : worst, 'inspect')
+  return parts.map(part => classifyIn(parts, part, platform)).reduce<CommandClass>((worst, next) => commandRank[next] > commandRank[worst] ? next : worst, 'inspect')
 }
 
 /**
@@ -238,12 +261,55 @@ const valueFlags: Record<string, { short: string, long: string[] }> = {
   git: { short: 'efABCm', long: ['max-depth', 'after-context', 'before-context', 'context', 'max-count', 'threads'] },
 }
 
+/** findstr ignores gitignore and can read dotfiles. File-list inputs conservatively cover the current folder. */
+function findstrScope(words: string[]): SearchScope | undefined {
+  let suppliedPattern = false
+  let fileList = false
+  const directories: string[] = []
+  const positional: string[] = []
+  for (const word of words.slice(1)) {
+    if (/^\/[cg]:/i.test(word))
+      suppliedPattern = true
+    else if (/^\/f:/i.test(word))
+      fileList = true
+    else if (/^\/d:/i.test(word))
+      directories.push(...word.slice(3).split(';').filter(Boolean))
+    else if (!/^\/[a-z?]+(?::.*)?$/i.test(word))
+      positional.push(word)
+  }
+  const files = suppliedPattern ? positional : positional.slice(1)
+  if (!files.length && !fileList)
+    return undefined // Without file arguments findstr reads standard input.
+  const scope: SearchScope = { targets: [], hidden: true, ignored: true, include: [], exclude: [] }
+  for (const file of files) {
+    const bases = win32.isAbsolute(file) ? [''] : directories.length ? directories : ['.']
+    for (const base of bases) {
+      const path = base ? win32.join(base, file) : file
+      const folder = win32.dirname(path)
+      const wildcard = folder.search(/[*?[]/)
+      // The bounded scanner needs a real directory; retain the known prefix before wildcard directories.
+      scope.targets.push(wildcard < 0 ? folder : win32.dirname(folder.slice(0, wildcard) || '.'))
+      const name = win32.basename(path)
+      // Windows matches *.* to extensionless files too, and file-name matching ignores ASCII case.
+      scope.include.push(name === '*.*' || /[[\]]/.test(name) ? '*' : name.replace(/[a-z]/gi, char => `[${char.toLowerCase()}${char.toUpperCase()}]`))
+    }
+  }
+  if (fileList) {
+    scope.targets.push('.')
+    scope.include = []
+  }
+  scope.targets = [...new Set(scope.targets)]
+  return scope
+}
+
 /**
  * A recursive content search in one simple command: `grep -r`, `rg`, `ag` or `git grep`. Undefined for anything
  * else (including `grep` on named files, whose paths are checked directly).
  */
 export function searchScope(part: string, platform: NodeJS.Platform = process.platform): SearchScope | undefined {
   const words = shellWords(part, platform)
+  if (platform === 'win32' && /^findstr(?:\.exe)?$/i.test(words[0] ?? ''))
+    return findstrScope(words)
   const tool = words[0] === 'egrep' || words[0] === 'fgrep' ? 'grep' : words[0]
   if (tool === 'git') {
     if (words[1] !== 'grep')

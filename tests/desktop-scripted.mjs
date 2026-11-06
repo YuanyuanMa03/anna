@@ -250,6 +250,13 @@ try {
 
   // Auto mode: a nod. Then interrupt a slow turn: no error, an interruption note, next turn fine.
   await page.locator('.mode-switch button[data-mode="auto"]').click()
+  if ((await snapshot(page)).platform.os === 'win32') {
+    await page.getByRole('dialog', { name: '确认 Windows 放手模式' }).waitFor()
+    assert.notEqual((await snapshot(page)).mode, 'auto')
+    await page.screenshot({ path: 'artifacts/windows-auto-consent.png' })
+    await page.getByRole('button', { name: '确认开启放手模式', exact: true }).click()
+    await until(page, s => s.settings.windowsAutoAcknowledged && s.mode === 'auto', 'Windows bypass consent saved')
+  }
   await page.locator('.model-canvas[data-mode="auto"][data-gesture="nod"]').waitFor({ timeout: 3000 })
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('慢慢想')
   await page.getByRole('button', { name: '发送 ↗', exact: true }).click()

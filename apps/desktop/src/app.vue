@@ -496,7 +496,7 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
           <button type="button" @click="voiceOpen = true">语音对话</button>
           <button type="button" :aria-pressed="voiceEnabled" @click="toggleVoice">{{ voiceEnabled ? '关闭模型语音' : '开启模型语音' }}</button>
           <button v-if="voiceEnabled" type="button" @click="voicePlayer.stop()">停止说话</button>
-          <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :disabled="!canChat" @change="next => run({ type: 'mode', mode: next })" />
+          <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :platform="snapshot.platform.os" :sandboxed="snapshot.platform.sandbox.available" :auto-acknowledged="snapshot.settings.windowsAutoAcknowledged" :disabled="!canChat" @change="(next, acknowledge) => run({ type: 'mode', mode: next, acknowledge })" />
           <button v-if="running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
           <button class="primary" :disabled="configuring || !input.trim() || !canChat || needsTrust" type="submit">{{ running ? '插话 ↗' : '发送 ↗' }}</button>
         </div>

@@ -27,6 +27,8 @@ export interface PersonalityProfile {
   detail: 'brief' | 'balanced' | 'detailed'
 }
 export interface Settings {
+  /** Explicit consent for unsandboxed Windows Auto mode; absent on upgrades until acknowledged. */
+  windowsAutoAcknowledged?: boolean
   brainSessions?: Record<string, string>
   onboardingComplete?: boolean
   firstTaskPending?: boolean
@@ -154,6 +156,8 @@ export interface ApprovalQuestion {
   origin: Origin
   /** The rule "always allow" would add (absent for dangerous calls, which are one at a time). */
   rule?: string
+  /** All safe subcommand rules covered by one explicit wider approval. */
+  rules?: string[]
 }
 export type ApprovalScope = 'once' | 'session' | 'always'
 export type ApprovalOutcome = 'allowed-once' | 'allowed-session' | 'allowed-always' | 'rejected' | 'cancelled'
@@ -270,7 +274,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'workspace', path: string }
   | { type: 'choose-workspace' }
   | { type: 'trust', trusted: boolean }
-  | { type: 'mode', mode: PermissionMode }
+  | { type: 'mode', mode: PermissionMode, acknowledge?: boolean }
+  | { type: 'windows-auto-revoke' }
   | { type: 'approval', id: string, allow: boolean, scope?: ApprovalScope, memory?: MemoryDraft }
   | { type: 'rule-remove', rule: string }
   | { type: 'changes', taskId: string }

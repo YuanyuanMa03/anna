@@ -33,6 +33,8 @@ Each numbered item has its own feature branch and draft PR. Work in the followin
 
 ### 1. Windows permission modes without a command sandbox
 
+Candidate implementation: `codex/windows-permission-modes`, under review and not merged or released. The requirements below remain the acceptance contract; local tests are not Windows hardware acceptance.
+
 Keep macOS's current sandbox design. Compare the intended Windows semantics with the current [Claude Code permission documentation](https://code.claude.com/docs/en/permissions) before implementation.
 
 First complete PowerShell classification and Windows path handling:

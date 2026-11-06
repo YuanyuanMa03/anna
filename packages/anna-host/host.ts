@@ -23,10 +23,11 @@ import { personalityInstructions, profileSchema } from '../character/personality
 import { workMethod } from '../character/work-methods'
 import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
-import { modes, stricter, trustedRegistries } from '../permissions/modes'
+import { modeInfo, modes, stricter, trustedRegistries } from '../permissions/modes'
 import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
+import { approvalRules } from '../shared/approval-rules'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -43,6 +44,8 @@ export interface CredentialVault { read: () => Promise<string>, write: (key: str
 export interface Channel { notify: (text: string) => Promise<boolean> }
 interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string>, /** The user pressed stop. */ stopped?: boolean, /** The companion is checking a collaborator's result. */ reviewing?: boolean }
 export interface HostOptions {
+  /** Platform policy injection for isolated tests; production uses process.platform. */
+  platform?: NodeJS.Platform
   kernel?: KernelFactory
   sandbox?: SandboxStatus
   /** External agents: detection, locations and config dirs (tests point these at fakes). */
@@ -219,6 +222,8 @@ export class Host {
   effectiveMode(origin: Origin = this.current?.origin ?? 'desktop'): PermissionMode {
     const ws = this.workspaceSettings()
     let mode = ws.mode
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged)
+      mode = 'ask'
     if (!ws.trusted)
       mode = stricter(mode, 'ask')
     if (origin !== 'desktop')
@@ -226,8 +231,10 @@ export class Host {
     return mode
   }
 
+  private get os() { return this.options.platform ?? process.platform }
+
   private platform(): PlatformInfo {
-    return { os: process.platform, shell: process.platform === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
+    return { os: this.os, shell: this.os === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
   }
 
   snapshot(full = true): RuntimeSnapshot {
@@ -288,7 +295,7 @@ export class Host {
 
   private policyContext(origin: Origin) {
     const ws = this.workspaceSettings()
-    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
+    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, platform: this.os, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
   }
 
   private async saveRule(rule: string) {
@@ -306,10 +313,12 @@ export class Host {
     this.presence.wait(question.reason)
     const outcome = await this.approvals.ask({ ...question, origin })
     this.presence.resume()
-    if (outcome === 'allowed-session' && question.rule)
-      this.sessionRules.push(question.rule)
-    if (outcome === 'allowed-always' && question.rule)
-      await this.saveRule(question.rule)
+    const rules = approvalRules(question)
+    if (outcome === 'allowed-session')
+      this.sessionRules.push(...rules.filter(rule => !this.sessionRules.includes(rule)))
+    if (outcome === 'allowed-always') {
+      for (const rule of rules) await this.saveRule(rule)
+    }
     this.publish()
     return outcome === 'cancelled' ? 'cancelled' : outcome.startsWith('allowed') ? 'allowed' : 'rejected'
   }
@@ -327,7 +336,7 @@ export class Host {
     if (decision.kind === 'ask' && this.current?.reviewing && origin !== 'desktop')
       return { allow: false, reason: '这次审阅来自微信，不向用户请求确认：这一步需要确认，所以不做。用不需要确认的方式检查，并说明哪些没能核实。' }
     if (decision.kind === 'ask') {
-      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule })
+      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule, rules: decision.rules })
       if (outcome !== 'allowed')
         return { allow: false, reason: outcome === 'cancelled' ? '用户中断了这次任务。' : '用户在确认卡上拒绝了这次操作，这是用户本人的决定。不要换个写法、拆开命令或换个工具再试，也不要建议用户怎样更容易被放行；说明不做这一步的影响，再问用户想怎么做。', stop: outcome === 'cancelled' }
     }
@@ -549,7 +558,7 @@ export class Host {
     const card = `## 角色卡：${character.name}\n${character.persona}`
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
-    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
+    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（${modeInfo('auto', this.os, this.sandboxStatus.available).short}）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : this.os === 'win32' ? '这台电脑上没有命令沙箱；放手模式由用户首次明确确认后自主运行普通命令，高风险命令、工作区外修改和密钥读取仍逐次确认。' : '这台电脑上没有命令沙箱，修改类命令需要确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
     return [persona, card, personalityInstructions(this.store.value.personality), workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : []), ...(this.options.notes ? [this.options.notes] : [])]
   }
 
@@ -676,7 +685,7 @@ export class Host {
       kernel.note(workMethod(task.text))
       const mode = this.effectiveMode(task.origin)
       if (mode !== this.notedMode) {
-        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modes[mode].description}）`)
+        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modeInfo(mode, this.os, this.sandboxStatus.available).description}）`)
         this.notedMode = mode
       }
       const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
@@ -899,7 +908,20 @@ export class Host {
         }
         return this.snapshot()
       case 'mode':
-        return this.setMode(command.mode)
+        return this.mutate(() => this.setMode(command.mode, command.acknowledge))
+      case 'windows-auto-revoke': return this.mutate(async () => {
+        if (this.os !== 'win32')
+          throw new Error('此设置仅适用于 Windows')
+        this.store.value.windowsAutoAcknowledged = false
+        for (const ws of Object.values(this.store.value.workspaces)) {
+          if (ws.mode === 'auto')
+            ws.mode = 'ask'
+        }
+        await this.store.save()
+        this.kernel?.note('[Anna 系统提示] 用户撤销了 Windows 放手模式授权。后续操作按谨慎模式及当前权限规则执行。')
+        this.publish()
+        return this.snapshot()
+      })
       case 'rule-remove': {
         this.sessionRules = this.sessionRules.filter(rule => rule !== command.rule)
         const ws = this.workspaceSettings()
@@ -1076,21 +1098,45 @@ export class Host {
     }
   }
 
-  private async setMode(mode: PermissionMode) {
+  private async setMode(mode: PermissionMode, acknowledge = false) {
+    const path = this.workspacePath
     const ws = this.workspaceSettings()
     if (modes[mode].needsTrust && !ws.trusted)
       throw new Error(`${modes[mode].label}模式只能在你信任的工作文件夹里使用。`)
     const previous = this.effectiveMode('desktop')
-    this.store.value.workspaces[this.workspacePath] = { trusted: ws.trusted, mode, rules: ws.rules }
-    await this.store.save()
-    this.emit({ type: 'mode', mode, previous, line: modes[mode].greeting })
+    const previousWorkspace = this.store.value.workspaces[path]
+    const previousConsent = this.store.value.windowsAutoAcknowledged
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged) {
+      if (!acknowledge)
+        throw new Error('请先确认：Windows 没有命令沙箱，放手模式将自主运行普通命令。')
+      this.store.value.windowsAutoAcknowledged = true
+    }
+    this.store.value.workspaces[path] = { trusted: ws.trusted, mode, rules: ws.rules }
+    try { await this.store.save() }
+    catch (error) {
+      if (previousWorkspace)
+        this.store.value.workspaces[path] = previousWorkspace
+      else
+        delete this.store.value.workspaces[path]
+      if (previousConsent === undefined)
+        delete this.store.value.windowsAutoAcknowledged
+      else
+        this.store.value.windowsAutoAcknowledged = previousConsent
+      throw error
+    }
+    this.emit({ type: 'mode', mode, previous, line: modeInfo(mode, this.os, this.sandboxStatus.available).greeting })
     this.publish()
     return this.snapshot()
   }
 
   /** Commands that rebuild the kernel: serialized with each other, rejected while a task runs. */
   private reconfigure(command: Command): Promise<RuntimeSnapshot> {
-    const run = this.mutations.then(() => this.reconfigureNow(command), () => this.reconfigureNow(command))
+    return this.mutate(() => this.reconfigureNow(command))
+  }
+
+  /** Mode consent and workspace reconfiguration share one persistence order. */
+  private mutate(apply: () => Promise<RuntimeSnapshot>): Promise<RuntimeSnapshot> {
+    const run = this.mutations.then(apply, apply)
     this.mutations = run.catch(() => {})
     return run
   }

@@ -13,6 +13,7 @@ const ruleList = v.optional(v.array(v.pipe(v.string(), v.maxLength(500))), [])
 const workspaceSchema = v.object({ trusted: v.boolean(), mode: v.picklist(['plan', 'ask', 'edit', 'auto']), rules: v.optional(v.object({ allow: ruleList, ask: ruleList, deny: ruleList }), () => emptyRules()) })
 const settingsSchema = v.object({
   version: v.literal(2),
+  windowsAutoAcknowledged: v.optional(v.boolean()),
   brainSessions: v.optional(v.record(v.string(), v.string())),
   onboardingComplete: v.optional(v.boolean()),
   firstTaskPending: v.optional(v.boolean()),
