@@ -9,7 +9,7 @@ it('gives each personality card its own way of behaving, not just a label', () =
   const texts = personalityCards.map(card => personalityInstructions({ ...defaultProfile(), type: card.id }).replace(/风格：.*\n/, ''))
   expect(new Set(texts).size).toBe(16)
   const entp = personalityInstructions({ ...defaultProfile(), type: 'ENTP' })
-  expect(entp).toMatch(/主动/)
+  expect(entp).toMatch(/多问一句/)
   expect(entp).toMatch(/可能/)
   expect(entp).toMatch(/直接/)
   expect(entp).toMatch(/先试/)
@@ -32,5 +32,9 @@ it('keeps the boundaries while giving Anna a distinct voice', () => {
     expect(persona).toContain(rule)
   expect(persona).toMatch(/作为.{0,3}AI/)
   expect(persona).toMatch(/好奇/)
+  // Honest about what she is when sincerely asked, and never invents shared history.
+  expect(persona).toMatch(/是不是真人.*AI 程序/)
+  expect(persona).toMatch(/记录里没有的就不提.*不要假装记得/)
+  expect(personalityInstructions({ ...defaultProfile(), type: 'INTJ' })).toContain('以用户选的建议方式为准')
   expect(characters[0].persona.length).toBeGreaterThan(80)
 })

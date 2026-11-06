@@ -180,7 +180,6 @@ async function scrollHistory() { await nextTick(); history.value?.scrollTo({ top
 // ── Stage interaction: words float beside her face, cards come from her hand ─────────
 const anchors = ref<Anchors>({})
 const cue = ref<{ kind: MotionCue, at: number }>()
-const propsColumn = ref<HTMLElement>()
 const place = ref<CaptionPlace>()
 /** Your words, drifting up toward her after you send them, then gone. */
 const drifts = ref<{ id: number, text: string }[]>([])
@@ -429,7 +428,7 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
       </div>
       <div class="drifts" aria-hidden="true"><p v-for="item in drifts" :key="item.id" class="drift">{{ item.text }}</p></div>
 
-      <aside ref="propsColumn" class="props" :aria-label="`${character.name} 手上的事`">
+      <aside class="props" :aria-label="`${character.name} 手上的事`">
         <div v-if="needsTrust" class="card trust-card" role="alert">
           <span class="eyebrow">新的工作文件夹</span>
           <strong>你信任这个文件夹里的内容吗？</strong>

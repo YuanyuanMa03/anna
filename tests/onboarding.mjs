@@ -84,6 +84,10 @@ try {
   await flow.getByRole('textbox', { name: '怎么称呼你（选填）' }).fill('小麦')
   await flow.getByRole('radio', { name: /好奇探索者/ }).click()
   await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
+  // Her body keeps drawing frames even while a background run keeps the window hidden.
+  const frame = await page.locator('.model-canvas canvas').screenshot()
+  await page.waitForTimeout(750)
+  assert(!frame.equals(await page.locator('.model-canvas canvas').screenshot()), 'Live2D idle animation did not advance')
   const stage = await page.locator('.stage').boundingBox()
   const card = await flow.boundingBox()
   assert(stage.x + stage.width <= card.x, 'Onboarding must leave Anna visible beside the guide')

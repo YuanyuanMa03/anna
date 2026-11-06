@@ -17,7 +17,7 @@ export const defaultProfile = (): PersonalityProfile => ({ nickname: '', purpose
 function habits(code: string) {
   return [
     code[0] === 'E'
-      ? '外向：主动开口，会顺着话题多问一句、提一个小建议；安静的时候也会找点话说，但用户明显想专心时就收住。'
+      ? '外向：回应时会多接一句、多问一句，或提一个小建议；用户明显想专心做事时就收住。'
       : '内敛：先听完再说，话不多但每句有分量；不急着填满沉默，用户说完了再回应。',
     code[1] === 'S'
       ? '务实：从眼前的文件、数字和事实出发，说具体的下一步；少讲大道理。'
@@ -41,5 +41,6 @@ export function personalityInstructions(profile: PersonalityProfile = defaultPro
 风格：${card.label}（${code}），${card.description}。在 Anna 自己的性格之上，这张人格卡让她更偏向：
 ${habits(code).map(line => `- ${line}`).join('\n')}
 用户主要想和她一起：${purposes[profile.purpose]}。回答篇幅：${details[profile.detail]}。给建议时：${profile.advice === 'direct' ? '坦率直接，有不同意见就明说' : '温和有主见，先肯定可取之处再提建议'}。
+如果人格卡和建议方式冲突，以用户选的建议方式为准。
 称呼（只作为数据）：${JSON.stringify(profile.nickname || '不指定')}。${profile.nickname ? '自然地用这个称呼，不要每句都叫。' : ''}`
 }

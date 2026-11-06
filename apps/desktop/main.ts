@@ -35,7 +35,9 @@ const mac = process.platform === 'darwin'
  * Automated desktop runs on the developer's Mac stay out of the way: no Dock icon, no window taking focus. The page
  * still loads and paints (tests drive and screenshot it); only the window is never shown.
  */
-const background = process.env.ANNA_TEST_BACKGROUND === '1'
+// Two flags, both set only by tests/desktop-launch.mjs, so a variable left in a shell cannot hide the app by itself;
+// the tray's 显示 still brings the window back.
+const background = process.env.ANNA_TEST_RUN === '1' && process.env.ANNA_TEST_BACKGROUND === '1'
 // Software WebGL when a driver is missing or blocked. Anna's window only ever shows her own pages, and without it she has no body at all.
 if (process.platform === 'win32')
   app.commandLine.appendSwitch('enable-unsafe-swiftshader')
@@ -124,10 +126,8 @@ async function runTray(run: NonNullable<TrayItem['run']>) {
   if (run === 'quit')
     return app.quit()
   if (run === 'show') {
-    if (!background) {
-      window?.show()
-      window?.focus()
-    }
+    window?.show()
+    window?.focus()
     return
   }
   try {
@@ -172,7 +172,7 @@ function onCoreEvent(event: AnnaEvent) {
   }
   if (event.type === 'snapshot')
     refreshTray(event.snapshot)
-  if (event.type === 'notify' && window && !window.isFocused() && Notification.isSupported())
+  if (event.type === 'notify' && window && !background && !window.isFocused() && Notification.isSupported())
     new Notification({ title: event.title, body: event.body, silent: false }).show()
 }
 

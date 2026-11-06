@@ -248,6 +248,7 @@ tools. Her data lives in `~/Library/Application Support/Anna` on macOS, `%APPDAT
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
 pnpm build && pnpm test:scripted           # desktop acceptance with a scripted model, no API key needed
+ANNA_TEST_SHOW=1 pnpm test:scripted       # the same, with the window shown (on a Mac it runs hidden by default)
 pnpm package:mac                           # or package:windows / package:linux; then package:dmg, package:windows-installer, package:deb
 pnpm verify:package windows                # or linux: checks a package without running it
 pnpm smoke:package                         # starts this system's package; pass a path for an installed app

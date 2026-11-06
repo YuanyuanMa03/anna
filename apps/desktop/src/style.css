@@ -86,6 +86,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .speech .bubble, .speech .suggestions button { pointer-events: auto }
 .speech.left { text-align: right; align-items: flex-end }
 .speaker { font-size: 10px; letter-spacing: 3px; color: #fff6ee; text-shadow: 0 1px 8px #2a1b3acc }
+.speaker small { letter-spacing: 0; color: var(--muted) }
 .bubble { position: relative; max-height: 42vh; overflow: auto; scrollbar-width: none; padding: 12px 16px; border-radius: 18px; text-align: left; background: #fffaf6e0; box-shadow: 0 10px 34px #2a1b3a33; backdrop-filter: blur(14px) }
 .bubble::-webkit-scrollbar { display: none }
 .bubble p { margin: 0; font-size: 15px; line-height: 1.85 }
