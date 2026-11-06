@@ -1,5 +1,6 @@
 import type { ModelSettings } from '../shared/contracts'
 import { Buffer } from 'node:buffer'
+import { isLocalEndpoint, modelEndpointAllowed } from '../shared/model-vendors'
 
 export { sameEndpoint } from '../shared/model-vendors'
 
@@ -21,16 +22,14 @@ class ListError extends Error {}
  * renderer. Redirects are refused, so the key goes nowhere else.
  */
 export async function listModels(model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string, fetcher: Fetcher = fetch, options: { timeoutMs?: number, signal?: AbortSignal } = {}): Promise<string[]> {
-  if (!key)
+  const local = isLocalEndpoint(model.baseURL)
+  if (!key && !local)
     throw new Error('请先填写 API Key')
-  let root: URL
-  try { root = new URL(model.baseURL) }
-  catch { throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址') }
-  if (root.protocol !== 'https:' || root.username || root.password || root.search || root.hash)
-    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址')
+  if (!modelEndpointAllowed(model.baseURL))
+    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址，或这台电脑上的本机模型')
   const anthropic = model.api === 'anthropic-messages'
   const url = anthropic ? `${/\/v1$/.test(base(model.baseURL)) ? base(model.baseURL) : `${base(model.baseURL)}/v1`}/models?limit=1000` : `${base(model.baseURL)}/models`
-  const headers: Record<string, string> = anthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : { authorization: `Bearer ${key}` }
+  const headers: Record<string, string> = anthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : key ? { authorization: `Bearer ${key}` } : {}
   const signal = AbortSignal.any([AbortSignal.timeout(options.timeoutMs ?? 15_000), ...(options.signal ? [options.signal] : [])])
   try {
     const response = await fetcher(url, { headers: { ...headers, accept: 'application/json' }, redirect: 'error', signal })

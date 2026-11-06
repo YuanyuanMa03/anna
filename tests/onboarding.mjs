@@ -47,6 +47,14 @@ try {
   const missing = flow.locator('.brain-tile.unavailable [role=radio]')
   assert(await missing.count() > 0)
   assert.equal(await missing.first().isDisabled(), true)
+  // A missing brain explains, step by step, how to install it on this system.
+  await flow.getByRole('button', { name: '安装说明', exact: true }).first().click()
+  const guide = flow.locator('.install-guide')
+  assert(await guide.locator('.install-steps li').count() >= 2)
+  await guide.getByText(/重新检测/).first().waitFor()
+  await page.waitForFunction(() => { const box = document.querySelector('.install-guide')?.getBoundingClientRect(); return box && box.top >= 0 && box.top < window.innerHeight })
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/install-guide.png' })
+  await guide.getByRole('button', { name: '收起', exact: true }).click()
   await flow.getByRole('button', { name: '确认大脑，接通模型' }).click()
   // Vendor tiles. Picking a vendor whose address differs from the saved key's asks for a new key and fetches nothing.
   const vendors = flow.getByRole('radiogroup', { name: '模型厂商' })
@@ -73,6 +81,14 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '已保存，留空保持原密钥')
+  // A model on this computer: no key field, an editable local address, and its list fetched right away.
+  await vendors.getByRole('radio', { name: /^本机模型/ }).click()
+  assert.equal(await flow.getByLabel('API Key', { exact: true }).count(), 0)
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:11434/v1')
+  await flow.getByRole('button', { name: 'LM Studio', exact: true }).click()
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:1234/v1')
+  await flow.getByText('这台电脑上有 2 个模型').waitFor()
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/onboarding-local-model.png' })
   await vendors.getByRole('radio', { name: /^DeepSeek/ }).click()
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '输入这个服务的 API Key')
   await flow.getByText('DeepSeek 的模型由 pi 内置的目录提供').waitFor()
