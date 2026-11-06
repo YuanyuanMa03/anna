@@ -143,6 +143,13 @@ let talk: { stop: () => void } | undefined
 /** Each talk gets its own number, so a late start or a late transcript from an ended talk does nothing. */
 let talkSession = 0
 let voiceBeforeTalk = false
+/** Whether this talk switched model speech on, so ending it knows what to put back. */
+let voiceTaken = false
+/** Counts sends, so a transcript that arrives after the person typed something instead is dropped. */
+let sends = 0
+/** Her reply, from synthesis until the last sentence has played: her voice is about, so the bar stays raised. */
+const replying = ref(false)
+let replyToken = 0
 function hint(text: string) {
   talkHint.value = text
   clearTimeout(hintTimer)
@@ -158,11 +165,14 @@ function stopTalk() {
   talkHint.value = ''
   if (wasTalking) {
     voicePlayer.stop()
-    preparing.value = false
-    voiceEnabled.value = voiceBeforeTalk
+    preparing.value = replying.value = false
+    if (voiceTaken)
+      voiceEnabled.value = voiceBeforeTalk
+    voiceTaken = false
   }
 }
 async function hear(wav: string, session: number) {
+  const sentBefore = sends
   recognising.value = true
   try {
     const result = await window.anna.voice({ type: 'voice-transcribe', id: crypto.randomUUID(), audio: wav })
@@ -170,6 +180,8 @@ async function hear(wav: string, session: number) {
       return
     if (!result.ok) { hint('没听清，再说一次？'); notice.value = result.error; return }
     const text = (result.transcript ?? '').trim()
+    if (sends !== sentBefore)
+      return
     if (text)
       send(text)
     else
@@ -200,12 +212,13 @@ async function toggleTalk() {
       return
     }
     voiceBeforeTalk = voiceEnabled.value
+    voiceTaken = true
     voiceEnabled.value = true
     const handle = await startConversation({
       utterance: wav => void hear(wav, session),
       state: (state) => { talkState.value = state },
-      bargeIn: () => { voicePlayer.stop(); preparing.value = false },
-      speaking: () => speaking.value,
+      bargeIn: () => { voicePlayer.stop(); preparing.value = replying.value = false },
+      speaking: () => speaking.value || replying.value,
       paused: () => recognising.value || running.value || preparing.value,
       ended: () => { stopTalk(); notice.value = '麦克风断开了，对话已结束。' },
       failed: () => hint('没听清，再说一次？'),
@@ -220,7 +233,9 @@ async function toggleTalk() {
   }
   catch {
     if (session === talkSession) {
-      voiceEnabled.value = voiceBeforeTalk
+      if (voiceTaken)
+        voiceEnabled.value = voiceBeforeTalk
+      voiceTaken = false
       notice.value = '麦克风没能打开：可能是权限被拒绝，或者设备不可用。'
     }
   }
@@ -364,6 +379,7 @@ function send(text = input.value) {
   const body = text.trim()
   if (!body || configuring.value || !canChat.value || needsTrust.value)
     return
+  sends++
   voicePlayer.stop()
   input.value = ''
   if (!running.value) {
@@ -416,7 +432,8 @@ async function showChanges() {
 const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
 function keydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
-    if (talking.value || starting.value)
+    // Escape closes a sheet or dialog first; only with none open does it end the talk.
+    if ((talking.value || starting.value) && !document.querySelector('[role=dialog]'))
       stopTalk()
     document.querySelector<HTMLElement>('.corner [aria-expanded="true"]')?.focus()
     menuOpen.value = brainOpen.value = false
@@ -444,8 +461,12 @@ onMounted(async () => {
       case 'stream': stream.value = event.text; break
       case 'result':
         if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply) {
-          preparing.value = talking.value
-          void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message }).finally(() => { preparing.value = false })
+          const token = ++replyToken
+          preparing.value = replying.value = talking.value
+          void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message }).finally(() => {
+            if (token === replyToken)
+              preparing.value = replying.value = false
+          })
         }
         break
       case 'mode': modeLine.value = { text: event.line, at: Date.now() }; break
