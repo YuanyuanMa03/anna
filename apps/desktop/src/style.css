@@ -282,13 +282,6 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .brain-options button small { font-size: 10px; color: var(--muted) }
 .brain-options button[aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
 
-/* ── Stage interaction: hand tethers ──────────────── */
-.stage-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; overflow: visible }
-.tether { fill: none; stroke: var(--mode, var(--accent)); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 2 7; opacity: .55; animation: tether-flow 1.4s linear infinite }
-.tether.review { stroke: var(--accent); stroke-dasharray: 1 6; opacity: .45 }
-@keyframes tether-flow { to { stroke-dashoffset: -18 } }
-.speaker small { letter-spacing: 0; color: var(--muted) }
-@media (prefers-reduced-motion: reduce) { .tether { animation: none } }
 
 /* External agents: tabs, and the providers section (cc-switch in Anna) */
 .sheet.agents { width: 640px }

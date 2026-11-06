@@ -180,7 +180,6 @@ async function scrollHistory() { await nextTick(); history.value?.scrollTo({ top
 // ── Stage interaction: words float beside her face, cards come from her hand ─────────
 const anchors = ref<Anchors>({})
 const cue = ref<{ kind: MotionCue, at: number }>()
-const tethers = ref<{ d: string, kind: 'approval' | 'review' }[]>([])
 const propsColumn = ref<HTMLElement>()
 const place = ref<CaptionPlace>()
 /** Your words, drifting up toward her after you send them, then gone. */
@@ -211,20 +210,9 @@ function placeCaption() {
   if (moved)
     place.value = next
 }
-/** A soft curve from her hand to the card she is holding out or reading. */
-function handPath(box: DOMRect, hand: { x: number, y: number }) {
-  const x = box.left + 2
-  const y = Math.min(Math.max(hand.y, box.top + 18), box.bottom - 18)
-  return `M ${hand.x} ${hand.y} C ${hand.x + (x - hand.x) * 0.45} ${hand.y}, ${x - (x - hand.x) * 0.35} ${y}, ${x} ${y}`
-}
 function onAnchors(next: Anchors) {
   anchors.value = next
   placeCaption()
-  const lines: { d: string, kind: 'approval' | 'review' }[] = []
-  const held = propsColumn.value?.querySelector('.approval-request') ?? (anna.value.phase === 'reviewing' ? propsColumn.value?.querySelector('.collaborator-card') : null)
-  if (next.hand && held)
-    lines.push({ d: handPath(held.getBoundingClientRect(), next.hand), kind: held.classList.contains('approval-request') ? 'approval' : 'review' })
-  tethers.value = lines
 }
 /** Cards appear out of her hand and settle into place. */
 function fromHand(element: Element, done: () => void) {
@@ -482,8 +470,6 @@ onBeforeUnmount(() => { voicePlayer.stop(); window.removeEventListener('keydown'
         </button>
       </aside>
     </section>
-
-    <svg class="stage-overlay" aria-hidden="true"><path v-for="(line, index) in tethers" :key="index" class="tether" :class="line.kind" :d="line.d" /></svg>
 
     <footer class="dock">
       <div v-if="notice" class="error" role="alert">{{ notice }}</div>

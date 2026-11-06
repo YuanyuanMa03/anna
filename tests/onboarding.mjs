@@ -20,6 +20,8 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   const flow = page.getByRole('dialog', { name: 'Anna 档案' })
   await flow.waitFor()
+  // On a Mac the run stays hidden and out of the Dock unless ANNA_TEST_SHOW=1.
+  assert.equal(await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible()), process.platform !== 'darwin' || process.env.ANNA_TEST_SHOW === '1')
   assert.equal(await flow.getByRole('button', { name: '2 选择大脑' }).isDisabled(), true)
   // Only the OS dialog is stubbed; the user's button, IPC and Host path validation run normally.
   await desktop.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }) })
