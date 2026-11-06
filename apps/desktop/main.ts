@@ -31,6 +31,13 @@ if (earlier) {
   catch (error) { dialog.showErrorBox('Anna 的数据没能搬家', `以前的数据还在 ${earlier}，这次先用新的。\n${error instanceof Error ? error.message : String(error)}`) }
 }
 const mac = process.platform === 'darwin'
+/**
+ * Automated desktop runs on the developer's Mac stay out of the way: no Dock icon, no window taking focus. The page
+ * still loads and paints (tests drive and screenshot it); only the window is never shown.
+ */
+// Two flags, both set only by tests/desktop-launch.mjs, so a variable left in a shell cannot hide the app by itself;
+// the tray's 显示 still brings the window back.
+const background = process.env.ANNA_TEST_RUN === '1' && process.env.ANNA_TEST_BACKGROUND === '1'
 // Software WebGL when a driver is missing or blocked. Anna's window only ever shows her own pages, and without it she has no body at all.
 if (process.platform === 'win32')
   app.commandLine.appendSwitch('enable-unsafe-swiftshader')
@@ -61,8 +68,10 @@ app.on('second-instance', (_event, argv) => {
   if (link)
     void openLink(link)
   const existing = BrowserWindow.getAllWindows()[0]
-  existing?.show()
-  existing?.focus()
+  if (!background) {
+    existing?.show()
+    existing?.focus()
+  }
 })
 // anna://v1/import?… (and cc-switch's format behind it) opens a confirmation in the providers tab. Registered only
 // for the installed app, so a development build never takes over the scheme.
@@ -117,6 +126,8 @@ async function runTray(run: NonNullable<TrayItem['run']>) {
   if (run === 'quit')
     return app.quit()
   if (run === 'show') {
+    if (background && mac)
+      app.setActivationPolicy('regular')
     window?.show()
     window?.focus()
     return
@@ -149,8 +160,10 @@ async function openLink(url: string) {
     return
   }
   emitToRenderer({ type: 'navigate', panel: 'providers' })
-  window.show()
-  window.focus()
+  if (!background) {
+    window.show()
+    window.focus()
+  }
 }
 
 function onCoreEvent(event: AnnaEvent) {
@@ -161,7 +174,7 @@ function onCoreEvent(event: AnnaEvent) {
   }
   if (event.type === 'snapshot')
     refreshTray(event.snapshot)
-  if (event.type === 'notify' && window && !window.isFocused() && Notification.isSupported())
+  if (event.type === 'notify' && window && !background && !window.isFocused() && Notification.isSupported())
     new Notification({ title: event.title, body: event.body, silent: false }).show()
 }
 
@@ -256,7 +269,9 @@ async function start() {
       emitToRenderer({ type: 'core', status: 'restarting', message: `Anna 醒得比平时慢，可能是杀毒软件在扫描或安装不完整。日志在 ${log.path}` })
     }
   }, 60000).unref()
-  window = new BrowserWindow({ width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
+  if (background && mac)
+    app.setActivationPolicy('accessory')
+  window = new BrowserWindow({ ...(background ? { show: false, paintWhenInitiallyHidden: true } : {}), width: 1280, height: 860, minWidth: 880, minHeight: 650, title: 'Anna', backgroundColor: '#f7f3f8', icon: mac ? undefined : join(root, 'dist/renderer/favicon.png'), webPreferences: { preload: join(root, 'dist/host/apps/desktop/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, ...(background ? { backgroundThrottling: false } : {}) } })
   const win = window
   win.webContents.session.setDisplayMediaRequestHandler((_request, callback) => callback({}))
   const mediaAllowed = new Set<string>()

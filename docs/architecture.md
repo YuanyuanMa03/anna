@@ -147,7 +147,7 @@ Anna's permissions are modelled on [Claude Code](https://code.claude.com/docs/en
 | Edit files outside the workspace | ✗ | ask (risky) | ask (risky) | ask (risky) |
 | Read-only commands (`ls`, `cat`, `git status`, `rg`, `cd`) | ✓ | ✓ | ✓ | ✓ |
 | Verify commands (tests, lint, builds, `node --test`) | ✗ | ask | ✓ | ✓ |
-| Other commands, network commands | ✗ | ask | ask | ✓ (in the sandbox) |
+| Other commands, network commands | ✗ | ask | ask | ✓ (sandbox, or acknowledged Windows Auto) |
 | Risky commands (`rm -rf`, `git push`, `sudo`) | ✗ | ask (risky) | ask (risky) | ask (risky) |
 | Network from the sandbox | ✗ | ask per domain | ask per domain | common registries allowed, others ask |
 | Codex equivalent | read-only | workspace-write, ask before changes | workspace-write + on-request | workspace-write, no routine prompts |
@@ -157,8 +157,9 @@ Anna's permissions are modelled on [Claude Code](https://code.claude.com/docs/en
 - Edit and Auto are only available in **trusted folders**. When you open a new folder, Anna asks whether you trust it.
   Untrusted folders don't load project instructions such as `AGENTS.md`.
 - **Tasks from WeChat** always run in Ask mode, whatever the current mode is.
-- Without a sandbox, Auto mode still asks before commands that change things. That covers Windows today, and Linux
-  when bubblewrap is missing.
+- Windows has no command sandbox. Auto requires an explicit first-use acknowledgement and a trusted folder; the choice is saved and can be revoked under Appearance & Capabilities. Existing saved Windows Auto settings without that acknowledgement fall back to Ask. Normal commands then run without routine prompts; risky commands, edits outside the workspace and secret reads still require one-time approval even if an allow rule exists. Revocation switches saved Auto workspaces to Ask.
+- On macOS/Linux without a sandbox, Auto still asks before commands that change things. The macOS sandbox design is unchanged.
+- On Windows, Edit directly permits plain, parseable workspace file operations (`Set-Content`, `Add-Content`, `Clear-Content`, `New-Item`, `Copy-Item`, `Move-Item`, `Rename-Item`) and verification commands. Other executors and network commands ask. PowerShell scriptblocks remain conservative; use the simple property form for read-only filter/sort pipelines.
 - Approvals marked "risky" can only be granted once at a time, never for a session or permanently.
 - Credential folders such as `~/.ssh` and `~/.aws` are ordinary paths outside the workspace, as in Claude Code: reads
   ask outside Auto mode, and **Always allow** saves a rule such as `Read(//Users/you/.ssh/**)`. That rule keeps
@@ -166,7 +167,7 @@ Anna's permissions are modelled on [Claude Code](https://code.claude.com/docs/en
 - Secret files ask in every mode before their contents go to the model. The same check applies whether the read tool
   names the file, a command names it (`cat .env`), or a recursive search would read it (`grep -r SECRET .`,
   `rg -uu`, the grep tool outside a git repository). Searches that skip gitignored or hidden files don't ask.
-  **Always allow** remembers that one file (`Read(./.env)`). Listing names (`ls`, `find -name .env`) never asks.
+  On macOS/Linux, **Always allow** remembers that one file (`Read(./.env)`). Windows secret reads always ask once and do not offer a remembered rule. Listing names (`ls`, `find -name .env`, or pure `Get-ChildItem` metadata pipelines) does not read contents.
 - Only Anna's own data directory (keys, settings, sessions, memory, checkpoints) is unreachable, whatever the mode,
   rule or approval. Both its path and the path it resolves to are checked, so a symlink or a `cd` into the real
   location doesn't get around it.
@@ -203,8 +204,7 @@ How a rule is saved depends on the button you press:
 - **Allow for this session** keeps the rule until the session ends.
 - **Always allow** writes the rule to the workspace settings.
 
-Cards offer a remembered rule only when exactly one uncovered, non-read-only command part needs approval
-(`Bash(pnpm install *)`). Multiple such parts currently offer only one-time approval. Unparseable commands and overly broad rules such as `Bash(git *)` do not get a remembered allow rule. Per-part compound-command rules are planned in the roadmap.
+Cards offer a separate remembered rule for each uncovered, non-read-only command part only when every required part has a safe template (`Bash(pnpm install *)`). The card lists the complete set, and a session/permanent approval remembers exactly that set. If any part is unparseable or would require an overly broad template such as `Bash(git *)`, the request stays one-time. High-risk and Windows secret approvals always stay one-time.
 Every rule can be removed under **Appearance & Capabilities → Permission rules**.
 
 ### Sandbox
@@ -244,7 +244,7 @@ the sandbox refuses connections to local ports without even asking.
   checkpoints have the same limit.
 - An ACP brain is checked when it asks. A call it starts without asking is checked only once it is reported, after it may
   have run, and such a change is not checkpointed: see the kernels and delegation section below.
-- Command classes only reduce prompts; they are not a security boundary. Without a sandbox, trust only your own projects.
+- Command classes only reduce prompts; they are not a security boundary. Without a sandbox, trust only your own projects. Windows Auto uses the user’s OS permissions: literal paths, supported command syntax, secret reads and reported approval requests are checked, but arbitrary programs can open other files internally or compute indirect paths. It is not OS confinement. Content-reader wildcards and file-enumeration pipelines require one-time approval; pure metadata pipelines remain directly allowed.
 - Anna's data directory is hidden from delegated agents only where the agent supports it. Claude Code gets deny rules
   through `--settings`. Codex's sandbox has no way to deny reads (its policies only limit writes), and Gemini CLI,
   OpenCode and Pi have none either, so those agents can read Anna's data while they work. Delegate to them only in

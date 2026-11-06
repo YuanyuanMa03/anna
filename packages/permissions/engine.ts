@@ -4,7 +4,7 @@ import type { RuleSet } from './rules'
 import type { SearchReach } from './secrets'
 import { statSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { dirname, relative } from 'node:path'
+import { posix, win32 } from 'node:path'
 import process from 'node:process'
 import { classify, classifyIn, commandRank, commandRule, looseParts, searchScope, segments, shellWords, stripWrappers } from './commands'
 import { modes } from './modes'
@@ -18,7 +18,8 @@ import { secretsIn } from './secrets'
  * Code: reads outside the workspace ask (Auto mode reads freely), writes outside it ask every time. Two exceptions:
  * - Anna's own keys and data (`protectedPaths`) are unreachable. No mode, rule or approval opens them.
  * - Secret files (`.env`, private keys) ask before their contents go to the model, whether a file tool or a shell
- *   command names them or a recursive search would read them. "Always allow" remembers the file.
+ *   command names them or a recursive search would read them. On Windows each read asks again; elsewhere an exact
+ *   "Always allow" rule can remember the file.
  */
 export interface PolicyContext {
   mode: PermissionMode
@@ -45,6 +46,8 @@ export type Decision
       danger: boolean
       /** Rule that "always allow" would add; absent for high-risk calls and for calls a rule cannot describe. */
       rule?: string
+      /** One safe rule for every command part that needs approval; absent unless all parts are describable. */
+      rules?: string[]
       commandClass?: CommandClass
     }
 
@@ -72,11 +75,13 @@ function zones(context: PolicyContext) {
 
 /** How a path appears on an approval card: relative inside the workspace, absolute outside. */
 function shown(path: string, context: PolicyContext) {
-  return isInside(context.workspace, path, context.platform) ? relative(context.workspace, path) || '.' : path
+  const platform = context.platform ?? process.platform
+  return isInside(context.workspace, path, platform) ? (platform === 'win32' ? win32 : posix).relative(context.workspace, path) || '.' : path
 }
 
 /** The folder an "always allow" read rule covers: the folder itself, or the one holding the file. */
-function folderOf(path: string) {
+function folderOf(path: string, platform: NodeJS.Platform) {
+  const dirname = (platform === 'win32' ? win32 : posix).dirname
   try { return statSync(path).isDirectory() ? path : dirname(path) }
   catch { return dirname(path) }
 }
@@ -84,11 +89,15 @@ function folderOf(path: string) {
 /** Secret files a call would read that no rule naming the file allows yet. */
 function unapproved(files: string[], context: PolicyContext) {
   const zone = zones(context)
+  if (zone.platform === 'win32')
+    return files
   return files.filter(file => evaluateRules(context.rules, 'Read', spellings(file), context.workspace, { ...zone.options, within: file }) !== 'allow')
 }
 
 function secretAsk(reason: string, files: string[], details: string, context: PolicyContext, commandClass?: CommandClass): Decision {
   const names = files.map(file => shown(file, context))
+  if ((context.platform ?? process.platform) === 'win32')
+    return { kind: 'ask', reason, details: `${details}\n会读到：${names.join('、')}`, danger: true, commandClass }
   return { kind: 'ask', reason, details: `${details}\n会读到：${names.join('、')}`, danger: false, rule: files.length === 1 ? pathRule('Read', canonical(files[0]!), context.workspace) : undefined, commandClass }
 }
 
@@ -102,14 +111,14 @@ function judgeRead(path: string, context: PolicyContext, folder: boolean, reach?
   if (ruled === 'deny')
     return { kind: 'deny', reason: '你的权限规则禁止读取这个位置。' }
   const where = shown(path, context)
-  const secrets = unapproved(paths.some(file => isSecretFile(file, zone.options.home)) ? [path] : reach ? secretsIn(real, reach, 3, zone.options.home) : [], context)
+  const secrets = unapproved(paths.some(file => isSecretFile(file, zone.options.home, zone.platform)) ? [path] : reach ? secretsIn(real, reach, 3, zone.options.home) : [], context)
   if (secrets.length)
     return secretAsk(reach ? '搜索会读到可能含有密钥的文件，内容会发送给模型' : '读取可能含有密钥的文件，内容会发送给模型', secrets, where, context)
   if (ruled === 'ask')
     return { kind: 'ask', reason: '你的规则要求读取这里之前先确认', details: where, danger: false }
   if (ruled === 'allow' || zone.workspaceOrTemp(paths) || context.mode === 'auto')
     return { kind: 'allow' }
-  return { kind: 'ask', reason: '读取工作文件夹之外的内容，内容会发送给模型', details: path, danger: false, rule: pathRule('Read', folder ? path : dirname(path), context.workspace, true) }
+  return { kind: 'ask', reason: '读取工作文件夹之外的内容，内容会发送给模型', details: path, danger: false, rule: pathRule('Read', folder ? path : (zone.platform === 'win32' ? win32 : posix).dirname(path), context.workspace, true, zone.platform) }
 }
 
 function judgeWrite(path: string, context: PolicyContext): Decision {
@@ -124,17 +133,19 @@ function judgeWrite(path: string, context: PolicyContext): Decision {
   const ruled = evaluateRules(context.rules, 'Edit', paths, context.workspace, zone.options)
   if (ruled === 'deny' || evaluateRules(context.rules, 'Read', paths, context.workspace, zone.options) === 'deny')
     return { kind: 'deny', reason: '你的权限规则禁止修改这个位置。' }
-  if (!isInside(context.workspace, real, zone.platform))
-    return ruled === 'allow' ? { kind: 'allow' } : { kind: 'ask', reason: '修改工作文件夹之外的文件', details: path, danger: true }
+  if (!(zone.platform === 'win32' ? paths.every(path => isInside(context.workspace, path, zone.platform)) : isInside(context.workspace, real, zone.platform)))
+    return ruled === 'allow' && zone.platform !== 'win32' ? { kind: 'allow' } : { kind: 'ask', reason: '修改工作文件夹之外的文件', details: path, danger: true }
   if (ruled === 'ask')
     return { kind: 'ask', reason: '你的规则要求修改这里之前先确认', details: shown(real, context), danger: false }
   if (ruled === 'allow' || context.mode === 'edit' || context.mode === 'auto')
     return { kind: 'allow' }
-  return { kind: 'ask', reason: '修改文件', details: shown(real, context), danger: false, rule: pathRule('Edit', real, context.workspace) }
+  return { kind: 'ask', reason: '修改文件', details: shown(real, context), danger: false, rule: pathRule('Edit', real, context.workspace, false, zone.platform) }
 }
 
 interface Piece {
   text: string
+  /** Working directory before this part runs, including resolved junctions. */
+  cwd: string[]
   /** Every path-like argument, as requested and as resolved, relative to the directory the shell is in by then. */
   paths: string[][]
   /** Prints names or sizes, never contents (`ls`, `find`, `stat` …), so secret file names alone are harmless. */
@@ -150,27 +161,33 @@ interface Piece {
 function analyze(command: string, context: PolicyContext) {
   const platform = context.platform ?? process.platform
   const home = context.home ?? homedir()
-  const parts = segments(command)
+  const parts = segments(command, platform)
   let cwd = context.workspace
-  const resolveWord = (word: string, base: string) => spellings(resolveToolPath(word.replace(/^\$HOME(?=\/|$)/, '~'), base, platform, home))
+  const resolveWord = (word: string, base: string) => spellings(resolveToolPath(word.replace(platform === 'win32' ? /^\$HOME(?=[\\/]|$)/i : /^\$HOME(?=\/|$)/, '~'), base, platform, home))
   const pieces: Piece[] = (parts ?? looseParts(command)).map((text) => {
     const words = shellWords(stripWrappers(text), platform)
     const paths: string[][] = []
     words.forEach((word, index) => {
       let value = word.replace(/^\d?[<>]+&?/, '')
       if (value.startsWith('-')) {
-        const option = /^-[\w-]+=(.*)$/s.exec(value)
+        const option = (platform === 'win32' ? /^-[\w-]+[:=](.*)$/s : /^-[\w-]+=(.*)$/s).exec(value)
         if (!option || /^--?(?:include|exclude|exclude-dir|glob|iglob|g)=/.test(value))
           return
         value = option[1]!
       }
-      if (!value || (index === 0 && !value.includes('/')) || /^[<>|&;()]+$/.test(value) || /^[a-z][\w+.-]*:\/\//i.test(value) || /^\/dev\/(?:null|stdout|stderr|tty)$/.test(value) || /\$(?!HOME(?:\/|$))/.test(value))
+      // findstr's pattern/list-file switches name files, unlike flags such as /s and /b.
+      if (platform === 'win32' && /^findstr(?:\.exe)?$/i.test(words[0] ?? ''))
+        value = /^\/[fg]:(.*)$/i.exec(value)?.[1] ?? value
+      // cmd utilities use slash-prefixed switches; a drive, UNC or multi-segment path still remains a path.
+      if (platform === 'win32' && /^(?:dir|findstr(?:\.exe)?|where(?:\.exe)?|copy|xcopy|robocopy|attrib|type)$/i.test(words[0] ?? '') && /^\/[a-z?]+(?::[^\\/]*)?$/i.test(value))
+        return
+      if (!value || (index === 0 && !value.includes('/')) || /^[<>|&;()]+$/.test(value) || /^[a-z][\w+.-]*:\/\//i.test(value) || /^\/dev\/(?:null|stdout|stderr|tty)$/.test(value) || (platform === 'win32' ? /\$(?!HOME(?:[\\/]|$))/i : /\$(?!HOME(?:\/|$))/).test(value))
         return
       paths.push(resolveWord(value, cwd))
     })
     const scope = searchScope(stripWrappers(text), platform)
-    const piece: Piece = { text, paths, metadata: /^(?:ls|find|fd|tree|du|stat|file|wc|realpath|basename|dirname|test)$/.test(words[0] ?? ''), search: scope && { dirs: scope.targets.filter(target => !target.includes('$')).map(target => resolveWord(target, cwd)), reach: scope } }
-    if (words[0] === 'cd' || words[0] === 'pushd') {
+    const piece: Piece = { text, cwd: spellings(cwd), paths, metadata: /^(?:ls|find|fd|tree|du|stat|file|wc|realpath|basename|dirname|test)$/.test(words[0] ?? '') || (platform === 'win32' && /^(?:Get-ChildItem|gci|dir|Select-Object|Where-Object|Sort-Object|Format-Table|Measure-Object|Get-Process|Get-Date|Get-Help|Get-Location|Set-Location|sl)$/i.test(words[0] ?? '')), search: scope && { dirs: scope.targets.filter(target => !target.includes('$')).map(target => resolveWord(target, cwd)), reach: scope } }
+    if (words[0] === 'cd' || words[0] === 'pushd' || (platform === 'win32' && /^(?:Set-Location|sl)$/i.test(words[0] ?? ''))) {
       const target = words.slice(1).find(word => !word.startsWith('-'))
       if (target !== '-')
         cwd = resolveWord(target ?? '~', cwd).at(-1)!
@@ -180,9 +197,19 @@ function analyze(command: string, context: PolicyContext) {
   return { parts, pieces }
 }
 
+/** Conservative Windows file commands whose explicit arguments have already passed path checks. */
+function windowsWorkspaceMutation(part: string) {
+  if (/[$`%{}<>]/.test(part))
+    return false
+  const words = shellWords(part, 'win32')
+  return /^(?:Set-Content|Add-Content|Clear-Content|New-Item|Copy-Item|Move-Item|Rename-Item)$/i.test(words[0] ?? '')
+    && words.length > 1
+    && !words.some(word => /^(?:[a-z]+::|(?:HKLM|HKCU|Registry|Env|Function|Variable|Alias|Cert):)/i.test(word))
+}
+
 function judgeCommand(command: string, context: PolicyContext): Decision {
   const zone = zones(context)
-  const { pieces } = analyze(command, context)
+  const { pieces, parts: simpleParts } = analyze(command, context)
   const paths = pieces.flatMap(piece => piece.paths)
   const searches = pieces.flatMap(piece => piece.search ? piece.search.dirs.map(dir => ({ dir, reach: piece.search!.reach })) : [])
   if (paths.some(zone.anna) || searches.some(search => zone.annaUnder(search.dir)))
@@ -192,32 +219,56 @@ function judgeCommand(command: string, context: PolicyContext): Decision {
     return { kind: 'deny', reason: '你的权限规则禁止这条命令。' }
   if (paths.some(path => evaluateRules(context.rules, 'Read', path, context.workspace, zone.options) === 'deny'))
     return { kind: 'deny', reason: '你的权限规则禁止读取命令涉及的位置。' }
-  const kind = classify(command)
+  const kind = classify(command, zone.platform)
   const details = command.slice(0, 1200)
   if (kind === 'danger')
     return context.mode === 'plan' ? { kind: 'deny', reason: '规划模式下不执行高风险命令。' } : { kind: 'ask', reason: '这条命令可能造成难以撤销的影响', details, danger: true, commandClass: kind }
   if (context.mode === 'plan' && kind !== 'inspect')
     return { kind: 'deny', reason: '现在是规划模式，只运行查看类命令。请先给出方案，等用户切换模式后再执行。' }
 
+  // PowerShell content readers expand wildcards and can consume file objects from an upstream enumeration.
+  // A metadata-only pipeline still stays read-only; an implicit set of file contents needs one-time approval.
+  const contentReader = (piece: Piece) => /^(?:Get-Content|gc|cat|type|Select-String|sls)\b/i.test(stripWrappers(piece.text))
+  if (zone.platform === 'win32') {
+    const content = pieces.filter(contentReader)
+    const enumerations = /\|/.test(command) && content.length ? pieces.filter(piece => /^(?:Get-ChildItem|gci|dir)\b/i.test(stripWrappers(piece.text))) : []
+    const roots = enumerations.flatMap(piece => piece.paths.length ? piece.paths : [piece.cwd])
+    if (roots.some(zone.annaUnder))
+      return { kind: 'deny', reason: `文件枚举会读取${annaData}` }
+    if (enumerations.length || content.some(piece => piece.paths.some(paths => paths.some(path => /[*?[]/.test(path)))))
+      return { kind: 'ask', reason: '文件通配符或流水线会读取一组文件，可能包含密钥，需要逐次确认', details, danger: true, commandClass: kind }
+  }
+
   // Secret files: the same check whether the command names them or a recursive search would read them.
-  const named = pieces.filter(piece => !piece.metadata).flatMap(piece => piece.paths).filter(path => path.some(file => isSecretFile(file, zone.options.home))).map(path => path[0]!)
+  // A content reader can consume file objects from an earlier metadata stage of a PowerShell pipeline.
+  const pipedContents = zone.platform === 'win32' && command.includes('|') && pieces.some(piece => /^(?:Get-Content|gc|cat|type)\b/i.test(piece.text))
+  const named = pieces.filter(piece => !piece.metadata || pipedContents).flatMap(piece => piece.paths).filter(path => path.some(file => isSecretFile(file, zone.options.home, zone.platform))).map(path => path[0]!)
   const secrets = unapproved([...new Set([...named, ...searches.flatMap(search => secretsIn(search.dir.at(-1)!, search.reach, 3, zone.options.home))])], context)
   if (secrets.length)
     return secretAsk('命令会读取可能含有密钥的文件，内容会发送给模型', secrets, details, context, kind)
 
+  // On Windows there is no OS boundary for writes: remembered allow rules cannot waive this check.
+  // Inspect all parts, including those covered by an existing Bash rule, and do not treat temp folders as workspace.
+  const windowsOutside = zone.platform === 'win32' && pieces.some(piece => classifyIn(simpleParts ?? [], piece.text, zone.platform) !== 'inspect' && [piece.cwd, ...piece.paths].some(paths => !paths.every(path => isInside(context.workspace, path, zone.platform))))
+  if (windowsOutside)
+    return { kind: 'ask', reason: '这台电脑没有命令沙箱，修改工作文件夹之外的位置需要每次确认', details, danger: true, commandClass: kind }
+
   if (bash === 'ask')
     return { kind: 'ask', reason: '你的规则要求这条命令先确认', details, danger: false, commandClass: kind }
   // Claude Code's semantics: a compound command is covered only part by part; read-only parts need no rule.
-  const uncovered = uncoveredParts(context.rules, command)
+  const uncovered = uncoveredParts(context.rules, command, zone.platform)
   const open = uncovered ? pieces.filter(piece => uncovered.includes(piece.text)) : pieces
-  const parts = segments(command.trim()) ?? []
-  const rest = uncovered ? uncovered.map(part => classifyIn(parts, part)).reduce<CommandClass>((worst, next) => commandRank[next] > commandRank[worst] ? next : worst, 'inspect') : kind
+  const parsed = segments(command.trim(), zone.platform)
+  const parts = parsed ?? []
+  const rest = uncovered ? uncovered.map(part => classifyIn(parts, part, zone.platform)).reduce<CommandClass>((worst, next) => commandRank[next] > commandRank[worst] ? next : worst, 'inspect') : kind
   const outside = [...open.flatMap(piece => piece.paths), ...open.flatMap(piece => piece.search?.dirs ?? [])].filter(path => !zone.workspaceOrTemp(path) && evaluateRules(context.rules, 'Read', path, context.workspace, zone.options) !== 'allow')
-  const needed = uncovered?.filter(part => classifyIn(parts, part) !== 'inspect') ?? []
-  const commandRuleFor = needed.length === 1 ? commandRule(needed[0]!) : undefined
-  const folders = [...new Set(outside.map(path => folderOf(path[0]!)))]
-  const readRule = folders.length === 1 ? pathRule('Read', folders[0]!, context.workspace, true) : undefined
-  const ask = (reason: string, rule = commandRuleFor): Decision => ({ kind: 'ask', reason, details, danger: false, rule, commandClass: rest })
+  const needed = uncovered?.filter(part => classifyIn(parts, part, zone.platform) !== 'inspect') ?? []
+  const templates = needed.map(commandRule)
+  const commandRules = templates.length && templates.every((rule): rule is string => rule !== undefined) ? [...new Set(templates)] : undefined
+  const commandRuleFor = commandRules?.length === 1 ? commandRules[0] : undefined
+  const folders = [...new Set(outside.map(path => folderOf(path[0]!, zone.platform)))]
+  const readRule = folders.length === 1 ? pathRule('Read', folders[0]!, context.workspace, true, zone.platform) : undefined
+  const ask = (reason: string, rule = commandRuleFor): Decision => ({ kind: 'ask', reason, details, danger: false, ...(rule ? { rule } : {}), ...(commandRules && rule === commandRuleFor ? { rules: commandRules } : {}), commandClass: rest })
 
   if (outside.length && rest === 'inspect' && context.mode !== 'auto')
     return ask('查看工作文件夹之外的内容', readRule)
@@ -227,11 +278,16 @@ function judgeCommand(command: string, context: PolicyContext): Decision {
     return { kind: 'ask', reason: '命令涉及工作文件夹之外的路径', details, danger: true, commandClass: rest }
   // Plan never gets here: it returned above for anything but inspect commands.
   if (context.mode === 'auto') {
+    if (zone.platform === 'win32')
+      return { kind: 'allow', note: '无命令沙箱：已确认放手模式' }
     if (context.sandboxed)
       return { kind: 'allow', note: '沙箱' }
     return rest === 'verify' ? { kind: 'allow' } : ask('这台电脑没有可用的沙箱，命令需要确认')
   }
   if (context.mode === 'edit' && rest === 'verify')
+    return { kind: 'allow' }
+  // Only plain, known file operations qualify as workspace changes; executors remain approval-gated in Edit.
+  if (zone.platform === 'win32' && context.mode === 'edit' && parsed && open.every(piece => classifyIn(parts, piece.text, zone.platform) === 'inspect' || windowsWorkspaceMutation(piece.text)))
     return { kind: 'allow' }
   return ask(rest === 'network' ? '运行需要联网的命令' : '运行命令')
 }
