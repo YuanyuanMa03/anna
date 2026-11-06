@@ -29,22 +29,31 @@ const cards = computed(() => [
 ].sort((a, b) => a.id === 'pi' ? -1 : b.id === 'pi' ? 1 : Number(b.available) - Number(a.available) || Number(Boolean(props.snapshot.agents.detected.find(item => item.id === b.agent)?.installed)) - Number(Boolean(props.snapshot.agents.detected.find(item => item.id === a.agent)?.installed))))
 const installConfirm = ref<string>()
 const guide = computed(() => { const agent = catalog.find(agent => agent.id === installConfirm.value); return agent ? installSteps(agent, props.snapshot.platform.os) : undefined })
-const copied = ref(false)
-// The guide opens below the cards: bring it into view so the click visibly does something.
-watch(installConfirm, async (agent) => {
-  if (!agent)
-    return
-  await nextTick()
-  document.querySelector('.install-guide')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-})
+const copied = ref<'done' | 'failed'>()
+const guideAgent = computed(() => installConfirm.value ?? '')
+const guideCard = ref<HTMLElement>()
+const guideTitle = ref<HTMLElement>()
+let copyTimer: ReturnType<typeof setTimeout> | undefined
 async function copyCommand(command: string) {
   try {
     await navigator.clipboard.writeText(command)
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
+    copied.value = 'done'
   }
-  catch {}
+  catch {
+    copied.value = 'failed'
+  }
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => { copied.value = undefined }, 2500)
 }
+// The guide opens below the cards: bring it into view and focus its title, so the click visibly does something.
+watch(installConfirm, async (agent) => {
+  copied.value = undefined
+  if (!agent)
+    return
+  await nextTick()
+  guideCard.value?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  guideTitle.value?.focus({ preventScroll: true })
+})
 function selectBrain(id: string) {
   source.value = 'official'
   emit('command', { type: 'kernel', id: id as RuntimeSnapshot['settings']['kernel'] })
@@ -118,7 +127,7 @@ watch(() => JSON.stringify(props.snapshot.settings.model), () => {
   Object.assign(model, props.snapshot.settings.model)
   vendorId.value = vendorFor(props.snapshot.settings.model)?.id ?? 'custom'
 })
-onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback) })
+onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback); clearTimeout(copyTimer) })
 </script>
 
 <template>
@@ -134,11 +143,11 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback) })
             <button v-if="brain.id !== 'pi' && !snapshot.agents.detected.find(agent => agent.id === brain.agent)?.installed" class="link" :disabled="busy" @click="installConfirm = brain.agent">安装说明</button>
           </div>
         </div>
-        <div v-if="installConfirm && guide" class="card install-guide" role="status">
-          <strong>安装 {{ catalog.find(agent => agent.id === installConfirm)?.label }}</strong>
+        <div v-if="installConfirm && guide" ref="guideCard" class="card install-guide" role="region" :aria-label="`安装 ${catalog.find(agent => agent.id === installConfirm)?.label}`">
+          <strong ref="guideTitle" tabindex="-1">安装 {{ catalog.find(agent => agent.id === installConfirm)?.label }}</strong>
+          <p v-if="guide.oneClick" class="small">最简单的办法：电脑上已有 Node.js 的话，直接<button type="button" class="link" :disabled="busy" @click="emit('command', { type: 'agent-install', agent: guideAgent })">让 Anna 帮你装</button>。</p>
           <ol class="install-steps"><li v-for="(step, index) in guide.steps" :key="index">{{ step }}</li></ol>
-          <div v-if="guide.command" class="install-command"><pre>{{ guide.command }}</pre><button type="button" @click="copyCommand(guide.command)">{{ copied ? '已复制' : '复制命令' }}</button></div>
-          <p v-if="guide.oneClick" class="small">不想用命令行？电脑上已有 Node.js 的话，也可以<button type="button" class="link" :disabled="busy" @click="emit('command', { type: 'agent-install', agent: installConfirm! })">让 Anna 帮你装</button>。</p>
+          <div v-if="guide.command" class="install-command"><pre>{{ guide.command }}</pre><button type="button" @click="copyCommand(guide.command)">{{ copied === 'done' ? '已复制' : copied === 'failed' ? '复制失败，请手动选中命令' : '复制命令' }}</button></div>
           <p v-if="guide.url"><a :href="guide.url" target="_blank" rel="noreferrer">打开官方安装说明</a></p>
           <p class="small muted">{{ guide.after }}</p>
           <button :disabled="busy" @click="emit('command', { type: 'agents-refresh' }); installConfirm = undefined">我已安装，重新检测</button><button @click="installConfirm = undefined">收起</button>
