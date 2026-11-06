@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, readlink, realpath, rm, writeFile } from 'nod
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import electron from 'electron'
+import { stageSearchTools } from './search-tools.mjs'
 import { stageRuntime } from './stage-runtime.mjs'
 
 /** Stage the production dependency closure and a complete Electron application. No user data enters the bundle. */
@@ -22,6 +23,8 @@ async function main() {
   await rm(join(resources, 'default_app.asar'), { force: true })
   const original = JSON.parse(await readFile('package.json', 'utf8'))
   const runtimeReport = await stageRuntime(root, resources)
+  // Signed below with the rest of the bundle's Mach-O files.
+  const searchTools = await stageSearchTools(resources, 'darwin', { arch: 'arm64' })
   await rm(icon, { recursive: true, force: true })
   execFileSync('/usr/bin/swift', [join(root, 'scripts/make-icon.swift'), icon])
   execFileSync('/usr/bin/iconutil', ['-c', 'icns', icon, '-o', join(resources, 'anna.icns')])
@@ -58,13 +61,16 @@ for p in (app/'Contents/Frameworks').glob('*.app/Contents/Info.plist'):
   }
   await verifyLinks(app)
   const signing = JSON.parse(execFileSync('/usr/bin/python3', [join(root, 'scripts/sign-local.py'), app]).toString())
+  // No static check covers the Mac bundle: running them after signing proves they are present, arm64 and launchable.
+  for (const tool of searchTools)
+    execFileSync(join(resources, 'bin', tool), ['--version'], { stdio: 'ignore', timeout: 30_000 })
   // The zip is what install.sh and the in-app updater download (curl/Node add no quarantine flag).
   const zip = join(output, `Anna-${original.version}-mac-${process.arch}.zip`)
   await rm(zip, { force: true })
   execFileSync('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip])
   const digest = createHash('sha256').update(await readFile(zip)).digest('hex')
   await writeFile(`${zip}.sha256`, `${digest}  ${basename(zip)}\n`)
-  const report = { app, zip, sha256: digest, version: original.version, arch: process.arch, electron: '44.7.0', runtime: 'pi', signing: signing.signing, certificate: signing.certificate, notarized: false, containedSymlinks: links, ...runtimeReport }
+  const report = { app, zip, sha256: digest, version: original.version, arch: process.arch, electron: '44.7.0', runtime: 'pi', signing: signing.signing, certificate: signing.certificate, notarized: false, containedSymlinks: links, searchTools, ...runtimeReport }
   await writeFile(join(output, 'package-report.json'), JSON.stringify(report, null, 2))
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
 }

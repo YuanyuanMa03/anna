@@ -43,8 +43,13 @@ VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright (c) 2026 Anna contributors"
 Section "Anna"
   ; Quit a running copy before replacing it.
   nsExec::Exec 'taskkill /IM Anna.exe /F'
-  Sleep 500
+  Sleep 1500
+  ; An older version left paths too long for RMDir, and Electron prefers a leftover resources\app over the new archive.
+  nsExec::Exec 'cmd /c rd /s /q "\\?\${APPDIR}"'
   RMDir /r "${APPDIR}"
+  IfFileExists "${APPDIR}\*.*" 0 +3
+    MessageBox MB_ICONSTOP "旧版 Anna 没能删除，可能还在运行。请关闭它或重启电脑后再安装。" /SD IDOK
+    Abort
   SetOutPath "${APPDIR}"
   File /r "${SOURCE}\*"
   CreateShortCut "$SMPROGRAMS\Anna.lnk" "${APPDIR}\Anna.exe" "" "${ICON}"
@@ -66,12 +71,14 @@ SectionEnd
 ; Anna's settings, keys and memories live in %APPDATA%\Anna and are kept, so a reinstall picks up where you left off.
 Section "Uninstall"
   nsExec::Exec 'taskkill /IM Anna.exe /F'
-  Sleep 500
+  Sleep 1500
+  nsExec::Exec 'cmd /c rd /s /q "\\?\${APPDIR}"'
   RMDir /r "${APPDIR}"
   RMDir /r "${APPDIR}.old"
   Delete "$SMPROGRAMS\Anna.lnk"
   Delete "$DESKTOP\Anna.lnk"
   DeleteRegKey HKCU "${UNINSTKEY}"
+  DeleteRegKey HKCU "Software\Classes\anna"
   Delete "${UNINSTDIR}\Uninstall Anna.exe"
   RMDir "${UNINSTDIR}"
 SectionEnd

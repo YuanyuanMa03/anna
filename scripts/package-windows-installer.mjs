@@ -19,8 +19,12 @@ async function main() {
   if (!existsSync(join(source, 'Anna.exe')))
     throw new Error('Run pnpm package:windows first: dist/windows/Anna/Anna.exe is missing')
   const { version } = JSON.parse(await readFile('package.json', 'utf8'))
-  const output = resolve(`dist/windows/Anna-Setup-windows-${process.arch}.exe`)
-  execFileSync(makensis(), ['-V2', `-DVERSION=${version}`, `-DSOURCE=${source}`, `-DOUTFILE=${output}`, resolve('scripts/windows-installer.nsi')], { stdio: 'inherit' })
+  const output = resolve(`dist/windows/Anna-Setup-windows-x64.exe`)
+  execFileSync(makensis(), ['-INPUTCHARSET', 'UTF8', '-V2', `-DVERSION=${version}`, `-DSOURCE=${source}`, `-DOUTFILE=${output}`, resolve('scripts/windows-installer.nsi')], {
+    stdio: 'inherit',
+    // makensis on macOS and Linux aborts with bad_alloc when the locale isn't UTF-8, as in many terminals and CI shells.
+    env: process.platform === 'win32' ? process.env : { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
+  })
   process.stdout.write(`${output}\n`)
 }
 void main().catch((error) => { console.error(error); process.exitCode = 1 })
