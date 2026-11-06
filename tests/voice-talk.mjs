@@ -93,6 +93,19 @@ try {
       return output.stream
     }
   })
+  // Capture the input's geometry through listening, recognition, execution and speech.
+  await page.evaluate(() => {
+    window.composerFrames = []
+    window.measureComposer = true
+    const sample = () => {
+      if (!window.measureComposer)
+        return
+      const box = document.querySelector('.composer textarea').getBoundingClientRect()
+      window.composerFrames.push({ y: box.y, height: box.height })
+      requestAnimationFrame(sample)
+    }
+    sample()
+  })
   const live = () => page.evaluate(() => window.microphones.flatMap(stream => stream.getTracks()).filter(track => track.readyState === 'live').length)
   // A double-click starts and then cancels: no microphone may be left open, and no talk shown.
   await page.getByRole('button', { name: '和她说话', exact: true }).dblclick()
@@ -118,6 +131,13 @@ try {
   await page.getByRole('button', { name: '和她说话', exact: true }).waitFor()
   assert.equal(await page.locator('.talk-state').count(), 0)
   assert.equal(await live(), 0, 'the microphone is still open after the talk ended')
+  const frames = await page.evaluate(() => {
+    window.measureComposer = false
+    return window.composerFrames
+  })
+  assert(frames.length > 10)
+  assert(Math.max(...frames.map(frame => frame.y)) - Math.min(...frames.map(frame => frame.y)) < 1, 'the input jumped vertically during the conversation')
+  assert(Math.max(...frames.map(frame => frame.height)) - Math.min(...frames.map(frame => frame.height)) < 1, 'the input changed height during the conversation')
   assert.equal(recognitions, 1)
   assert.deepEqual(errors, [])
   console.log('Voice talk: synthetic microphone stream → voice activity → recognition → scripted reply → synthesis, and the microphone closes when the talk ends.')

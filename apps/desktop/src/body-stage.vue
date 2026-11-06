@@ -41,7 +41,6 @@ let observer: ResizeObserver | undefined
 let frame = 0
 let disposed = false
 let gestureUntil = 0
-let weight = 0
 const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
 const pointer = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY }
 let activeAt = performance.now()
@@ -142,8 +141,8 @@ function tick() {
   const target = aim(next.look, next.head, { dx: pointer.x - face.x, dy: pointer.y - face.y, reach: Math.max(320, placement.value.width * 0.35) })
   followBodyLook(look, target, (now - lastFrameAt) / 1000)
   lastFrameAt = now
-  weight += ((next.look === 'free' ? 0 : motion.value ? 0.3 : 0.8) - weight) * 0.08
-  avatar.setParameters(look, weight)
+  // Hold every gaze/head axis, even during motions: releasing pitch also reintroduced the runtime's automatic drift.
+  avatar.setParameters(look, 1)
 
   // Only actual playback drives the mouth; silence and text streaming keep it closed.
   const talking = props.speaking && !reduced.matches

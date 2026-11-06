@@ -259,8 +259,8 @@ export function aim(look: Look, head: Head = {}, pointer?: { dx: number, dy: num
     y = look.y
   }
   // Small ranges: further than this her face warps on the mesh.
-  const gazeX = clamp(x * 0.5, -0.35, 0.35)
-  const gazeY = clamp(y * 0.5, -0.3, 0.3)
+  const gazeX = clamp(x * 0.3, -0.15, 0.15)
+  const gazeY = clamp(y * 0.3, -0.2, 0.2)
   return {
     gazeX,
     gazeY,

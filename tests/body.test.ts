@@ -152,8 +152,8 @@ describe('body aim', () => {
   })
   it('keeps the head and eyes inside their range for a far pointer', () => {
     const params = aim('person', {}, { dx: -9000, dy: 9000, reach: 600 })
-    expect(params.gazeX).toBe(-0.35)
-    expect(params.gazeY).toBe(-0.3)
+    expect(params.gazeX).toBe(-0.15)
+    expect(params.gazeY).toBe(-0.2)
     expect(Math.abs(params.angleX)).toBeLessThanOrEqual(3.5)
     expect(Math.abs(params.angleY)).toBeLessThanOrEqual(4)
   })
@@ -231,6 +231,6 @@ describe('her body stays out of the uncanny valley', () => {
   it('turns the head and eyes only a little, even when the pointer is far away', () => {
     const far = aim('person', { x: 10, y: -8 }, { dx: 5000, dy: -5000, reach: 300 })
     expect(Math.abs(far.angleX)).toBeLessThanOrEqual(3.5)
-    expect(Math.abs(far.gazeX)).toBeLessThanOrEqual(0.35)
+    expect(Math.abs(far.gazeX)).toBeLessThanOrEqual(0.15)
   })
 })
