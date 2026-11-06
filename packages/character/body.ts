@@ -50,7 +50,7 @@ export interface Beat {
 
 export const beats: Record<AnnaPhase, Beat> = {
   offline: { expression: 'halfLidded', enter: 'doze', repeat: { motion: 'doze', every: 9000 }, look: { x: 0, y: -0.5 }, head: { y: -6 }, idle: false },
-  idle: { expression: 'neutral', look: 'person', idle: true },
+  idle: { expression: 'neutral', repeat: { motion: 'sway', every: 14000 }, look: 'person', idle: true },
   thinking: { expression: 'neutral', enter: 'think', repeat: { motion: 'think', every: 14000 }, look: { x: -0.6, y: 0.55 }, head: { x: -8, y: 6, z: 5 }, idle: false },
   // Talking to the person: eye contact; the runtime nods along with her voice.
   responding: { expression: 'neutral', look: { x: 0, y: 0 }, idle: false },
@@ -89,6 +89,14 @@ const cues: Record<MotionCue, Reaction> = {
   review: { motion: 'readNote' },
 }
 const gestures: Record<GestureKind, Reaction> = { nod: { motion: 'nod' }, tilt: { motion: 'tilt' }, shake: { motion: 'no' } }
+
+/**
+ * Her body's mesh deforms the face when the head turns far, and some motions half-close the eyes under a frown: both
+ * read as uncanny. Those motions are swapped for calm ones and those faces for neutral ones, wherever they come from.
+ */
+const calmMotion: Partial<Record<BodyMotion, BodyMotion>> = { lookAround: 'sway', no: 'tilt', shy: 'giggle', glance: 'nod', tap: 'hum', think: 'tilt', waiting: 'tilt', lean: 'hum', spaceOut: 'hum', sigh: 'nod', stretch: 'sway', doze: 'sway' }
+const calmFace: Partial<Record<BodyExpression, BodyExpression>> = { halfLidded: 'neutral', sad: 'neutral', angry: 'surprise' }
+export const calm = { motion: (motion: BodyMotion) => calmMotion[motion] ?? motion, face: (expression: BodyExpression) => calmFace[expression] ?? expression }
 
 /** Alone this long while idle, she dozes off, carrying herself as when offline. */
 const drowsyMs = 90_000
@@ -217,7 +225,7 @@ export class BodyDirector {
     }
     else { this.lookingSince = undefined }
     // While the person moves around she attends to them; her own idle motions resume once they rest.
-    return { expression: held ?? carriage.expression, motion, look, head, idle: carriage.idle && !listening && look !== 'person' }
+    return { expression: calm.face(held ?? carriage.expression), motion: motion && calm.motion(motion), look, head, idle: carriage.idle && !listening && look !== 'person' }
   }
 
   private scheduleRepeat(beat: Beat, now: number) {
@@ -249,12 +257,13 @@ export function aim(look: Look, head: Head = {}, pointer?: { dx: number, dy: num
     x = look.x
     y = look.y
   }
-  const gazeX = clamp(x * 0.65, -0.55, 0.55)
-  const gazeY = clamp(y * 0.65, -0.4, 0.4)
+  // Small ranges: further than this her face warps on the mesh.
+  const gazeX = clamp(x * 0.5, -0.35, 0.35)
+  const gazeY = clamp(y * 0.5, -0.3, 0.3)
   return {
     gazeX,
     gazeY,
-    angleX: clamp(gazeX * 6 + (head.x ?? 0), -6, 6),
+    angleX: clamp(gazeX * 4 + (head.x ?? 0) * 0.4, -3.5, 3.5),
     angleY: clamp(gazeY * 4 + (head.y ?? 0), -4, 4),
     angleZ: clamp((head.z ?? 0) - gazeX * gazeY * 2, -3, 3),
   }

@@ -13,6 +13,8 @@ import { Director, gestureForModeChange } from '../../../packages/character/dire
 const props = withDefaults(defineProps<{ body: Pick<NonNullable<Companion['body']>, 'crop' | 'hands'> & { path?: string, archive?: Blob }, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, voiceLevel?: number, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, voiceLevel: 0, listening: false, align: 0.5 })
 /** `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` says why the body cannot be shown. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason: string] }>()
+/** The runtime's Relaxed lip sync (slow syllables, gentle closing), a little less open: the default flapped too fast. */
+const herLipSync = { granularity: 0, openness: 0.4, closeSpeed: 0 }
 const element = ref<HTMLDivElement>()
 const canvas = ref<HTMLCanvasElement>()
 const state = ref('loading')
@@ -131,7 +133,8 @@ function tick() {
   }
   const idle = next.idle && !reduced.matches
   avatar.setAutoIdle(idle)
-  avatar.setAutoMotion(idle)
+  // The runtime's own random idle motions include the uncanny ones; her director plays calm idle motions instead.
+  avatar.setAutoMotion(false)
   playing.value = now < gestureUntil ? playing.value : ''
 
   // Gaze leads and the head follows; a playing motion gets most of the head back so it reads clearly.
@@ -194,7 +197,7 @@ onMounted(async () => {
     traceSilhouette(opened.assets['base.png']!).catch(() => {})
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: { openness: 0.65 } })
+    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: herLipSync })
     if (disposed) {
       loaded.destroy()
       return
