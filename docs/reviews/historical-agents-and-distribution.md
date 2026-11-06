@@ -1,3 +1,5 @@
+> Historical design record from 2026-10-17. Superseded by [architecture](../architecture.md) and [release and operations](../release-operations.md). Original constraints and phase limits below describe that revision, not current product policy.
+
 # Spec: external agents and unsigned distribution
 
 > Status: implemented (2026-10-17). This document is the source of truth; change it before changing the behavior.
@@ -59,7 +61,7 @@
   The original config can be restored in one click.
 - **Through Anna's local routing.** A provider in a format the agent doesn't speak (Chat Completions for Claude Code
   or Codex) is
-  reached through the routing service (see [local-routing.md](local-routing.md)): the agent gets a route token per
+  reached through the routing service (see [local-routing.md](../architecture.md#local-provider-routing)): the agent gets a route token per
   run, never the real key. Such a provider isn't written into the CLI's config directly; global routing (the CLI's
   config points at Anna while Anna runs) makes it usable in a terminal.
 - **Backups.** Claude Code and Codex can have backup providers in order; a run then goes through the routing service,

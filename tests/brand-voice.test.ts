@@ -52,14 +52,14 @@ describe('brand voice', () => {
   })
 
   it('links the comparison in both languages from both READMEs', () => {
-    expect(read('README.md')).toContain('](docs/comparison.md)')
-    expect(read('README.zh-CN.md')).toContain('](docs/comparison.zh-CN.md)')
-    expect(read('docs/comparison.md')).toContain('](comparison.zh-CN.md)')
-    expect(read('docs/comparison.zh-CN.md')).toContain('](comparison.md)')
+    expect(read('README.md')).toContain('](docs/reviews/comparison.md)')
+    expect(read('README.zh-CN.md')).toContain('](docs/reviews/comparison.zh-CN.md)')
+    expect(read('docs/reviews/comparison.md')).toContain('](comparison.zh-CN.md)')
+    expect(read('docs/reviews/comparison.zh-CN.md')).toContain('](comparison.md)')
   })
 
   it('points every relative link in the comparison at a file that exists', () => {
-    for (const doc of ['docs/comparison.md', 'docs/comparison.zh-CN.md']) {
+    for (const doc of ['docs/reviews/comparison.md', 'docs/reviews/comparison.zh-CN.md']) {
       const links = [...read(doc).matchAll(/\]\((?!https?:)([^)#]+)/g)].map(match => match[1])
       expect(links.length, doc).toBeGreaterThan(0)
       for (const link of links)

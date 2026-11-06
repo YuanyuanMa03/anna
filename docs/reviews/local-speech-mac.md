@@ -1,4 +1,4 @@
-> Historical deployment record. The current desktop uses direct ASR/TTS service APIs; see [voice configuration](voice.md). The Worker/WASM hearing UI described below has been removed. Its model files and existing services are preserved; this record does not imply that they have been migrated or tested with the new client.
+> Historical deployment record. The current desktop uses direct ASR/TTS service APIs; see [speech architecture](../architecture.md#speech). The Worker/WASM hearing UI described below has been removed. Its model files and existing services are preserved; this record does not imply that they have been migrated or tested with the new client.
 
 # Mac mini 本地语音
 
@@ -10,7 +10,7 @@
 2. 打开“感官”，点击“加载已保存的本地模型”。就绪后可选择预录音频，或明确点击“开启麦克风录音”。结束后先检查转写，再带入对话。
 3. 本地语音配置已保存。点击“生成语音文件”只生成文件，不播放。主页的“模型语音”每次启动均关闭，只有明确开启后才会播放回复。
 
-当前是一轮录音、识别、确认和回复流程，尚无连续监听或唤醒词。关闭感官面板会释放识别模型和设备。语音服务本身只接受本机请求，不采集设备，也不播放音频。
+该次验收使用一轮录音、识别、确认和回复流程；后续语音范围见当前迭代路线。关闭感官面板会释放识别模型和设备。语音服务本身只接受本机请求，不采集设备，也不播放音频。
 
 ## 已部署的组件
 

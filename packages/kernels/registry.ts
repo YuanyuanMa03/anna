@@ -9,7 +9,7 @@ import { createPiKernel } from './pi/kernel'
 /**
  * Available agent kernels: pi, Claude Code and Codex through their own protocols, and any catalogued agent that speaks
  * the Agent Client Protocol (`acp:<agent id>`). A new agent with its own protocol means an adapter that implements
- * AgentKernel, maps tool names to Anna's normalized ones, and calls `gate` before each tool. See docs/kernels.md.
+ * AgentKernel, maps tool names to Anna's normalized ones, and calls `gate` before each tool. See docs/architecture.md#kernels-and-delegation.
  */
 export const kernels = {
   'pi': { label: 'pi coding agent', create: (context => createPiKernel(context)) as KernelFactory, available: true },

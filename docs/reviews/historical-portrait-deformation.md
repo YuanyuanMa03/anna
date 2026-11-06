@@ -1,3 +1,5 @@
+> Historical design / acceptance record. Current behavior and pending work are defined in [architecture](../architecture.md) and [roadmap](../roadmap.md). This record is retained as evidence, not a new implementation request.
+
 # Frontal portrait deformation
 
 Anna's own body currently uses a single frontal illustration, eye/mouth sprites and a mesh-avatar 0.4.0 rig. It does not contain side-view face planes or a reconstructed skull. Applying elliptical head translation and independent nose/eye/ear parallax invents depth by stretching the original pixels. Pointer tracking, idle motions and speech then stack on that field.

@@ -1,3 +1,5 @@
+> Historical design / acceptance record. Current behavior and pending work are defined in [architecture](../architecture.md) and [roadmap](../roadmap.md). This record is retained as evidence, not a new implementation request.
+
 # Showing what makes Anna Anna (memory, routing, delegation) in the online demo
 
 ## Why

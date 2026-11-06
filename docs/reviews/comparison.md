@@ -1,3 +1,5 @@
+> Historical comparison, dated 2026-10-20. Product and peer descriptions below are not current capability claims; see [architecture](../architecture.md) and [roadmap](../roadmap.md).
+
 # Anna among her peers
 
 **English** · [简体中文](comparison.zh-CN.md)
@@ -103,7 +105,7 @@ They are more complete as tools, and they are tools: panels, not someone.
 - **[Project AIRI](https://github.com/moeru-ai/airi)** showed how to render Live2D on the web stack she uses, and is the
   standard she measures a character against.
 - **[openclaw-weixin](https://github.com/Tencent/openclaw-weixin)** opened the door to WeChat.
-- **Live2D's free samples** gave her the anime form, under Live2D's own terms (see [NOTICE.md](../NOTICE.md)).
+- **Live2D's free samples** gave her the anime form, under Live2D's own terms (see [NOTICE.md](../../NOTICE.md)).
 
 Things worth borrowing next: Clawd on Desk's approvals from a phone and its overview of every live session, and
 Crystal's worktree per task.

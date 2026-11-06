@@ -1,4 +1,6 @@
-> Historical specification: retired on 2026-11-05. The current desktop scope is documented in [voice conversation](../voice.md). Camera/screen/vision and the local gateway/workbench are removed. Historical evidence below is preserved.
+> Historical design / acceptance record. Current behavior and pending work are defined in [architecture](../architecture.md) and [roadmap](../roadmap.md). This record is retained as evidence, not a new implementation request.
+
+> Historical specification: retired on 2026-11-05. The current desktop scope is documented in [voice conversation](../architecture.md#speech). Camera/screen/vision and the local gateway/workbench are removed. Historical evidence below is preserved.
 
 # Anna 感官首版：AIRI 复用与实现边界
 

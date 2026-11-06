@@ -1,3 +1,5 @@
+> Historical comparison, dated 2026-10-20. Product and peer descriptions below are not current capability claims; see [architecture](../architecture.md) and [roadmap](../roadmap.md).
+
 # Anna 和她的同类
 
 [English](comparison.md) · **简体中文**
@@ -89,6 +91,6 @@ Anna 自己就是 agent。她把活交给 Claude Code 或 Codex 时，会把结�
 - **[cc-switch](https://github.com/farion1231/cc-switch)**：教会她找到你电脑上已经装好的 agent，也借给她服务商预设和导入链接的格式。
 - **[Project AIRI](https://github.com/moeru-ai/airi)**：示范了在她所用的 Web 技术栈上怎样渲染 Live2D，也是她衡量“一个角色做得好不好”的标尺。
 - **[openclaw-weixin](https://github.com/Tencent/openclaw-weixin)**：为她打开了微信的门。
-- **Live2D 官方免费样例**：她的二次元形态，遵循 Live2D 自己的条款（见 [NOTICE.md](../NOTICE.md)）。
+- **Live2D 官方免费样例**：她的二次元形态，遵循 Live2D 自己的条款（见 [NOTICE.md](../../NOTICE.md)）。
 
 接下来值得借鉴的：Clawd on Desk 的手机端批准和所有会话的总览，以及 Crystal 的每个任务一个 worktree。

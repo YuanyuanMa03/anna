@@ -1,3 +1,5 @@
+> Historical design / acceptance record. Current behavior and pending work are defined in [architecture](../architecture.md) and [roadmap](../roadmap.md). This record is retained as evidence, not a new implementation request.
+
 # Anna 数字生命首版：实现与验收记录
 
 非对照部分的实现及自动验收已收尾，改动保存在独立验收分支，未发布新版。真实对照与人工盲评按用户要求暂停。
