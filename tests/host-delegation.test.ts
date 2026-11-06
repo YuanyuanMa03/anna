@@ -23,7 +23,7 @@ async function setup(script: ScriptStep[], mode: PermissionMode = 'ask', options
   await writeFile(join(workspace, 'README.md'), '# demo\n')
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: options.characterId ?? 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: options.characterId ?? 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: options.review, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode, rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend(script, data)
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
@@ -149,7 +149,7 @@ it('manages agents like cc-switch: detection list, per-agent provider for delega
   await writeFile(join(claudeDir, 'settings.json'), JSON.stringify({ env: { FOO: '1' }, model: 'opus' }, null, 2))
   const log = join(data, 'fake.log')
   process.env.ANNA_FAKE_LOG = log
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, reviewDelegations: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const secrets: Record<string, string> = {}
   const backend = await scriptedBackend([], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {

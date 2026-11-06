@@ -20,4 +20,4 @@ python -m uvicorn server:app --app-dir scripts/local-asr --host 127.0.0.1 --port
 
 命令都从仓库根目录执行；仅绑定本机，通过 New API 的设备鉴权入口对外提供服务，不直接公开此无鉴权节点。没有模型时不启动，健康检查 `/health` 不进行推理。支持 `/v1/models` 和 `/v1/audio/transcriptions`，模型 ID 为 paraformer-zh-en；请求用 multipart、已知 Content-Length，最多 20 MiB 音频、120 秒，单并发；不采集麦克风、不播放音频，不声称 HTTP 取消一定中断已开始的模型计算。
 
-TTS 源码已在 `scripts/local-speech/server.py`，使用及模型准备见 `docs/local-speech-mac.md`。本次只迁入 ASR 源码、校验 Python 语法，没有重启现有节点或安装第二套模型。Mac 实际流程证据见 `docs/reviews/gateway-workbench-v1.md`；Windows/Linux 的 Python wheel、ffmpeg、模型目录与性能仍待目标机原生验收，不能把可移植命令当作已验收。
+TTS 源码已在 `scripts/local-speech/server.py`，使用及模型准备见 `docs/reviews/local-speech-mac.md`。本次只迁入 ASR 源码、校验 Python 语法，没有重启现有节点或安装第二套模型。Mac 实际流程证据见 `docs/reviews/gateway-workbench-v1.md`；Windows/Linux 的 Python wheel、ffmpeg、模型目录与性能仍待目标机原生验收，不能把可移植命令当作已验收。

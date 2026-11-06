@@ -3,7 +3,7 @@ import type { AgentKernel, AnnaTool, GateVerdict, KernelFactory } from '../kerne
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
 import type { SandboxStatus } from '../permissions/sandbox'
-import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
+import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, ModelSettings, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
 import type { DelegationOutcome } from './delegator'
 import { Buffer } from 'node:buffer'
@@ -23,10 +23,13 @@ import { personalityInstructions, profileSchema } from '../character/personality
 import { workMethod } from '../character/work-methods'
 import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
-import { modes, stricter, trustedRegistries } from '../permissions/modes'
+import { modeInfo, modes, stricter, trustedRegistries } from '../permissions/modes'
 import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
+import { approvalRules } from '../shared/approval-rules'
+import { isLocalEndpoint } from '../shared/model-vendors'
+import { advanceTogether, relationshipOf, seedTogether, undoTogether } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -34,6 +37,7 @@ import { delegateAgents, Delegator, labelOf, parseMention } from './delegator'
 import { TaskJournal } from './journal'
 import { explicitMemory, MemoryStore, signature } from './memory'
 import { describeModelError } from './model-errors'
+import { listModels, sameEndpoint } from './model-list'
 import { Presence } from './presence'
 import { SettingsStore, validateModel } from './settings'
 import { resolveWorkspace } from './workspace'
@@ -43,6 +47,8 @@ export interface CredentialVault { read: () => Promise<string>, write: (key: str
 export interface Channel { notify: (text: string) => Promise<boolean> }
 interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string>, /** The user pressed stop. */ stopped?: boolean, /** The companion is checking a collaborator's result. */ reviewing?: boolean }
 export interface HostOptions {
+  /** Platform policy injection for isolated tests; production uses process.platform. */
+  platform?: NodeJS.Platform
   kernel?: KernelFactory
   sandbox?: SandboxStatus
   /** External agents: detection, locations and config dirs (tests point these at fakes). */
@@ -54,6 +60,8 @@ export interface HostOptions {
   /** A section for this edition's brain (the online demo says what it lacks), after the persona and the rest. */
   notes?: string
   histories?: Pick<ExternalHistory, 'list' | 'preview' | 'fork'>
+  /** How a vendor's model list is fetched (tests use a fake). */
+  listModels?: (model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string, signal: AbortSignal) => Promise<string[]>
 }
 
 /** ACP brains stay off until one real agent has run as her brain: only protocol fakes have so far. */
@@ -68,6 +76,8 @@ export class Host {
   private nativeUsage: RuntimeSnapshot['agents']['usage'] = {}
   private capabilityCache?: RuntimeSnapshot['capabilities']
   private historyPage?: RuntimeSnapshot['externalHistory']
+  private modelList?: RuntimeSnapshot['modelList']
+  private modelListRequest?: AbortController
   private kernel?: AgentKernel
   private approvals: ApprovalBroker
   private presence: Presence
@@ -155,6 +165,11 @@ export class Host {
     await this.store.character()
     await this.memory.load()
     await this.journal.load()
+    // The running tally starts from whatever the journal and diary still hold the first time this version runs.
+    if (!this.store.value.together) {
+      this.store.value.together = seedTogether(this.journal.entries, this.memory.items)
+      await this.store.save().catch(() => {})
+    }
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
@@ -219,6 +234,8 @@ export class Host {
   effectiveMode(origin: Origin = this.current?.origin ?? 'desktop'): PermissionMode {
     const ws = this.workspaceSettings()
     let mode = ws.mode
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged)
+      mode = 'ask'
     if (!ws.trusted)
       mode = stricter(mode, 'ask')
     if (origin !== 'desktop')
@@ -226,8 +243,10 @@ export class Host {
     return mode
   }
 
+  private get os() { return this.options.platform ?? process.platform }
+
   private platform(): PlatformInfo {
-    return { os: process.platform, shell: process.platform === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
+    return { os: this.os, shell: this.os === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
   }
 
   snapshot(full = true): RuntimeSnapshot {
@@ -259,10 +278,12 @@ export class Host {
       platform: this.platform(),
       memories: [...this.memory.items],
       externalHistory: this.historyPage,
+      modelList: this.modelList,
       capabilities: this.kernel?.capabilityReport ?? this.capabilityCache,
       starterTasks: this.starterTasks,
       welcome: this.welcome(),
       workRecords: this.journal.entries.filter(entry => entry.workspace === this.workspacePath),
+      relationship: relationshipOf(this.journal.entries, this.memory.items, new Date(), this.store.value.together),
       agents: { ...this.agentsCache, usage: { ...this.agentsCache.usage, ...this.nativeUsage } },
     }
   }
@@ -288,7 +309,7 @@ export class Host {
 
   private policyContext(origin: Origin) {
     const ws = this.workspaceSettings()
-    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
+    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, platform: this.os, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
   }
 
   private async saveRule(rule: string) {
@@ -306,10 +327,12 @@ export class Host {
     this.presence.wait(question.reason)
     const outcome = await this.approvals.ask({ ...question, origin })
     this.presence.resume()
-    if (outcome === 'allowed-session' && question.rule)
-      this.sessionRules.push(question.rule)
-    if (outcome === 'allowed-always' && question.rule)
-      await this.saveRule(question.rule)
+    const rules = approvalRules(question)
+    if (outcome === 'allowed-session')
+      this.sessionRules.push(...rules.filter(rule => !this.sessionRules.includes(rule)))
+    if (outcome === 'allowed-always') {
+      for (const rule of rules) await this.saveRule(rule)
+    }
     this.publish()
     return outcome === 'cancelled' ? 'cancelled' : outcome.startsWith('allowed') ? 'allowed' : 'rejected'
   }
@@ -327,7 +350,7 @@ export class Host {
     if (decision.kind === 'ask' && this.current?.reviewing && origin !== 'desktop')
       return { allow: false, reason: '这次审阅来自微信，不向用户请求确认：这一步需要确认，所以不做。用不需要确认的方式检查，并说明哪些没能核实。' }
     if (decision.kind === 'ask') {
-      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule })
+      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule, rules: decision.rules })
       if (outcome !== 'allowed')
         return { allow: false, reason: outcome === 'cancelled' ? '用户中断了这次任务。' : '用户在确认卡上拒绝了这次操作，这是用户本人的决定。不要换个写法、拆开命令或换个工具再试，也不要建议用户怎样更容易被放行；说明不做这一步的影响，再问用户想怎么做。', stop: outcome === 'cancelled' }
     }
@@ -549,7 +572,7 @@ export class Host {
     const card = `## 角色卡：${character.name}\n${character.persona}`
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
-    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
+    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（${modeInfo('auto', this.os, this.sandboxStatus.available).short}）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : this.os === 'win32' ? '这台电脑上没有命令沙箱；放手模式由用户首次明确确认后自主运行普通命令，高风险命令、工作区外修改和密钥读取仍逐次确认。' : '这台电脑上没有命令沙箱，修改类命令需要确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
     return [persona, card, personalityInstructions(this.store.value.personality), workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : []), ...(this.options.notes ? [this.options.notes] : [])]
   }
 
@@ -676,7 +699,7 @@ export class Host {
       kernel.note(workMethod(task.text))
       const mode = this.effectiveMode(task.origin)
       if (mode !== this.notedMode) {
-        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modes[mode].description}）`)
+        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modeInfo(mode, this.os, this.sandboxStatus.available).description}）`)
         this.notedMode = mode
       }
       const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
@@ -749,7 +772,10 @@ export class Host {
         summary: outcome.text.split('\n').find(item => item.trim())?.slice(0, 160) ?? '',
         origin: task.origin,
       }
-      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      const recordedAt = new Date().toISOString()
+      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: recordedAt, workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      if (outcome.status === 'completed')
+        this.store.value.together = advanceTogether(this.store.value.together ?? seedTogether([], []), { at: recordedAt, request: task.text })
       this.store.value.sessionFile = kernel.sessionFile
       this.rememberSession()
       await this.store.save()
@@ -899,7 +925,20 @@ export class Host {
         }
         return this.snapshot()
       case 'mode':
-        return this.setMode(command.mode)
+        return this.mutate(() => this.setMode(command.mode, command.acknowledge))
+      case 'windows-auto-revoke': return this.mutate(async () => {
+        if (this.os !== 'win32')
+          throw new Error('此设置仅适用于 Windows')
+        this.store.value.windowsAutoAcknowledged = false
+        for (const ws of Object.values(this.store.value.workspaces)) {
+          if (ws.mode === 'auto')
+            ws.mode = 'ask'
+        }
+        await this.store.save()
+        this.kernel?.note('[Anna 系统提示] 用户撤销了 Windows 放手模式授权。后续操作按谨慎模式及当前权限规则执行。')
+        this.publish()
+        return this.snapshot()
+      })
       case 'rule-remove': {
         this.sessionRules = this.sessionRules.filter(rule => rule !== command.rule)
         const ws = this.workspaceSettings()
@@ -921,7 +960,14 @@ export class Host {
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
-        await this.journal.markUndone(command.taskId).catch(() => {})
+        const undone = this.journal.entries.find(entry => entry.taskId === command.taskId)
+        const counted = undone?.status === 'completed' && !undone.undone
+        // Taken back only once the journal has marked it, so a failed mark cannot be counted twice.
+        const marked = await this.journal.markUndone(command.taskId).then(() => true, () => false)
+        if (counted && marked && this.store.value.together) {
+          this.store.value.together = undoTogether(this.store.value.together)
+          await this.store.save().catch(() => {})
+        }
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)
         this.publish()
@@ -944,6 +990,39 @@ export class Host {
         }
         else {
           this.capabilityCache = this.kernel?.capabilityReport ?? { at: new Date().toISOString(), source: '等待大脑初始化报告', entries: [], unknown: ['skills', 'plugins', 'mcp'] }
+        }
+        this.publish()
+        return this.snapshot()
+      }
+      case 'model-list': {
+        // Only the newest request may answer: a pause while typing a key starts one, the finished key another.
+        this.modelListRequest?.abort()
+        const request = new AbortController()
+        this.modelListRequest = request
+        const { baseURL, api } = command.model
+        const at = new Date().toISOString()
+        const answer = (result: { models: string[] } | { error: string }) => {
+          if (this.modelListRequest !== request)
+            return
+          this.modelList = { baseURL: String(baseURL), api, models: [], at, ...result }
+          this.modelListRequest = undefined
+        }
+        try {
+          if (!['anthropic-messages', 'openai-completions', 'openai-responses'].includes(api) || typeof baseURL !== 'string')
+            throw new Error('API 协议或端点无效')
+          const typed = typeof command.key === 'string' ? command.key.trim() : ''
+          if (typed.length > 8192 || /[\r\n\0]/.test(typed))
+            throw new Error('API Key 格式无效')
+          // Checked again after the read: a save to another vendor may land in between.
+          const fits = () => sameEndpoint(this.store.value.model.baseURL, baseURL)
+          const saved = !typed && fits() ? await this.vault.read().catch(() => '') : ''
+          const key = typed || (fits() ? saved : '')
+          if (!key && !isLocalEndpoint(baseURL))
+            throw new Error('请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
+          answer({ models: await (this.options.listModels ?? ((model, key, signal) => listModels(model, key, fetch, { signal })))({ baseURL, api }, key, request.signal) })
+        }
+        catch (error) {
+          answer({ error: error instanceof Error ? error.message : String(error) })
         }
         this.publish()
         return this.snapshot()
@@ -1076,21 +1155,45 @@ export class Host {
     }
   }
 
-  private async setMode(mode: PermissionMode) {
+  private async setMode(mode: PermissionMode, acknowledge = false) {
+    const path = this.workspacePath
     const ws = this.workspaceSettings()
     if (modes[mode].needsTrust && !ws.trusted)
       throw new Error(`${modes[mode].label}模式只能在你信任的工作文件夹里使用。`)
     const previous = this.effectiveMode('desktop')
-    this.store.value.workspaces[this.workspacePath] = { trusted: ws.trusted, mode, rules: ws.rules }
-    await this.store.save()
-    this.emit({ type: 'mode', mode, previous, line: modes[mode].greeting })
+    const previousWorkspace = this.store.value.workspaces[path]
+    const previousConsent = this.store.value.windowsAutoAcknowledged
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged) {
+      if (!acknowledge)
+        throw new Error('请先确认：Windows 没有命令沙箱，放手模式将自主运行普通命令。')
+      this.store.value.windowsAutoAcknowledged = true
+    }
+    this.store.value.workspaces[path] = { trusted: ws.trusted, mode, rules: ws.rules }
+    try { await this.store.save() }
+    catch (error) {
+      if (previousWorkspace)
+        this.store.value.workspaces[path] = previousWorkspace
+      else
+        delete this.store.value.workspaces[path]
+      if (previousConsent === undefined)
+        delete this.store.value.windowsAutoAcknowledged
+      else
+        this.store.value.windowsAutoAcknowledged = previousConsent
+      throw error
+    }
+    this.emit({ type: 'mode', mode, previous, line: modeInfo(mode, this.os, this.sandboxStatus.available).greeting })
     this.publish()
     return this.snapshot()
   }
 
   /** Commands that rebuild the kernel: serialized with each other, rejected while a task runs. */
   private reconfigure(command: Command): Promise<RuntimeSnapshot> {
-    const run = this.mutations.then(() => this.reconfigureNow(command), () => this.reconfigureNow(command))
+    return this.mutate(() => this.reconfigureNow(command))
+  }
+
+  /** Mode consent and workspace reconfiguration share one persistence order. */
+  private mutate(apply: () => Promise<RuntimeSnapshot>): Promise<RuntimeSnapshot> {
+    const run = this.mutations.then(apply, apply)
     this.mutations = run.catch(() => {})
     return run
   }
@@ -1159,7 +1262,8 @@ export class Host {
           await this.connect(key)
           const kernel = this.kernel!
           let timedOut = false
-          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, 60000)
+          // A model on this computer may take minutes to read pi's long prompt the first time.
+          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, isLocalEndpoint(this.store.value.model.baseURL) ? 180_000 : 60_000)
           try {
             const outcome = await kernel.prompt('这是连接验证。只用一句话问好，不调用任何工具。', { origin: 'desktop', hidden: true })
             if (timedOut)
@@ -1205,6 +1309,12 @@ export class Host {
         const model = validateModel(command.model)
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
+        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
+        // A local server with its own key keeps it when only the model changes; a new local address gets the placeholder.
+        if (!command.key.trim() && isLocalEndpoint(model.baseURL))
+          key = key && sameEndpoint(this.store.value.model.baseURL, model.baseURL) ? key : 'local'
+        else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
+          throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
         if (!key)
           throw new Error('请填写 API Key')

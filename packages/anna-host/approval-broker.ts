@@ -1,5 +1,6 @@
 import type { ApprovalOutcome, ApprovalQuestion, ApprovalScope } from '../shared/contracts'
 import { randomUUID } from 'node:crypto'
+import { approvalRules } from '../shared/approval-rules'
 
 /** Decisions for tool calls the policy escalates. A question waits until someone answers or the task is cancelled. */
 export class ApprovalBroker {
@@ -26,7 +27,7 @@ export class ApprovalBroker {
     const pending = this.pending.get(id)
     if (!pending)
       throw new Error('此授权请求已结束')
-    const widen = !pending.question.danger && pending.question.rule
+    const widen = approvalRules(pending.question).length > 0
     pending.settle(!allow ? 'rejected' : widen && scope === 'always' ? 'allowed-always' : widen && scope === 'session' ? 'allowed-session' : 'allowed-once')
   }
 

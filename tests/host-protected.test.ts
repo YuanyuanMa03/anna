@@ -17,7 +17,7 @@ it.each([['the agents\' config backups (their original keys)', 'agent-backups/co
   const backup = join(data, file)
   await mkdir(dirname(backup), { recursive: true })
   await writeFile(backup, '{"OPENAI_API_KEY":"sk-user-original"}')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend([{ tools: [{ name: 'read', args: { path: backup } }] }, { tools: [{ name: shell, args: { command: `cat '${backup}'` } }] }, { text: '好的。' }], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, kernel: context => createPiKernel(context, backend), agents: { detect: async () => [] } })
   await host.initialize()

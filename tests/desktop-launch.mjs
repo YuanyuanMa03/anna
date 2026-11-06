@@ -16,6 +16,7 @@ export function desktopLaunch(data, env = {}) {
     executablePath,
     args: [...chromium, ...(packaged ? [] : ['dist/host/apps/desktop/boot.js'])],
     cwd: packaged ? '/' : root,
-    env: { ...process.env, ...env, ...(packaged && process.platform === 'darwin' && env.ANNA_TEST_SCRIPT ? { ANNA_TEST_VAULT: 'file' } : {}), ANNA_DATA_DIR: data, ANNA_ROOT: packaged ? '/nonexistent/anna-source' : root, ANNA_DEV_URL: packaged ? 'http://127.0.0.1:9' : '' },
+    // On a Mac the run stays in the background unless ANNA_TEST_SHOW=1 asks to watch it.
+    env: { ...process.env, ANNA_TEST_RUN: '1', ANNA_TEST_BACKGROUND: process.platform === 'darwin' && process.env.ANNA_TEST_SHOW !== '1' ? '1' : '', ...env, ...(packaged && process.platform === 'darwin' && env.ANNA_TEST_SCRIPT ? { ANNA_TEST_VAULT: 'file' } : {}), ANNA_DATA_DIR: data, ANNA_ROOT: packaged ? '/nonexistent/anna-source' : root, ANNA_DEV_URL: packaged ? 'http://127.0.0.1:9' : '' },
   }
 }
