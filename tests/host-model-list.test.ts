@@ -82,3 +82,17 @@ it('shows a malformed request on the form too', async () => {
   expect(host.snapshot().error).toBeUndefined()
   await host.close()
 })
+
+it('connects to a model on this computer without a key, and lists its models', async () => {
+  const list = vi.fn(async () => ['qwen3.5:9b'])
+  const { host, written } = await setup(list)
+  const local = { provider: 'custom', model: 'qwen3.5:9b', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' } as const
+  await host.execute({ type: 'model-list', model: local })
+  expect(list).toHaveBeenCalledWith({ baseURL: local.baseURL, api: local.api }, '', expect.any(AbortSignal))
+  expect(host.snapshot().modelList).toMatchObject({ models: ['qwen3.5:9b'] })
+  await host.execute({ type: 'configure', model: local, key: '' })
+  // The moonshot key never follows the form to this machine; the local server gets a placeholder instead.
+  expect(written).toEqual(['local'])
+  expect(host.snapshot().settings.model.baseURL).toBe(local.baseURL)
+  await host.close()
+})

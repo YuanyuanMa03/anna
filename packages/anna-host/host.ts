@@ -28,6 +28,7 @@ import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
 import { approvalRules } from '../shared/approval-rules'
+import { isLocalEndpoint } from '../shared/model-vendors'
 import { advanceTogether, relationshipOf, seedTogether, undoTogether } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
@@ -1016,7 +1017,7 @@ export class Host {
           const fits = () => sameEndpoint(this.store.value.model.baseURL, baseURL)
           const saved = !typed && fits() ? await this.vault.read().catch(() => '') : ''
           const key = typed || (fits() ? saved : '')
-          if (!key)
+          if (!key && !isLocalEndpoint(baseURL))
             throw new Error('请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
           answer({ models: await (this.options.listModels ?? ((model, key, signal) => listModels(model, key, fetch, { signal })))({ baseURL, api }, key, request.signal) })
         }
@@ -1307,9 +1308,14 @@ export class Host {
         const model = validateModel(command.model)
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
-        if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
+        if (!command.key.trim() && isLocalEndpoint(model.baseURL))
+          key = 'local'
+        else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
           throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
+        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
+        if (!key && isLocalEndpoint(model.baseURL))
+          key = 'local'
         if (!key)
           throw new Error('请填写 API Key')
         await this.close()

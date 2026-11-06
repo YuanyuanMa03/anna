@@ -12,6 +12,7 @@ import { captionPlace } from '../../../packages/character/layout'
 import { companion } from '../../../packages/character/manifest'
 import { renderMarkdown } from '../../../packages/character/markdown'
 import { modes } from '../../../packages/permissions/modes'
+import { isLocalEndpoint } from '../../../packages/shared/model-vendors'
 import BodyStage from './body-stage.vue'
 import CharacterStage from './character-stage.vue'
 import AgentsSheet from './components/agents-sheet.vue'
@@ -260,7 +261,11 @@ const canChat = computed(() => Boolean(snapshot.value && (snapshot.value.hasKey 
 const needsTrust = computed(() => Boolean(snapshot.value && snapshot.value.settings.workspace && !snapshot.value.workspace.known))
 const connected = computed(() => snapshot.value?.state === 'ready' || snapshot.value?.state === 'running')
 /** What the running brain reports, or the model pi is set up with; pi's settings say nothing about another brain, or before it has a key. */
-const modelName = computed(() => snapshot.value?.actualModel ?? snapshot.value?.model?.id ?? (snapshot.value?.settings.kernel === 'pi' && snapshot.value.hasKey ? snapshot.value.settings.model.model : ''))
+const modelName = computed(() => {
+  const name = snapshot.value?.actualModel ?? snapshot.value?.model?.id ?? (snapshot.value?.settings.kernel === 'pi' && snapshot.value.hasKey ? snapshot.value.settings.model.model : '')
+  // pi thinking with a model served on this computer: say so where everyone can see it.
+  return name && snapshot.value?.settings.kernel === 'pi' && isLocalEndpoint(snapshot.value.settings.model.baseURL) ? `${name} · 本机模型` : name
+})
 /** Honest connection label: a saved key is only "connected" once a real reply came back. */
 const connection = computed(() => {
   const state = snapshot.value?.state
