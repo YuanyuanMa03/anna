@@ -71,6 +71,7 @@ function scheduleList() {
     timer = setTimeout(fetchModels, 800)
 }
 function pickVendor(id: string) {
+  const previous = vendorId.value
   vendorId.value = id
   const picked = modelVendors.find(item => item.id === id)
   if (picked) {
@@ -78,8 +79,9 @@ function pickVendor(id: string) {
   }
   else {
     // pi's catalogue names (DeepSeek's) mean nothing to a custom endpoint.
+    if (previous === 'deepseek')
+      model.model = ''
     model.provider = 'custom'
-    model.model = ''
   }
   key.value = ''
   requested.value = undefined
@@ -93,6 +95,10 @@ watch(() => list.value?.at, () => {
 })
 // Settings changed elsewhere (a save, another window): show them, and their tile.
 watch(() => JSON.stringify(props.snapshot.settings.model), () => {
+  // A key typed for the old address must not follow the form to the new one.
+  key.value = ''
+  requested.value = undefined
+  clearTimeout(timer)
   Object.assign(model, props.snapshot.settings.model)
   vendorId.value = vendorFor(props.snapshot.settings.model)?.id ?? 'custom'
 })
@@ -144,7 +150,7 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback) })
             <p v-if="!canList" class="small muted">DeepSeek 的模型由 pi 内置的目录提供，直接从下面选择即可。</p>
             <div v-else class="card-actions left"><button type="button" :disabled="busy || listing || (!key.trim() && !savedKeyFits) || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
             <p v-if="list?.error" class="error small" role="alert">{{ list.error }}</p>
-            <p v-else-if="list" class="small muted">这个 Key 可以用 {{ list.models.length }} 个模型{{ list.models.length ? '，可以在下面搜索或选择' : '' }}。</p>
+            <p v-else-if="list" class="small muted">这个 Key 可以用 {{ list.models.length }} 个模型{{ list.models.length ? '，点下面的输入框搜索或选择' : '' }}。</p>
             <p v-else-if="canList && !vendor?.models.length && !model.model" class="small muted">填好 API Key 后会自动取到模型列表；取不到时，可以手动填写模型 ID。</p>
             <label>模型<input v-model="model.model" required aria-label="模型 ID" list="models" placeholder="搜索或填写模型 ID"><datalist id="models"><option v-for="id in choices" :key="id" :value="id" /></datalist></label>
             <div v-if="vendor?.models.length" class="card-actions left"><span class="small muted">推荐：</span><button v-for="id in vendor.models" :key="id" type="button" :aria-pressed="model.model === id" @click="model.model = id">{{ id }}</button></div>

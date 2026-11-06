@@ -8,7 +8,7 @@ type Fetcher = (url: string, init: RequestInit) => Promise<Response>
 const maxBytes = 2 * 1024 * 1024
 const modelId = /^[\w./:@+-]{1,200}$/
 /** Models a vendor lists that cannot hold a conversation: embeddings, speech, images, moderation, reranking. */
-const notChat = /embed|whisper|tts|transcri|speech|dall-e|image|moderation|rerank|audio|-asr\b|realtime/i
+const notChat = /embed|whisper|tts|transcri|speech|dall-e|image|moderation|rerank|audio|-asr\b|realtime|babbage|davinci|^aqa$|sora|veo-|lyria/i
 const base = (url: string) => url.replace(/\/+$/, '')
 const unreachable = '连不上这个地址，请检查网络或 API 端点'
 const noList = '请从推荐模型中选择，或手动填写模型 ID'
@@ -34,6 +34,8 @@ export async function listModels(model: Pick<ModelSettings, 'baseURL' | 'api'>, 
   const signal = AbortSignal.any([AbortSignal.timeout(options.timeoutMs ?? 15_000), ...(options.signal ? [options.signal] : [])])
   try {
     const response = await fetcher(url, { headers: { ...headers, accept: 'application/json' }, redirect: 'error', signal })
+    if (!response.ok)
+      await response.body?.cancel().catch(() => {})
     if (response.status === 401 || response.status === 403)
       throw new ListError('API Key 无效，或者和这个服务地址不匹配')
     if (response.status === 404 || response.status === 405)
@@ -65,10 +67,12 @@ async function bounded(response: Response, signal: AbortSignal) {
   const chunks: Uint8Array[] = []
   let size = 0
   // The timeout also bounds a body that stops arriving halfway.
+  let stop = () => {}
   const aborted = new Promise<never>((_, reject) => {
+    stop = () => reject(new ListError('模型列表没有完整返回，请稍后再试'))
     if (signal.aborted)
-      reject(signal.reason)
-    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      stop()
+    signal.addEventListener('abort', stop, { once: true })
   })
   aborted.catch(() => {})
   try {
@@ -82,6 +86,6 @@ async function bounded(response: Response, signal: AbortSignal) {
       chunks.push(value)
     }
   }
-  finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
+  finally { signal.removeEventListener('abort', stop); await reader.cancel().catch(() => {}); reader.releaseLock() }
   return new TextDecoder().decode(Buffer.concat(chunks))
 }

@@ -31,10 +31,22 @@ Spec review (no blockers):
 - Nits fixed: picking 自定义 clears pi's catalogue model name; the DeepSeek tile no longer says "pi 内置目录".
 - Not changed: 验证连接 still tests the saved settings while an unsaved tile is selected (the onboarding flow needs its label); every vendor but DeepSeek is still a custom pi endpoint (131072 context, reasoning off), as before this change.
 
+Re-review of the fixes (no blocker remains):
+
+- Should-fix, fixed: for vendors without suggestions a list filled the box with its alphabetically first ID (OpenAI's `babbage-002`, Gemini's `aqa`). The box now stays empty for the user to pick unless a suggestion is on the list; a suggestion the key cannot use is cleared. `babbage`, `davinci`, `aqa`, `sora`, `veo` and `lyria` are filtered too.
+- Should-fix, fixed: when settings changed elsewhere, a key half-typed for the old address stayed in the box and could be saved to the new one. The watch now clears the typed key and any pending list request.
+- Nits fixed: re-clicking 自定义 no longer wipes a custom model ID (only leaving DeepSeek clears pi's catalogue name); the abort listener is removed after reading; a stalled body says 模型列表没有完整返回; error replies' bodies are cancelled; the test hook keeps only string IDs.
+- Not changed: the non-chat filter matches substrings, so audio- or image-capable chat models (`gpt-4o-audio-preview`, `*-flash-image`) are hidden from the list. pi sends neither audio nor images, and the ID can still be typed.
+
 ## Verification (macOS arm64)
 
 - Tests written first and failing before each fix: `tests/model-vendors.test.ts`, `tests/host-model-list.test.ts` (saved-key leak, stale answers and abort, errors on the form).
-- `pnpm preflight`: 956 passed, 19 skipped. `pnpm build`; `pnpm test:scripted` passes, including the extended `tests/onboarding.mjs`; screenshot `artifacts/onboarding-vendors.png` checked by eye.
+- `pnpm preflight`: 956 passed, 19 skipped (after the re-review fixes). `pnpm build`; `pnpm test:scripted` passes, including the extended `tests/onboarding.mjs`; screenshot `artifacts/onboarding-vendors.png` checked by eye.
+
+Observed intermittent failures, unrelated to this change and passing when rerun alone:
+
+- `tests/pre-push.test.ts` hit vitest's 5 s timeout once under a full preflight; alone, 4/4 passed.
+- `tests/desktop-scripted.mjs:469` once found 模型语音 already on right after the ACP step (it expects it off); the next full run passed. This file's voice and ACP steps are untouched here; the cause is unknown and needs its own look.
 
 ## Not verified
 

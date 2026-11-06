@@ -62,7 +62,7 @@ async function main() {
   const fake = process.env.ANNA_TEST_SCRIPT ? process.env.ANNA_TEST_FAKE_AGENT : undefined
   host = new Host(root, data, vaultFor('credential.bin'), event => peer.event(event), {
     // Scripted acceptance answers a vendor's model list without the network.
-    ...(process.env.ANNA_TEST_SCRIPT && process.env.ANNA_TEST_MODELS ? { listModels: async () => JSON.parse(process.env.ANNA_TEST_MODELS!) as string[] } : {}),
+    ...(process.env.ANNA_TEST_SCRIPT && process.env.ANNA_TEST_MODELS ? { listModels: async () => (JSON.parse(process.env.ANNA_TEST_MODELS!) as unknown[]).filter((id): id is string => typeof id === 'string') } : {}),
     ...(fake
       ? { agents: {
           // Gemini CLI stands in for every ACP brain: it is answered by the ACP fake (tests/fixtures/fake-acp-agent.mjs).

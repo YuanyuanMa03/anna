@@ -63,11 +63,12 @@ export const listsModels = (vendor: ModelVendor) => vendor.id !== 'deepseek'
 
 /**
  * The model to show once a list arrives. What the user typed stays; so does a suggestion the key can use. An empty box,
- * or a suggestion the list lacks, becomes a suggestion the key can use, else the first listed model.
+ * or a suggestion the list lacks, becomes a suggestion the key can use. Without one the box is left empty for the user to
+ * pick: the first model of an alphabetical list is rarely a chat model worth starting with.
  */
 export function firstModel(current: string, listed: string[], suggested: string[]) {
   const id = current.trim()
   if (!listed.length || (id && (listed.includes(id) || !suggested.includes(id))))
     return current
-  return suggested.find(item => listed.includes(item)) ?? listed[0]!
+  return suggested.find(item => listed.includes(item)) ?? ''
 }
