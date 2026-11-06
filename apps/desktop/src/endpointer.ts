@@ -41,7 +41,9 @@ export function createEndpointer({ frameMs, startMs = 200, endSilenceMs = 900, m
         }
         else {
           voiced = 0
-          floor = floor * 0.97 + Math.min(level, 0.2) * 0.03
+          // Her own voice (a raised bar) must not teach the floor; only the room does.
+          if (gain === 1)
+            floor = floor * 0.97 + Math.min(level, 0.2) * 0.03
         }
         if (voiced >= startMs) {
           speaking = true

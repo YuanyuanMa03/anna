@@ -122,7 +122,6 @@ function chooseForm(next: CompanionForm) {
 }
 /** The person is typing to her: she looks down at what is being written. */
 const typedAt = ref(0)
-const listening = computed(() => Boolean(input.value.trim()) && now.value - typedAt.value < 3000)
 /** What a newcomer can say to her: greet her first, then ask, then hand her something to do. */
 const suggestions = computed(() => snapshot.value?.starterTasks ?? ['看看这个工作文件夹里有什么，给我一个概览'])
 const delegates = computed(() => snapshot.value?.agents.detected.filter(agent => agent.installed && agent.tier === 'delegate').length ?? 0)
@@ -132,55 +131,113 @@ const recommended = computed(() => recommendedBrain(brains.value))
 const running = computed(() => snapshot.value?.state === 'running')
 // ── Talking with her: the microphone stays open, each pause sends what was said, and she answers aloud ─────────
 const talking = ref(false)
+const starting = ref(false)
 const talkState = ref<'listening' | 'hearing'>()
 const recognising = ref(false)
+/** Her reply is being synthesised: she is about to speak, and what is heard meanwhile is ignored. */
+const preparing = ref(false)
+/** A short line in the pill, such as 没听清, shown for a moment. */
+const talkHint = ref('')
+let hintTimer: ReturnType<typeof setTimeout> | undefined
 let talk: { stop: () => void } | undefined
+/** Each talk gets its own number, so a late start or a late transcript from an ended talk does nothing. */
+let talkSession = 0
+let voiceBeforeTalk = false
+function hint(text: string) {
+  talkHint.value = text
+  clearTimeout(hintTimer)
+  hintTimer = setTimeout(() => { talkHint.value = '' }, 2500)
+}
 function stopTalk() {
+  const wasTalking = talking.value || starting.value
+  talkSession++
   talk?.stop()
   talk = undefined
-  talking.value = false
+  talking.value = starting.value = recognising.value = false
   talkState.value = undefined
+  talkHint.value = ''
+  if (wasTalking) {
+    voicePlayer.stop()
+    preparing.value = false
+    voiceEnabled.value = voiceBeforeTalk
+  }
 }
-async function hear(wav: string) {
+async function hear(wav: string, session: number) {
   recognising.value = true
   try {
     const result = await window.anna.voice({ type: 'voice-transcribe', id: crypto.randomUUID(), audio: wav })
-    if (!talk)
+    if (session !== talkSession)
       return
-    if (!result.ok) { notice.value = result.error; return }
+    if (!result.ok) { hint('没听清，再说一次？'); notice.value = result.error; return }
     const text = (result.transcript ?? '').trim()
     if (text)
       send(text)
+    else
+      hint('没听清，再说一次？')
   }
-  catch (cause) { notice.value = cause instanceof Error ? cause.message : '语音识别失败' }
-  finally { recognising.value = false }
+  catch (cause) {
+    if (session === talkSession) { hint('没听清，再说一次？'); notice.value = cause instanceof Error ? cause.message : '语音识别失败' }
+  }
+  finally {
+    if (session === talkSession)
+      recognising.value = false
+  }
 }
 async function toggleTalk() {
-  if (talk) {
+  if (talk || starting.value) {
     stopTalk()
     return
   }
-  const status = await window.anna.voice({ type: 'voice-status' }).catch(() => undefined)
-  if (!status?.ok || !status.recognition || !status.config) {
-    notice.value = '先在“语音设置”里接好语音识别和语音合成，就可以直接和她说话了。'
-    voiceOpen.value = true
-    return
-  }
-  voiceEnabled.value = true
+  const session = ++talkSession
+  starting.value = true
   try {
-    talk = await startConversation({
-      utterance: wav => void hear(wav),
+    const status = await window.anna.voice({ type: 'voice-status' }).catch(() => undefined)
+    if (session !== talkSession)
+      return
+    if (!status?.ok || !status.recognition || !status.config) {
+      notice.value = '先在“语音设置”里接好语音识别和语音合成，就可以直接和她说话了。'
+      voiceOpen.value = true
+      return
+    }
+    voiceBeforeTalk = voiceEnabled.value
+    voiceEnabled.value = true
+    const handle = await startConversation({
+      utterance: wav => void hear(wav, session),
       state: (state) => { talkState.value = state },
-      bargeIn: () => voicePlayer.stop(),
+      bargeIn: () => { voicePlayer.stop(); preparing.value = false },
       speaking: () => speaking.value,
-      paused: () => recognising.value || running.value,
+      paused: () => recognising.value || running.value || preparing.value,
       ended: () => { stopTalk(); notice.value = '麦克风断开了，对话已结束。' },
+      failed: () => hint('没听清，再说一次？'),
     })
+    // Ended or unmounted while the microphone was opening: close it at once.
+    if (session !== talkSession) {
+      handle.stop()
+      return
+    }
+    talk = handle
     talking.value = true
   }
-  catch { notice.value = '麦克风没能打开：可能是权限被拒绝，或者设备不可用。' }
+  catch {
+    if (session === talkSession) {
+      voiceEnabled.value = voiceBeforeTalk
+      notice.value = '麦克风没能打开：可能是权限被拒绝，或者设备不可用。'
+    }
+  }
+  finally {
+    if (session === talkSession)
+      starting.value = false
+  }
 }
-const talkLabel = computed(() => recognising.value ? '在听懂…' : running.value ? '在想…' : speaking.value ? '在说（开口就能打断）' : talkState.value === 'hearing' ? '在听你说…' : '在听')
+const awaitingApproval = computed(() => Boolean(snapshot.value?.approvals.length))
+// She leans in while you type, and while you talk to her.
+const listening = computed(() => (Boolean(input.value.trim()) && now.value - typedAt.value < 3000) || talkState.value === 'hearing')
+// Once her voice is playing she is no longer 'about to speak', and talking over her interrupts again.
+watch(speaking, (value) => {
+  if (value)
+    preparing.value = false
+})
+const talkLabel = computed(() => talkHint.value || (recognising.value ? '在听懂…' : awaitingApproval.value ? '等你确认' : running.value ? '在想…（这会儿听不到）' : preparing.value ? '要开口了…' : speaking.value ? '在说（开口就能打断）' : talkState.value === 'hearing' ? '在听你说…' : '在听'))
 const configuring = computed(() => busy.value || snapshot.value?.state === 'starting')
 const mode = computed<PermissionMode>(() => snapshot.value?.mode ?? 'ask')
 /** pi needs a model key; an external brain uses its own login. */
@@ -359,6 +416,8 @@ async function showChanges() {
 const undo = (force: boolean) => snapshot.value?.result && run({ type: 'undo', taskId: snapshot.value.result.taskId, force })
 function keydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
+    if (talking.value || starting.value)
+      stopTalk()
     document.querySelector<HTMLElement>('.corner [aria-expanded="true"]')?.focus()
     menuOpen.value = brainOpen.value = false
   }
@@ -384,8 +443,10 @@ onMounted(async () => {
       case 'anna': anna.value = event.state; break
       case 'stream': stream.value = event.text; break
       case 'result':
-        if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply)
-          void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message })
+        if (voiceEnabled.value && event.result.status === 'completed' && event.result.origin === 'desktop' && event.reply) {
+          preparing.value = talking.value
+          void voicePlayer.speak(event.reply).catch((cause: Error) => { notice.value = cause.message }).finally(() => { preparing.value = false })
+        }
         break
       case 'mode': modeLine.value = { text: event.line, at: Date.now() }; break
       case 'changes': changes.value = event.changes; break
@@ -530,8 +591,8 @@ onBeforeUnmount(() => { stopTalk(); voicePlayer.stop(); window.removeEventListen
       <form class="composer" @submit.prevent="send()">
         <textarea v-model="input" aria-label="消息" rows="1" :placeholder="needsTrust ? '先决定是否信任这个工作文件夹…' : running ? '补充或纠正指示，会插入正在进行的任务…' : `对 ${character.name} 说点什么…（@claude、@codex 派活）`" :disabled="configuring" @keydown.enter.exact.prevent="send()" />
         <div class="composer-actions">
-          <button type="button" class="talk-button" :aria-pressed="talking" :disabled="!talking && (configuring || !canChat || needsTrust)" @click="toggleTalk">{{ talking ? '结束对话' : '和她说话' }}</button>
-          <span v-if="talking" class="talk-state" role="status" :data-state="recognising ? 'recognising' : running ? 'thinking' : speaking ? 'speaking' : talkState">{{ talkLabel }}</span>
+          <button type="button" class="talk-button" :aria-pressed="talking" :disabled="!talking && (configuring || !canChat || needsTrust)" @click="toggleTalk">{{ talking || starting ? '结束对话' : '和她说话' }}</button>
+          <span v-if="talking" class="talk-state" role="status" :data-state="recognising ? 'recognising' : running ? 'thinking' : preparing || speaking ? 'speaking' : talkState">{{ talkLabel }}</span>
           <button type="button" @click="voiceOpen = true">语音设置</button>
           <template v-if="!talking">
             <button type="button" :aria-pressed="voiceEnabled" @click="toggleVoice">{{ voiceEnabled ? '关闭模型语音' : '开启模型语音' }}</button>

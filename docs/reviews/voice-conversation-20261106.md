@@ -22,7 +22,7 @@ Speech goes through her brain, never a direct speech-to-speech model, so memory,
 
 - Tests first: `tests/endpointer.test.ts`, with six cases (a sentence, a click, pauses inside a sentence, steady noise, too long, barge-in threshold). Two cases failed against the first version: steady noise was heard as speech before the floor was learned (fixed with the warm-up), and one test expectation about a cut utterance was wrong.
 - `tests/voice-talk.mjs` (added to `test:scripted`) covers the whole chain: synthetic microphone stream → voice activity → loopback fake recognition → scripted reply → synthesis. It then checks that 结束对话 closes it, and that exactly one utterance was sent. Screenshot: `artifacts/voice-talk.png`.
-- `pnpm preflight`: 975 passed, 19 skipped. `pnpm build` and `pnpm test:scripted` pass, hidden. The suite caught the squeezed text box, which is now fixed.
+- `pnpm preflight`: 976 passed, 19 skipped (after the review fixes). `pnpm build` and `pnpm test:scripted` pass, hidden. The suite caught the squeezed text box, which is now fixed.
 
 ## Not verified
 
@@ -33,4 +33,35 @@ Speech goes through her brain, never a direct speech-to-speech model, so memory,
 
 ## Review
 
-Pending: Standards and Spec reviews.
+**Standards review: one blocker, fixed.** A double-click, or closing the app while the microphone was opening, could start a second conversation, or one nobody could stop, leaving the microphone live with no indicator.
+
+- Each talk now has a session number. A start that returns after the talk was ended or the app was unmounted closes its microphone at once.
+- 结束对话 also cancels a talk that is still starting.
+- `tests/voice-talk.mjs` double-clicks and then checks that every audio track has ended.
+
+Should-fix, fixed:
+
+- **Failed start:** if setup fails after the microphone opened, both the microphone and the AudioContext are released. The context is resumed explicitly.
+- **Noise floor:** her own voice (the raised bar) no longer teaches the noise floor. New test.
+- **Her reply:** while it is being synthesised, sound is ignored, and the pill says 要开口了….
+- **Encoding errors:** these now log and say 没听清, instead of being swallowed.
+- **The test:** it now checks that the stream's tracks really ended.
+
+**Spec review: no blocker.** Should-fix, fixed:
+
+- **Ending the talk:** stops her voice and restores the earlier 模型语音 setting.
+- **Slow synthesis:** the pill says 要开口了… while synthesis runs, so stray noise can no longer cancel her reply.
+- **While she thinks:** the pill says 在想…（这会儿听不到）.
+- **Pending approval:** an open approval card shows 等你确认.
+- **Her body:** it leans in while you talk, as it does while you type. This reaches her own body; the Live2D form has no listening input yet.
+- **Empty or failed recognition:** shows 没听清，再说一次？.
+
+Nits fixed: Escape ends a talk, and a transcript from an ended talk is dropped.
+
+Not changed:
+
+- A voice setup saved without a key passes the start check and fails at the first utterance, with a message.
+- With only recognition configured, the talk is refused rather than answering in text.
+- Words spoken while she thinks are dropped, not sent as an interjection.
+- Her reply is synthesised after the whole answer arrives.
+- ScriptProcessorNode is still used rather than an AudioWorklet.

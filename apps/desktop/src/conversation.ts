@@ -15,6 +15,8 @@ export interface ConversationHandlers {
   paused: () => boolean
   /** The microphone went away (unplugged, permission revoked). */
   ended: () => void
+  /** An utterance could not be turned into audio. */
+  failed: () => void
 }
 
 const preRollMs = 400
@@ -31,10 +33,22 @@ export async function startConversation(handlers: ConversationHandlers) {
       handlers.ended()
   })
   const stream = await mic.open()
-  const context = new AudioContext()
-  const source = context.createMediaStreamSource(stream)
-  // ScriptProcessorNode is deprecated but needs no separate worklet file; frames are small enough for endpointing.
-  const node = context.createScriptProcessor(1024, 1, 1)
+  let context: AudioContext | undefined
+  let source: MediaStreamAudioSourceNode
+  let node: ScriptProcessorNode
+  try {
+    context = new AudioContext()
+    source = context.createMediaStreamSource(stream)
+    // ScriptProcessorNode is deprecated but needs no separate worklet file; frames are small enough for endpointing.
+    node = context.createScriptProcessor(1024, 1, 1)
+    await context.resume()
+  }
+  catch (error) {
+    // Nothing may keep the microphone open after a failed start.
+    void context?.close().catch(() => {})
+    mic.stop()
+    throw error
+  }
   const frameMs = 1024 / context.sampleRate * 1000
   const vad = createEndpointer({ frameMs })
   const preRoll: Float32Array[] = []
@@ -80,8 +94,11 @@ export async function startConversation(handlers: ConversationHandlers) {
         all.set(frame, offset)
         offset += frame.length
       }
-      try { handlers.utterance(toBase64(pcmWav([all], context.sampleRate))) }
-      catch {}
+      try { handlers.utterance(toBase64(pcmWav([all], context!.sampleRate))) }
+      catch (error) {
+        console.warn('utterance not encoded', error)
+        handlers.failed()
+      }
     }
   }
   source.connect(node)
@@ -96,7 +113,7 @@ export async function startConversation(handlers: ConversationHandlers) {
       node.onaudioprocess = null
       source.disconnect()
       node.disconnect()
-      void context.close().catch(() => {})
+      void context!.close().catch(() => {})
       mic.stop()
     },
   }

@@ -52,3 +52,11 @@ it('needs a louder voice to interrupt her while she speaks', () => {
   expect(feed(vad, 0.04, 400, 4)).toEqual([])
   expect(feed(vad, 0.3, 400, 4)).toEqual(['start'])
 })
+
+it('does not let her own voice raise the bar for the next quiet sentence', () => {
+  const vad = createEndpointer({ frameMs: 20 })
+  feed(vad, 0.002, 600)
+  // Her voice: louder than a normal start, quieter than the raised bar, for a long time.
+  expect(feed(vad, 0.04, 5000, 4)).toEqual([])
+  expect(feed(vad, 0.04, 400)).toEqual(['start'])
+})

@@ -76,6 +76,7 @@ try {
   }
   // The microphone: silence, 1.2 s of a tone at speaking loudness, then silence.
   await page.evaluate(() => {
+    window.microphones = []
     navigator.mediaDevices.getUserMedia = async () => {
       const context = new AudioContext()
       const tone = context.createOscillator()
@@ -88,9 +89,16 @@ try {
       gain.gain.setValueAtTime(0.4, start + 1)
       gain.gain.setValueAtTime(0, start + 2.2)
       tone.start()
+      window.microphones.push(output.stream)
       return output.stream
     }
   })
+  const live = () => page.evaluate(() => window.microphones.flatMap(stream => stream.getTracks()).filter(track => track.readyState === 'live').length)
+  // A double-click starts and then cancels: no microphone may be left open, and no talk shown.
+  await page.getByRole('button', { name: '和她说话', exact: true }).dblclick()
+  await page.getByRole('button', { name: '和她说话', exact: true }).waitFor()
+  await page.waitForFunction(() => window.microphones.flatMap(stream => stream.getTracks()).every(track => track.readyState === 'ended'))
+  assert.equal(await page.locator('.talk-state').count(), 0)
   await page.getByRole('button', { name: '和她说话', exact: true }).click()
   await page.getByRole('status').filter({ hasText: /^在听/ }).waitFor({ timeout: 15000 }).catch(async (error) => {
     console.error(`page says: ${((await page.locator('body').textContent()) ?? '').split('\n').filter(line => /麦克风|语音|对话|说话|在听/.test(line)).join(' / ')}`)
@@ -109,6 +117,7 @@ try {
   await page.getByRole('button', { name: '结束对话', exact: true }).click()
   await page.getByRole('button', { name: '和她说话', exact: true }).waitFor()
   assert.equal(await page.locator('.talk-state').count(), 0)
+  assert.equal(await live(), 0, 'the microphone is still open after the talk ended')
   assert.equal(recognitions, 1)
   assert.deepEqual(errors, [])
   console.log('Voice talk: synthetic microphone stream → voice activity → recognition → scripted reply → synthesis, and the microphone closes when the talk ends.')
