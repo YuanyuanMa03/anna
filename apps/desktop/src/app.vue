@@ -247,7 +247,7 @@ function fromMouth() {
 }
 
 async function run(command: Command) {
-  const ownsBusy = !['avatar-job', 'approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
+  const ownsBusy = !['avatar-job', 'model-list', 'approval', 'send', 'stop', 'mode', 'changes', 'rule-remove', 'memory-forget', 'weixin-status', 'weixin-login', 'weixin-code', 'weixin-disconnect'].includes(command.type)
   if (ownsBusy)
     busy.value = true
   error.value = ''

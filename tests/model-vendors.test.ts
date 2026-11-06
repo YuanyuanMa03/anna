@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { listModels, sameEndpoint } from '../packages/anna-host/model-list'
 import { validateModel } from '../packages/anna-host/settings'
-import { modelVendors, vendorFor, vendorSettings } from '../packages/shared/model-vendors'
+import { firstModel, listsModels, modelVendors, vendorFor, vendorSettings } from '../packages/shared/model-vendors'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
@@ -56,6 +56,8 @@ describe('model list', () => {
   it('says what to change when the service refuses', async () => {
     await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => json({}, 401))).rejects.toThrow(/API Key 无效/)
     await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => json({}, 404))).rejects.toThrow(/不提供模型列表/)
+    await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => json({}, 400))).rejects.toThrow(/HTTP 400.*手动填写/)
+    await expect(listModels({ baseURL: 'not a url', api: 'openai-completions' }, 'k', async () => json({}))).rejects.toThrow(/HTTPS/)
     await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => json({ data: 'nope' }))).rejects.toThrow(/看不懂/)
     await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => { throw new TypeError('fetch failed') })).rejects.toThrow(/连不上/)
   })
@@ -77,5 +79,29 @@ describe('saved key reuse', () => {
     expect(sameEndpoint('https://api.moonshot.cn/v1', 'https://api.moonshot.cn/anthropic')).toBe(false)
     expect(sameEndpoint('https://api.moonshot.cn/v1', 'https://evil.example/v1')).toBe(false)
     expect(sameEndpoint('https://API.Moonshot.cn/v1', 'https://api.moonshot.cn/v1')).toBe(true)
+  })
+})
+
+describe('model list contents', () => {
+  it('drops models that cannot chat and Gemini\'s models/ prefix', async () => {
+    const data = ['gpt-x', 'text-embedding-3-large', 'whisper-1', 'tts-1', 'dall-e-3', 'omni-moderation-latest', 'models/gemini-pro', 'mimo-v2.5-asr', 'mimo-v2.6-flash'].map(id => ({ id }))
+    expect(await listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => json({ data }))).toEqual(['gemini-pro', 'gpt-x', 'mimo-v2.6-flash'])
+  })
+
+  it('reports a reply that stalls mid-body as unreachable, in Chinese', async () => {
+    const stalled = new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('{"data":[')) } }), { status: 200 })
+    await expect(listModels({ baseURL: 'https://a.example/v1', api: 'openai-completions' }, 'k', async () => stalled, { timeoutMs: 50 })).rejects.toThrow(/连不上/)
+  })
+
+  it('keeps DeepSeek on pi\'s catalogue instead of listing', () => {
+    expect(modelVendors.filter(vendor => !listsModels(vendor)).map(vendor => vendor.id)).toEqual(['deepseek'])
+  })
+
+  it('fills the model box from a list without overriding what the user typed', () => {
+    expect(firstModel('', ['b', 'a'], [])).toBe('b')
+    expect(firstModel('', ['x', 'kimi-k3'], ['kimi-k3'])).toBe('kimi-k3')
+    expect(firstModel('kimi-k3', ['kimi-k4'], ['kimi-k3'])).toBe('kimi-k4')
+    expect(firstModel('my-own', ['kimi-k4'], ['kimi-k3'])).toBe('my-own')
+    expect(firstModel('kimi-k3', [], ['kimi-k3'])).toBe('kimi-k3')
   })
 })

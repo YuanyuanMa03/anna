@@ -13,7 +13,7 @@ const readonlyWorkspace = join(data, '只读 项目')
 await mkdir(readonlyWorkspace)
 const script = join(data, 'script.json')
 await writeFile(script, JSON.stringify([{ text: '你好，我们开始吧。' }]))
-const desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath }))
+const desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_TEST_MODELS: JSON.stringify(['kimi-k3', 'kimi-k4-preview']), ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath }))
 try {
   const page = await desktop.firstWindow()
   const errors = []
@@ -57,6 +57,23 @@ try {
   assert.equal(await flow.getByRole('button', { name: '保存并连接' }).isDisabled(), true)
   assert.equal(await flow.getByRole('link', { name: '去 Kimi 领取 API Key' }).getAttribute('href'), 'https://platform.kimi.com/console/api-keys')
   await page.screenshot({ animations: 'disabled', path: 'artifacts/onboarding-vendors.png' })
+  // Typing the key fetches the list (answered by ANNA_TEST_MODELS); pick one, save, and the saved key now fits Kimi.
+  await flow.getByLabel('API Key', { exact: true }).fill('sk-fixture-kimi-key')
+  await flow.getByText('这个 Key 可以用 2 个模型').waitFor()
+  assert.equal(await flow.getByLabel('模型 ID', { exact: true }).inputValue(), 'kimi-k3')
+  await flow.getByLabel('模型 ID', { exact: true }).fill('kimi-k4-preview')
+  await flow.getByRole('button', { name: '保存并连接' }).click()
+  for (let i = 0; ; i++) {
+    const current = await page.evaluate(() => window.anna.invoke({ type: 'snapshot' }))
+    if (current.snapshot.settings.model.baseURL === 'https://api.moonshot.cn/v1' && current.snapshot.settings.model.model === 'kimi-k4-preview' && current.snapshot.state === 'ready')
+      break
+    assert(i < 100, 'Kimi was not saved and connected')
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '已保存，留空保持原密钥')
+  await vendors.getByRole('radio', { name: /^DeepSeek/ }).click()
+  assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '输入这个服务的 API Key')
+  await flow.getByText('DeepSeek 的模型由 pi 内置的目录提供').waitFor()
   await flow.getByRole('button', { name: '验证连接（少量调用）' }).click()
   await flow.getByRole('button', { name: '下一步：认识彼此' }).click()
   await flow.getByRole('textbox', { name: '怎么称呼你（选填）' }).waitFor()

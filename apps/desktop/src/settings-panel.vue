@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Command, ModelSettings, RuntimeSnapshot } from '../../../packages/shared/contracts'
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { brainChoices } from '../../../packages/agents/brains'
 import { catalog } from '../../../packages/agents/catalog'
 import { installationGuide } from '../../../packages/agents/installation'
 import { companion } from '../../../packages/character/manifest'
-import { modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
+import { firstModel, listsModels, modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
 import ProvidersPanel from './components/providers-panel.vue'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean, inline?: boolean, section?: 'brain' | 'connection' }>()
@@ -40,21 +40,25 @@ function save() { emit('command', { type: 'configure', model: { ...model, model:
 const vendorTiles = [...modelVendors, { id: 'custom', label: '自定义', hint: '兼容 OpenAI / Anthropic 的端点' }]
 const vendorId = ref(vendorFor(props.snapshot.settings.model)?.id ?? 'custom')
 const vendor = computed(() => modelVendors.find(item => item.id === vendorId.value))
+/** Every vendor but DeepSeek, whose models come from pi's own catalogue, and a custom endpoint can list models. */
+const canList = computed(() => !vendor.value || listsModels(vendor.value))
 /** The saved key may only go back to the address it was saved for. */
 const savedKeyFits = computed(() => props.snapshot.hasKey && sameEndpoint(props.snapshot.settings.model.baseURL, model.baseURL))
-const list = computed(() => props.snapshot.modelList && sameEndpoint(props.snapshot.modelList.baseURL, model.baseURL) && props.snapshot.modelList.api === model.api ? props.snapshot.modelList : undefined)
-const choices = computed(() => [...new Set([...(list.value?.models ?? []), ...(vendor.value?.models ?? [])])])
+const list = computed(() => canList.value && props.snapshot.modelList && sameEndpoint(props.snapshot.modelList.baseURL, model.baseURL) && props.snapshot.modelList.api === model.api ? props.snapshot.modelList : undefined)
+const choices = computed(() => [...new Set([...(vendor.value?.models ?? []), ...(list.value?.models ?? [])])])
 const requested = ref<string>()
 const listing = computed(() => requested.value !== undefined && (!props.snapshot.modelList || props.snapshot.modelList.at < requested.value))
 let timer: ReturnType<typeof setTimeout> | undefined
+let fallback: ReturnType<typeof setTimeout> | undefined
 function fetchModels() {
   clearTimeout(timer)
-  if (!model.baseURL || (!key.value.trim() && !savedKeyFits.value))
+  if (!canList.value || !model.baseURL || (!key.value.trim() && !savedKeyFits.value))
     return
   const at = new Date().toISOString()
   requested.value = at
-  // A command the host refuses outright never answers with a list; stop showing progress after a while.
-  setTimeout(() => {
+  // If the command itself fails, no list arrives; stop showing progress after a while.
+  clearTimeout(fallback)
+  fallback = setTimeout(() => {
     if (requested.value === at)
       requested.value = undefined
   }, 20_000)
@@ -63,21 +67,36 @@ function fetchModels() {
 /** Typing a key fetches the list once the user pauses. */
 function scheduleList() {
   clearTimeout(timer)
-  if (key.value.trim().length >= 8)
+  if (canList.value && key.value.trim().length >= 8)
     timer = setTimeout(fetchModels, 800)
 }
 function pickVendor(id: string) {
   vendorId.value = id
   const picked = modelVendors.find(item => item.id === id)
-  if (picked)
+  if (picked) {
     Object.assign(model, vendorSettings(picked, picked.models[0] ?? ''))
-  else
+  }
+  else {
+    // pi's catalogue names (DeepSeek's) mean nothing to a custom endpoint.
     model.provider = 'custom'
+    model.model = ''
+  }
   key.value = ''
-  if (picked && savedKeyFits.value)
+  requested.value = undefined
+  if (savedKeyFits.value)
     fetchModels()
 }
-onBeforeUnmount(() => clearTimeout(timer))
+// A list that arrives for an empty model box fills it, so a vendor without suggestions still ends up with a model.
+watch(() => list.value?.at, () => {
+  if (list.value)
+    model.model = firstModel(model.model, list.value.models, vendor.value?.models ?? [])
+})
+// Settings changed elsewhere (a save, another window): show them, and their tile.
+watch(() => JSON.stringify(props.snapshot.settings.model), () => {
+  Object.assign(model, props.snapshot.settings.model)
+  vendorId.value = vendorFor(props.snapshot.settings.model)?.id ?? 'custom'
+})
+onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback) })
 </script>
 
 <template>
@@ -122,9 +141,11 @@ onBeforeUnmount(() => clearTimeout(timer))
             </template>
             <p v-else-if="vendor" class="small"><a :href="vendor.keyPage" target="_blank" rel="noreferrer">去 {{ vendor.label }} 领取 API Key</a></p>
             <label>API Key<input v-model="key" type="password" autocomplete="off" :placeholder="savedKeyFits ? '已保存，留空保持原密钥' : '输入这个服务的 API Key'" aria-label="API Key" @input="scheduleList"></label>
-            <div class="card-actions left"><button type="button" :disabled="busy || listing || (!key.trim() && !savedKeyFits) || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
+            <p v-if="!canList" class="small muted">DeepSeek 的模型由 pi 内置的目录提供，直接从下面选择即可。</p>
+            <div v-else class="card-actions left"><button type="button" :disabled="busy || listing || (!key.trim() && !savedKeyFits) || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
             <p v-if="list?.error" class="error small" role="alert">{{ list.error }}</p>
             <p v-else-if="list" class="small muted">这个 Key 可以用 {{ list.models.length }} 个模型{{ list.models.length ? '，可以在下面搜索或选择' : '' }}。</p>
+            <p v-else-if="canList && !vendor?.models.length && !model.model" class="small muted">填好 API Key 后会自动取到模型列表；取不到时，可以手动填写模型 ID。</p>
             <label>模型<input v-model="model.model" required aria-label="模型 ID" list="models" placeholder="搜索或填写模型 ID"><datalist id="models"><option v-for="id in choices" :key="id" :value="id" /></datalist></label>
             <div v-if="vendor?.models.length" class="card-actions left"><span class="small muted">推荐：</span><button v-for="id in vendor.models" :key="id" type="button" :aria-pressed="model.model === id" @click="model.model = id">{{ id }}</button></div>
             <button class="primary" :disabled="busy || !model.model.trim() || (!key.trim() && !savedKeyFits)" type="submit">保存并连接</button>

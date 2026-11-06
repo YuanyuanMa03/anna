@@ -59,7 +59,7 @@ export interface HostOptions {
   notes?: string
   histories?: Pick<ExternalHistory, 'list' | 'preview' | 'fork'>
   /** How a vendor's model list is fetched (tests use a fake). */
-  listModels?: (model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string) => Promise<string[]>
+  listModels?: (model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string, signal: AbortSignal) => Promise<string[]>
 }
 
 /** ACP brains stay off until one real agent has run as her brain: only protocol fakes have so far. */
@@ -75,6 +75,7 @@ export class Host {
   private capabilityCache?: RuntimeSnapshot['capabilities']
   private historyPage?: RuntimeSnapshot['externalHistory']
   private modelList?: RuntimeSnapshot['modelList']
+  private modelListRequest?: AbortController
   private kernel?: AgentKernel
   private approvals: ApprovalBroker
   private presence: Presence
@@ -976,23 +977,34 @@ export class Host {
         return this.snapshot()
       }
       case 'model-list': {
-        const api = command.model.api
-        if (!['anthropic-messages', 'openai-completions', 'openai-responses'].includes(api) || typeof command.model.baseURL !== 'string')
-          throw new Error('API 协议或端点无效')
-        const typed = typeof command.key === 'string' ? command.key.trim() : ''
-        if (typed.length > 8192 || /[\r\n\0]/.test(typed))
-          throw new Error('API Key 格式无效')
-        const saved = sameEndpoint(this.store.value.model.baseURL, command.model.baseURL) ? await this.vault.read().catch(() => '') : ''
-        const key = typed || saved
+        // Only the newest request may answer: a pause while typing a key starts one, the finished key another.
+        this.modelListRequest?.abort()
+        const request = new AbortController()
+        this.modelListRequest = request
+        const { baseURL, api } = command.model
         const at = new Date().toISOString()
+        const answer = (result: { models: string[] } | { error: string }) => {
+          if (this.modelListRequest !== request)
+            return
+          this.modelList = { baseURL: String(baseURL), api, models: [], at, ...result }
+          this.modelListRequest = undefined
+        }
         try {
+          if (!['anthropic-messages', 'openai-completions', 'openai-responses'].includes(api) || typeof baseURL !== 'string')
+            throw new Error('API 协议或端点无效')
+          const typed = typeof command.key === 'string' ? command.key.trim() : ''
+          if (typed.length > 8192 || /[\r\n\0]/.test(typed))
+            throw new Error('API Key 格式无效')
+          // Checked again after the read: a save to another vendor may land in between.
+          const fits = () => sameEndpoint(this.store.value.model.baseURL, baseURL)
+          const saved = !typed && fits() ? await this.vault.read().catch(() => '') : ''
+          const key = typed || (fits() ? saved : '')
           if (!key)
             throw new Error('请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
-          const models = await (this.options.listModels ?? listModels)({ baseURL: command.model.baseURL, api }, key)
-          this.modelList = { baseURL: command.model.baseURL, api, models, at }
+          answer({ models: await (this.options.listModels ?? ((model, key, signal) => listModels(model, key, fetch, { signal })))({ baseURL, api }, key, request.signal) })
         }
         catch (error) {
-          this.modelList = { baseURL: command.model.baseURL, api, models: [], error: error instanceof Error ? error.message : String(error), at }
+          answer({ error: error instanceof Error ? error.message : String(error) })
         }
         this.publish()
         return this.snapshot()

@@ -19,7 +19,7 @@ export interface ModelVendor {
 }
 
 export const modelVendors: readonly ModelVendor[] = [
-  { id: 'deepseek', label: 'DeepSeek', hint: '深度求索 · pi 内置目录', api: 'openai-completions', baseURL: 'https://api.deepseek.com', keyPage: 'https://platform.deepseek.com/api_keys', models: ['deepseek-flash', 'deepseek-v4-pro'] },
+  { id: 'deepseek', label: 'DeepSeek', hint: '深度求索', api: 'openai-completions', baseURL: 'https://api.deepseek.com', keyPage: 'https://platform.deepseek.com/api_keys', models: ['deepseek-flash', 'deepseek-v4-pro'] },
   { id: 'kimi', label: 'Kimi', hint: '月之暗面', api: 'openai-completions', baseURL: 'https://api.moonshot.cn/v1', keyPage: 'https://platform.kimi.com/console/api-keys', models: ['kimi-k3', 'kimi-k2.7-code'] },
   { id: 'zhipu', label: '智谱 GLM', hint: '智谱开放平台', api: 'openai-completions', baseURL: 'https://open.bigmodel.cn/api/paas/v4', keyPage: 'https://open.bigmodel.cn/usercenter/apikeys', models: ['glm-5.3', 'glm-5.3-flash'] },
   { id: 'qwen', label: '通义千问', hint: '阿里云百炼', api: 'openai-completions', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', keyPage: 'https://platform.qianwenai.com/home/api-keys', models: ['qwen3.8-max', 'qwen3.8-27b'] },
@@ -56,4 +56,18 @@ export function vendorFor(model: Pick<ModelSettings, 'provider' | 'baseURL' | 'a
 /** pi's setting for a vendor tile: DeepSeek stays on pi's own catalogue, every other vendor is a custom endpoint. */
 export function vendorSettings(vendor: ModelVendor, model: string): ModelSettings {
   return { provider: vendor.id === 'deepseek' ? 'deepseek-official' : 'custom', model, baseURL: vendor.baseURL, api: vendor.api }
+}
+
+/** DeepSeek's models come from pi's own catalogue, which accepts only the IDs it knows; every other vendor lists its own. */
+export const listsModels = (vendor: ModelVendor) => vendor.id !== 'deepseek'
+
+/**
+ * The model to show once a list arrives. What the user typed stays; so does a suggestion the key can use. An empty box,
+ * or a suggestion the list lacks, becomes a suggestion the key can use, else the first listed model.
+ */
+export function firstModel(current: string, listed: string[], suggested: string[]) {
+  const id = current.trim()
+  if (!listed.length || (id && (listed.includes(id) || !suggested.includes(id))))
+    return current
+  return suggested.find(item => listed.includes(item)) ?? listed[0]!
 }
