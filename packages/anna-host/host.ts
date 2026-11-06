@@ -960,11 +960,13 @@ export class Host {
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
         const undone = this.journal.entries.find(entry => entry.taskId === command.taskId)
-        if (undone?.status === 'completed' && !undone.undone && this.store.value.together) {
+        const counted = undone?.status === 'completed' && !undone.undone
+        // Taken back only once the journal has marked it, so a failed mark cannot be counted twice.
+        const marked = await this.journal.markUndone(command.taskId).then(() => true, () => false)
+        if (counted && marked && this.store.value.together) {
           this.store.value.together = undoTogether(this.store.value.together)
           await this.store.save().catch(() => {})
         }
-        await this.journal.markUndone(command.taskId).catch(() => {})
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)
         this.publish()

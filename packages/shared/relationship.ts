@@ -44,7 +44,8 @@ const kept = (records: Record[]) => records.filter(record => record.status === '
 export function seedTogether(records: Record[], memories: Memory[]): Together {
   const finished = kept(records)
   const since = earliest([...records.map(record => record.at), ...memories.map(memory => memory.createdAt)])
-  return { ...(since ? { since } : {}), done: finished.length, ...(finished[0] ? { firstTask: { at: finished[0].at, text: short(finished[0].request, 30) } } : {}), milestones: [] }
+  const milestones = finished.flatMap((record, index) => (index + 1) % 10 === 0 ? [{ at: record.at, text: `一起完成了第 ${index + 1} 件事` }] : [])
+  return { ...(since ? { since } : {}), done: finished.length, ...(finished[0] ? { firstTask: { at: finished[0].at, text: short(finished[0].request, 30) } } : {}), milestones }
 }
 
 /** A task was finished: count it, and mark the first and every tenth. */
@@ -54,7 +55,8 @@ export function advanceTogether(tally: Together, task: { at: string, request: st
     since: earliest([tally.since, task.at]),
     done,
     firstTask: tally.firstTask ?? { at: task.at, text: short(task.request, 30) },
-    milestones: done % 10 === 0 ? [...tally.milestones, { at: task.at, text: `一起完成了第 ${done} 件事` }].slice(-50) : tally.milestones,
+    // An undo and a new task can reach the same count again; it is marked once.
+    milestones: done % 10 === 0 && !tally.milestones.some(milestone => milestone.text === `一起完成了第 ${done} 件事`) ? [...tally.milestones, { at: task.at, text: `一起完成了第 ${done} 件事` }].slice(-50) : tally.milestones,
   }
 }
 

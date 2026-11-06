@@ -32,4 +32,6 @@ Should-fix, fixed: the timeline has a visible heading (我们的故事); the fir
 
 Nits fixed: the portrait is a labelled group; timestamps compare by `Date.parse`; a clock behind the first record still shows day 1; 0 agreements reads 还没有约定; with memory off the portrait says those are from before; at most 8 chips per kind plus 还有 N 条.
 
+Re-review (no blocker remains). Should-fix, fixed: an undo and a new task reaching the same tenth no longer mark it twice; upgraders get the tenths their journal already shows; an undo is taken back only after the journal has marked it, so a failed mark cannot count twice. Not changed: undoing a task already pushed out of the 40-entry journal does not lower the count (its status is no longer known); downgrading to an older build drops the tally, and the next upgrade reseeds from the journal.
+
 Not changed: opening the sheet on 我们 by default was tried and reverted (the brain chip opens the same sheet and must land on the brain); colours are literal like the rest of `style.css`.
