@@ -10,7 +10,7 @@ const emit = defineEmits<{ command: [command: Command] }>()
 const apps: App[] = ['claude', 'codex', 'gemini']
 const labels: Record<App, string> = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI' }
 const sources: Record<MyProvider['source'], string> = { preset: '预设', custom: '自定义', imported: '从 cc-switch 导入', universal: '统一服务商' }
-const app = ref<App | 'universal'>('claude')
+const app = ref<App | 'universal'>(props.snapshot.settings.kernel === 'codex' ? 'codex' : props.snapshot.settings.kernel === 'acp:gemini' ? 'gemini' : 'claude')
 /** The app whose providers are shown (the universal tab has its own panel). */
 const current = computed<App>(() => app.value === 'universal' ? 'claude' : app.value)
 const agents = computed(() => props.snapshot.agents)

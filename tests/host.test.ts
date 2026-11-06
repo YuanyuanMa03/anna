@@ -20,7 +20,7 @@ async function setup(script: ScriptStep[], options: { mode?: PermissionMode, tru
   const workspace = join(data, 'project')
   await mkdir(workspace)
   await writeFile(join(workspace, 'tasks.txt'), 'alpha\nbeta\n')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: options.trusted === false ? {} : { [workspace]: { trusted: true, mode: options.mode ?? 'edit', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: true, memoryEnabled: true, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: options.trusted === false ? {} : { [workspace]: { trusted: true, mode: options.mode ?? 'edit', rules: { allow: [], ask: [], deny: [] } } } }))
   let backend: Awaited<ReturnType<typeof scriptedBackend>> | undefined
   const events: AnnaEvent[] = []
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, event => events.push(event), {
@@ -45,6 +45,18 @@ async function approve(host: Host, scope: 'once' | 'session' | 'always' = 'once'
   await host.execute({ type: 'approval', id: question.id, allow, scope })
   return question
 }
+
+it('delivers the complete reply for model speech separately from the short persisted result summary', async () => {
+  const reply = `${'这是完整回复。'.repeat(60)}\n第二段也需要保留。`
+  const { host, events } = await setup([{ text: reply }])
+  try {
+    await host.execute({ type: 'send', text: '请详细解释' })
+    const delivered = events.find(event => event.type === 'result')
+    expect(delivered?.type === 'result' && 'reply' in delivered && delivered.reply).toBe(reply)
+    expect(host.snapshot().result!.summary.length).toBe(160)
+  }
+  finally { await host.close() }
+})
 
 it('edit mode: works in the workspace, records changes, and undo restores them', async () => {
   const { host, workspace, events } = await setup([
@@ -147,9 +159,9 @@ it('untrusted folders and remote channels are clamped to ask', async () => {
   await host.execute({ type: 'workspace', path: workspace })
   expect(host.snapshot().workspace).toMatchObject({ trusted: false, known: false })
   expect(host.snapshot().state).toBe('stopped')
-  await expect(host.execute({ type: 'mode', mode: 'auto' })).rejects.toThrow(/信任/)
+  await expect(host.execute({ type: 'mode', mode: 'auto', acknowledge: true })).rejects.toThrow(/信任/)
   await host.execute({ type: 'trust', trusted: true })
-  await host.execute({ type: 'mode', mode: 'auto' })
+  await host.execute({ type: 'mode', mode: 'auto', acknowledge: true })
   expect(host.snapshot().mode).toBe('auto')
   expect(host.effectiveMode('weixin')).toBe('ask')
   const reply = host.submit('从微信写文件', 'weixin')
@@ -168,7 +180,7 @@ it.skipIf(process.platform === 'win32' || process.env.CI_NO_SANDBOX === '1')('au
   const data = await mkdtemp(join(tmpdir(), 'anna-sbx-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend([
     { tools: [{ name: 'bash', args: { command: `echo inside > out.txt; echo outside > ${escape}; curl -sS -m 5 -o /dev/null https://example.com/ && echo NET-OK || echo NET-BLOCKED` } }] },
     { text: '做完了。' },
@@ -204,7 +216,9 @@ it('a stopped task stays stopped: the model is told not to pick it up again, and
   await host.execute({ type: 'send', text: '你是谁' })
   expect(await sessionText(host)).toMatch(/用户中断了任务「把 coupon\.js 实现完整」[^"]*不要主动接着做/)
   const journal = JSON.parse(await readFile(join(data, 'journal.json'), 'utf8'))
-  expect(journal).toEqual([expect.objectContaining({ status: 'aborted', request: '把 coupon.js 实现完整' })])
+  expect(journal).toHaveLength(2)
+  expect(journal[0]).toMatchObject({ status: 'aborted', request: '把 coupon.js 实现完整' })
+  expect(journal[1]).toMatchObject({ status: 'completed', request: '你是谁' })
   await host.close()
 }, 15000)
 
@@ -264,7 +278,7 @@ function cannedKernel(outcomes: TurnOutcome[]) {
 
 it('a key is only "verified" after a real reply, and an auth failure says so in plain words', async () => {
   const data = await mkdtemp(join(tmpdir(), 'anna-key-'))
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspaces: {} }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspaces: {} }))
   const host = new Host(resolve('.'), data, { read: async () => 'sk-wrong', write: async () => {} }, () => {}, {
     sandbox: { available: false, reason: 'test' },
     kernel: cannedKernel([
@@ -286,4 +300,34 @@ it('a key is only "verified" after a real reply, and an auth failure says so in 
   await host.execute({ type: 'configure', model: host.snapshot().settings.model, key: 'sk-new' })
   expect(host.snapshot().credential).toBe('unverified')
   await host.close()
+})
+
+it('keeps completed conversation work records and task usage metadata on disk', async () => {
+  const { host } = await setup([{ text: '完成了文件说明。' }])
+  try {
+    await host.execute({ type: 'send', text: '介绍这个工作目录' })
+    const record = host.snapshot().workRecords?.at(-1)
+    expect(record?.request).toBe('介绍这个工作目录')
+    expect(record?.status).toBe('completed')
+    expect(record?.result?.elapsedMs).toBeGreaterThanOrEqual(0)
+    const persisted = JSON.parse(await readFile(join(host.data, 'journal.json'), 'utf8'))
+    expect(persisted.at(-1).result).toEqual(JSON.parse(JSON.stringify(record?.result)))
+  }
+  finally { await host.close() }
+})
+
+it('starts a fresh model context after a memory correction without injecting old journal preferences', async () => {
+  const { host } = await setup([{ text: '记住了。' }, { text: '你好。' }])
+  try {
+    await host.execute({ type: 'send', text: '记住：偏爱绿茶' })
+    const previousSession = host.snapshot().settings.sessionFile
+    const item = host.snapshot().memories[0]!
+    await host.execute({ type: 'memory-update', id: item.id, memory: { text: '偏爱红茶', kind: 'preference' } })
+    expect(host.snapshot().settings.sessionFile).not.toBe(previousSession)
+    await host.execute({ type: 'send', text: '你好' })
+    const context = await sessionText(host)
+    expect(context).not.toContain('偏爱绿茶')
+    expect(context).toContain('偏爱红茶')
+  }
+  finally { await host.close() }
 })

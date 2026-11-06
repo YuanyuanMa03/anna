@@ -1,7 +1,8 @@
 # Anna website
 
-The landing page at https://anna.mayuanyuan.top: a product introduction, the install commands and optional coffee support.
-It's a small Vue page built with Vite. The payment QR images come from the project owner and are unchanged.
+The landing page at https://anna.mayuanyuan.top: a product introduction, the install commands and the live demo.
+It's a small Vue page built with Vite. The sponsor module and its payment QR images were removed on purpose; do not
+bring them back without the owner asking.
 
 ## Develop
 
@@ -9,6 +10,13 @@ It's a small Vue page built with Vite. The payment QR images come from the proje
 pnpm dev:website       # local preview
 pnpm build:website     # build into website/dist
 ```
+
+## Media
+
+`anna-live.mp4` (with `anna-live-poster.webp`) and the panel stills (`voice-answer`, `provider-tiles`,
+`install-guide`, `memory-together`) are recorded from the real app by `node scripts/website-media.mjs`: a scripted
+brain and fake speech endpoints drive a real desktop session, so no real model or key is involved. Re-run it when
+the panels or the voice flow change. `ffmpeg` and `cwebp` must be on PATH.
 
 ## Deploy
 

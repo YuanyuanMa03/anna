@@ -50,7 +50,7 @@ async function setup(data?: string, port?: number) {
   await mkdir(configs.codex, { recursive: true })
   await mkdir(configs.claude, { recursive: true })
   try { await readFile(join(data, 'settings.json')) }
-  catch { await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } })) }
+  catch { await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } })) }
   const secretsFile = join(data, 'test-secrets.json')
   const backend = await scriptedBackend([], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, {

@@ -43,3 +43,12 @@ describe('buildLaunch: Anna mode, provider and session → each agent\'s own fla
     expect(buildLaunch('pi', { ...base, mode: 'plan', sessionId: 'p1' }).args).toEqual(expect.arrayContaining(['--mode', 'json', '--tools', 'read,grep,find,ls', '--session-id', 'p1']))
   })
 })
+
+it('connection probes disable Claude tools and Codex shell execution in read-only mode', () => {
+  const claude = buildLaunch('claude', { ...base, mode: 'plan', verification: true })
+  expect(claude.args[claude.args.indexOf('--tools') + 1]).toBe('')
+  expect(claude.args).toContain('--bare')
+  const codex = buildLaunch('codex', { ...base, mode: 'plan', verification: true })
+  expect(codex.args).toContain('features.shell_tool=false')
+  expect(codex.thread?.sandbox).toBe('read-only')
+})

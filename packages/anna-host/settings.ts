@@ -4,13 +4,25 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as v from 'valibot'
 import { characters } from '../character/manifest'
+import { profileSchema } from '../character/personality'
 import { emptyRules } from '../permissions/rules'
+import { modelEndpointAllowed } from '../shared/model-vendors'
+import { quarantine } from './json-file'
 
 const modelSchema = v.object({ provider: v.picklist(['deepseek-official', 'custom']), model: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[\w./:@+-]+$/)), baseURL: v.pipe(v.string(), v.url()), api: v.picklist(['anthropic-messages', 'openai-completions', 'openai-responses']) })
 const ruleList = v.optional(v.array(v.pipe(v.string(), v.maxLength(500))), [])
 const workspaceSchema = v.object({ trusted: v.boolean(), mode: v.picklist(['plan', 'ask', 'edit', 'auto']), rules: v.optional(v.object({ allow: ruleList, ask: ruleList, deny: ruleList }), () => emptyRules()) })
 const settingsSchema = v.object({
   version: v.literal(2),
+  windowsAutoAcknowledged: v.optional(v.boolean()),
+  brainSessions: v.optional(v.record(v.string(), v.string())),
+  onboardingComplete: v.optional(v.boolean()),
+  firstTaskPending: v.optional(v.boolean()),
+  memoryRevision: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  together: v.optional(v.object({ since: v.optional(v.string()), done: v.pipe(v.number(), v.integer(), v.minValue(0)), firstTask: v.optional(v.object({ at: v.string(), text: v.pipe(v.string(), v.maxLength(200)) })), milestones: v.optional(v.array(v.object({ at: v.string(), text: v.pipe(v.string(), v.maxLength(200)) })), []) })),
+  connectionVerified: v.optional(v.string()),
+  personality: v.optional(profileSchema),
+  sharedModelBackup: v.optional(v.object({ claude: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })), codex: v.optional(v.object({ provider: v.optional(v.string()), follow: v.optional(v.boolean()) })) })),
   kernel: v.optional(v.custom<BrainId>(value => typeof value === 'string' && (['pi', 'claude-code', 'codex'].includes(value) || /^acp:[a-z][a-z0-9-]*$/.test(value)), 'unknown brain'), 'pi'),
   characterId: v.picklist(characters.map(character => character.id) as [CharacterId, ...CharacterId[]]),
   statusEnabled: v.boolean(),
@@ -35,11 +47,8 @@ const settingsSchema = v.object({
 /** Validate the endpoint before a credential crosses the host network boundary. */
 export function validateModel(value: unknown): ModelSettings {
   const model = v.parse(modelSchema, value)
-  const url = new URL(model.baseURL)
-  // Plain HTTP only to this machine (a local gateway such as the online demo's inference relay).
-  const loopback = url.protocol === 'http:' && (url.hostname === 'localhost' || /^127\./.test(url.hostname) || url.hostname === '[::1]')
-  if ((url.protocol !== 'https:' && !loopback) || url.username || url.password || url.search || url.hash)
-    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址（只有本机地址可以用 HTTP）')
+  if (!modelEndpointAllowed(model.baseURL))
+    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址，或这台电脑上的本机模型（127.0.0.1 / localhost）')
   return model
 }
 
@@ -59,6 +68,13 @@ export function migrate(raw: Record<string, unknown>): Settings {
   // Everyone but Anna has left the cast (Hiyori in 0.5, the others in 0.6).
   if (!characters.some(character => character.id === value.characterId))
     value.characterId = characters[0].id
+  if (value.personality && typeof value.personality === 'object') {
+    const profile = value.personality as Record<string, unknown>
+    if (!profile.type)
+      value.personality = { ...profile, type: ({ gentle: 'INFJ', direct: 'INTJ', curious: 'ENTP', playful: 'ESFP' } as Record<string, string>)[String(profile.tone)] ?? 'INFJ' }
+  }
+  if (value.onboardingComplete === undefined && (value.modelVerified || value.sessionFile))
+    value.onboardingComplete = true
   return v.parse(settingsSchema, value) as Settings
 }
 
@@ -68,12 +84,14 @@ export const defaultSettings = (): Settings => ({ version: 2, kernel: 'pi', char
 export class SettingsStore {
   value: Settings = defaultSettings()
   migratedFrom?: number
+  /** Where settings that could not be read were kept; Anna then started with defaults. */
+  quarantined?: string
   private writing = Promise.resolve()
   constructor(readonly directory: string) {}
   async load() {
     await mkdir(this.directory, { recursive: true, mode: 0o700 })
     try {
-      const raw = JSON.parse(await readFile(join(this.directory, 'settings.json'), 'utf8')) as Record<string, unknown>
+      const raw = JSON.parse((await readFile(join(this.directory, 'settings.json'), 'utf8')).replace(/^\uFEFF/, '')) as Record<string, unknown>
       this.value = migrate(raw)
       if (raw.version !== this.value.version) {
         this.migratedFrom = typeof raw.version === 'number' ? raw.version : 1
@@ -81,8 +99,15 @@ export class SettingsStore {
       }
     }
     catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+      if (error instanceof SyntaxError || v.isValiError(error)) {
+        this.quarantined = await quarantine(join(this.directory, 'settings.json'))
+        // Starting with defaults would let the next save replace the only copy.
+        if (!this.quarantined)
+          throw error
+      }
+      else if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error
+      }
     }
   }
 

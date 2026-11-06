@@ -20,7 +20,7 @@ async function main() {
     await page.locator('.model-canvas[data-state="ready"]').waitFor({ timeout: 30000 })
     const info = await desktop.evaluate(({ app, Menu }) => ({ packaged: app.isPackaged, root: app.getAppPath(), version: app.getVersion(), menu: Menu.getApplicationMenu().items.map(item => item.label) }))
     assert(info.packaged)
-    assert.equal(info.root, join(bundle, 'Contents/Resources/app'))
+    assert.equal(info.root, join(bundle, 'Contents/Resources/app.asar'))
     assert.deepEqual(info.menu, ['Anna', '编辑', '窗口'])
     await desktop.evaluate(({ Menu }) => Menu.getApplicationMenu().items[0].submenu.items.find(item => item.label === '设置…').click())
     await page.getByRole('dialog', { name: '模型与设置' }).waitFor()

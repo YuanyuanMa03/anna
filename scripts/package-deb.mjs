@@ -10,7 +10,7 @@ import process from 'node:process'
  * Chromium's sandbox the usual way: a setuid chrome-sandbox, plus an AppArmor profile on Ubuntu 23.10+.
  * The file name has no version, so https://github.com/…/releases/latest/download/Anna-linux-amd64.deb always works.
  */
-const arch = { x64: 'amd64', arm64: 'arm64' }[process.arch]
+const arch = 'amd64'
 
 const desktop = `[Desktop Entry]
 Name=Anna
@@ -65,8 +65,8 @@ exit 0
 `
 
 async function main() {
-  if (process.platform !== 'linux' || !arch)
-    throw new Error('Build the .deb on Linux (x64 or arm64)')
+  if (process.platform === 'win32')
+    throw new Error('Build the .deb on macOS or Linux: Windows cannot keep its executable bits')
   const source = resolve('dist/linux/Anna')
   if (!existsSync(join(source, 'anna-bin')))
     throw new Error('Run pnpm package:linux first: dist/linux/Anna/anna-bin is missing')
@@ -93,9 +93,9 @@ async function main() {
     `Installed-Size: ${size}`,
     'Maintainer: Anna contributors <https://github.com/YuanyuanMa03/anna>',
     'Homepage: https://anna.mayuanyuan.top',
-    'Depends: libgtk-3-0 | libgtk-3-0t64, libnss3, libasound2 | libasound2t64, libsecret-1-0, libnotify4, xdg-utils',
+    'Depends: libgtk-3-0 | libgtk-3-0t64, libnss3, libasound2 | libasound2t64, libsecret-1-0, libnotify4, libgbm1, xdg-utils',
     // Anna runs terminal commands in a bubblewrap sandbox, which needs these.
-    'Recommends: bubblewrap, socat, ripgrep',
+    'Recommends: bubblewrap, socat',
     'Description: A desktop companion who codes alongside you',
     ' Anna is a companion who chats with you and gets real work done:',
     ' reading code, editing files and running tests, with Claude Code-style',

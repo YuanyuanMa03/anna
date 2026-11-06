@@ -6,7 +6,7 @@ Anna's code is licensed under the PolyForm Noncommercial License 1.0.0 (see `LIC
 from the author (see `COMMERCIAL.md`). Anna v0.4.1 and earlier were released under the MIT license, and those releases
 keep it.
 
-Anna retains selected Project AIRI rendering patterns under MIT. Original copyright: 2024-PRESENT Neko Ayaka.
+Anna retains selected Project AIRI rendering patterns and adapts its speech pipeline design under MIT. Original copyright: 2024-PRESENT Neko Ayaka.
 The original license is in `assets/licenses/AIRI-MIT.txt`.
 
 The renderer uses AIRI's Pixi 6 and pixi-live2d-display foundation. The Vue stage owns the canvas, ticker, model, resize observer, and disposal.
@@ -31,7 +31,12 @@ Sources:
 - https://www.live2d.com/learn/sample/model-terms/
 - https://www.live2d.com/eula/live2d-free-material-license-agreement_jp.html
 
-System speech uses macOS voices through Chromium. No voice data is part of this repository.
+Anna does not use system speech synthesis. Speech output uses an explicitly configured model service.
+Local speech recognition uses @sherpaw/asr, @sherpaw/preloader and @sherpaw/shared 0.3.0
+(https://github.com/sumimakito/sherpaw, Apache-2.0, Copyright 2025 Makito).
+The bundled WASM runtime and preloader retain their upstream licenses; a copy is in
+`assets/licenses/Sherpaw-Apache-2.0.txt`. Recognition model weights and voice data are not included
+and require their own applicable licenses.
 The agent kernel is pi (`@earendil-works/pi-*`). Shell commands are isolated with Anthropic's `@anthropic-ai/sandbox-runtime` (Apache-2.0).
 The Weixin channel follows the protocol of Tencent's openclaw-weixin (MIT); its license is in `assets/licenses/Tencent-Weixin-MIT.txt`.
 Agent detection and provider presets follow cc-switch (https://github.com/farion1231/cc-switch, MIT, © Jason Young); the config locations and install commands of Kimi Code, Oh My Pi, DeepSeek Harness and Antigravity CLI come from its `*_config.rs` and `misc.rs`. The other recognised local agents and how they speak ACP come from the Agent Client Protocol registry (https://github.com/agentclientprotocol/registry). `packages/agents/presets.json` is generated from cc-switch's preset files by `scripts/sync-ccswitch-presets.mjs`; referral parameters are removed. The Codex model catalog (`packages/agents/codex-catalog.ts`) is ported from cc-switch's `codex_config.rs`, and `packages/agents/codex-catalog/*.json` are copied from its bundled templates (`deepseek.json` is DeepSeek's official Codex catalog as cc-switch ships it). The balance and quota lookups (`packages/agents/usage.ts`), the speed test, universal providers and the import-link format follow cc-switch's implementation and documentation.

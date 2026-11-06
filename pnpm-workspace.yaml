@@ -3,6 +3,9 @@ packages:
   - plugins/*
 patchedDependencies:
   mesh-avatar@0.4.0: patches/mesh-avatar@0.4.0.patch
+# Session helpers use the installed CLI; do not ship another Claude executable.
+ignoredOptionalDependencies:
+  - '@anthropic-ai/claude-agent-sdk-*'
 onlyBuiltDependencies:
   - electron
   - esbuild

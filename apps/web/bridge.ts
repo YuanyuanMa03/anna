@@ -1,4 +1,5 @@
 import type { AnnaBridge, AnnaEvent, Command, Reply } from '../../packages/shared/contracts'
+import type { VoiceReply, VoiceRequest } from '../../packages/voice/contracts'
 import { shortPaths } from '../desktop/src/online'
 
 /** Same contracts as Electron; a per-tab random capability replaces the desktop IPC boundary. */
@@ -17,6 +18,11 @@ export async function installWebBridge() {
   interface WithSnapshot { snapshot?: { workspace?: { path?: string } } }
   const rememberRoot = (value: WithSnapshot) => { root ||= value.snapshot?.workspace?.path ?? '' }
   const bridge: AnnaBridge = {
+    // The online edition has no local ASR/TTS endpoints; the UI hides its voice entry points, and any
+    // request that still arrives is answered, not left hanging.
+    async voice(_request: VoiceRequest): Promise<VoiceReply> {
+      return { ok: false, error: '在线体验暂不支持语音，请下载桌面版。' }
+    },
     async invoke(command: Command): Promise<Reply> {
       const response = await fetch('./api/command', { method: 'POST', headers: headers(), body: JSON.stringify(command) })
       const reply = await response.json() as Reply

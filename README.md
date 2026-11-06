@@ -16,13 +16,15 @@ and calls in Claude Code or Codex when they fit better. When a decision is yours
 
 **English** · [简体中文](README.zh-CN.md) · [Website](https://anna.mayuanyuan.top) · [Try it online](https://modelscope.cn/studios/mayy101184/anna)
 
-<img src="docs/media/work.webp" alt="Anna finishing a real task with DeepSeek: her reply, the steps she took and the delivery card" width="880">
+<img src="docs/media/desktop-v060.webp" alt="Anna v0.6.0: her room and first-run brain setup" width="880">
 
 </div>
 
 ## What’s new in v0.6.0
 
-Anna now has her own body and room. Create your own Anna from a portrait or a `.mavatar` file while keeping her personality and memory. This release also adds a brain picker and ACP kernel support, and fixes version display and memory attribution.
+Anna now has her own body and room. Create your own Anna from a portrait or a `.mavatar` file while keeping her personality and memory. This release also adds a brain picker and experimental ACP kernel support (off by default), and fixes version display and memory attribution.
+
+**Updating from v0.5.1 or earlier:** install v0.6.0 manually once. The release signing key was replaced; older versions cannot verify updates signed by the new key. Folder and Keychain access may need to be authorized again.
 
 ## Meet Anna
 
@@ -43,6 +45,8 @@ She has two forms, her own body and a Live2D anime form, and you switch between 
 capabilities). You can also make her your own: under 更多 → 创造我的 Anna, give her a picture and five clicks, or a finished
 `.mavatar`, and she takes that look. Her personality and memory stay the same.
 
+Quick creation runs locally without a model or network. The result breathes, turns, blinks and speaks, with simpler expressions and no flowing hair. A vision-capable brain can refine it using the full tools, usually over tens of minutes.
+
 Her words float beside her face and fade, approval and delivery cards come out of her hand, and whenever Claude Code or
 Codex does a job, whether she handed it over or you sent it with `@claude` or `@codex`, she takes the result back, checks
 the changes with her own tools (and quick tests when there are some), and tells you whether you can rely on it. Reviewing
@@ -62,7 +66,7 @@ brings up something another agent did, she says whose it was instead of taking c
   the Claude Code format and matching (`Bash(pnpm test *)`, `Edit(src/**)`), and Anna's own keys and data are always off-limits.
 - 📦 **An OS sandbox for real.** Shell commands run under Seatbelt (macOS) or bubblewrap (Linux) through
   Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime). They can write only to the workspace,
-  and every new domain needs your approval.
+  and network approval follows the permission mode. When available, the sandbox also permits temporary folders and package caches. Windows and environments without a sandbox require more command approvals. External Claude Code / Codex processes use their own permission mechanisms.
 - ↩️ **Every change is reviewable and undoable.** Each task ends with a delivery card: see the diff, or roll back with one click.
 - 🔀 **cc-switch, built in.** A providers tab per agent (Claude Code, Codex, Gemini CLI): 289 presets from cc-switch,
   searchable, or your own; universal providers (one gateway for all three); a speed test across a provider's
@@ -75,29 +79,28 @@ brings up something another agent did, she says whose it was instead of taking c
   with a circuit breaker per provider. Switch on global routing and the Claude Code or Codex you run in a terminal goes
   through Anna too (its config goes back when Anna quits). MCP and skills sync and usage stats come next.
 - 💬 **WeChat remote.** Message Anna from your phone through WeChat ClawBot. She queues the task and messages back when
-  it's done. Approvals stay on the desktop.
+  it's done. Reply `1` or `0` in WeChat for ordinary approvals; high-risk actions still require the desktop.
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/media/delegation.webp" alt="Anna supervising Claude Code"></td>
-    <td width="33%"><img src="docs/media/result.webp" alt="Delivery card with diff and undo"></td>
-    <td width="33%"><img src="docs/media/agents.webp" alt="Detected coding agents and providers"></td>
+    <td width="33%"><img src="docs/media/brains-v060.webp" alt="Choose her brain"></td>
+    <td width="33%"><img src="docs/media/create-v060.webp" alt="Create your Anna from a picture"></td>
+    <td width="33%"><img src="docs/media/agents-v060.webp" alt="External agents and providers"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Supervising Claude Code</sub></td>
-    <td align="center"><sub>Delivery card: diff and undo</sub></td>
-    <td align="center"><sub>Detected agents and providers</sub></td>
+    <td align="center"><sub>Choose her brain</sub></td>
+    <td align="center"><sub>Create your Anna from a picture</sub></td>
+    <td align="center"><sub>External agents and providers</sub></td>
   </tr>
 </table>
 
 ## Install
 
 > [!TIP]
-> Want to meet her before installing? The whole Anna runs in the browser on
-> [ModelScope Studio](https://modelscope.cn/studios/mayy101184/anna), on free models: no install, no API key, and each visitor gets their own sandboxed
-> session. The page is in Chinese, like the app.
+> Want to meet her before installing? Try the browser edition on
+> [ModelScope Studio](https://modelscope.cn/studios/mayy101184/anna), on free models: no install, no API key, and each visitor gets an isolated Linux account, workspace and temporary memory. WeChat, local provider configuration and switching brains require the desktop. The interface reports whether a command sandbox is available. The page is in Chinese, like the app.
 
-<p align="center"><img src="docs/media/online-demo.webp" alt="The online demo: Anna runs the tests, finds the off-by-one in planner.js, fixes it and hands over a delivery card" width="720"></p>
+<p align="center"><img src="docs/media/online-v060.webp" alt="Current ModelScope edition: visitor session, tour and desktop-only features" width="880"></p>
 
 Download an installer and double-click it:
 
@@ -127,8 +130,7 @@ prompt appears, because files fetched by `curl` or PowerShell carry no quarantin
 updates are installed from inside the app (the `.deb` lives in a system folder, so there the update opens the download
 page and you install the new package over the old one).
 
-Anna isn't notarized: there is no paid Apple developer account. Instead, every build is signed with the same
-self-signed identity, so macOS keeps folder permissions across updates. The Keychain is stricter: without an Apple
+Anna isn't notarized: there is no paid Apple developer account. Version 0.6.0 uses a rebuilt self-signed identity. Upgrading from an older version may require fresh folder authorization; future permission retention depends on macOS. The Keychain is stricter: without an Apple
 team ID it ties the saved-keys entry to each build's exact code hash, so the first time a new version reads your keys,
 macOS asks for your login password once. Click **Always Allow**; that version won't ask again. The installers are
 short; [read them first](website/public/install.sh) if you like.
@@ -137,10 +139,9 @@ On Linux, Anna installs into `~/.local/share/anna-app` with an `anna` command an
 later block the unprivileged user namespaces that Chromium's sandbox needs. On those systems the `anna` launcher
 starts without that sandbox (and says so) instead of failing to start. To keep the sandbox, install with
 `curl -fsSL https://anna.mayuanyuan.top/install.sh | ANNA_INSTALL_APPARMOR=1 bash`, which uses sudo to add a small
-AppArmor profile for Anna. Details are in [docs/architecture.md](docs/architecture.md#linux-chromium-sandbox).
+AppArmor profile for Anna. Support status is in [release and operations](docs/release-operations.md#linux-support).
 
-On first launch, open **Model & Settings** and add a provider: DeepSeek works out of the box, and any HTTPS endpoint
-speaking the OpenAI or Anthropic protocol works too. Keys are encrypted with the OS keychain (Keychain, DPAPI or
+A fresh install has no preconfigured model. Open the top-right brain picker: use an installed, signed-in Claude Code or Codex, or open **Model & Settings** to connect pi to DeepSeek or an HTTPS provider speaking OpenAI or Anthropic protocols. Keys are encrypted with the OS keychain (Keychain, DPAPI or
 libsecret). Then pick a folder, tell Anna you trust it, and give her a task. Press <kbd>Shift</kbd>+<kbd>Tab</kbd> to
 switch permission modes.
 
@@ -163,7 +164,7 @@ switch permission modes.
 
 Approval cards offer **Deny**, **Allow once**, **Allow for this session** and **Always allow**. "Always allow"
 writes a Claude Code-format rule to the workspace. Tasks that come in over WeChat always run in Ask mode. Details are in
-[docs/permissions.md](docs/permissions.md).
+[docs/architecture.md#permission-policy](docs/architecture.md#permission-policy).
 
 ## Other agents
 
@@ -171,22 +172,22 @@ writes a Claude Code-format rule to the workspace. Tasks that come in over WeCha
 |---|:---:|:---:|---|---|
 | Claude Code | ✅ | ✅ | step by step, via `--permission-prompt-tool stdio` | verified on a real machine |
 | Codex | ✅ | ✅ | step by step, via `app-server` JSON-RPC | verified on a real machine |
-| Gemini CLI | ✅ | ✅ ACP | once, before the task; as brain, sandboxed, asked calls via her gate | built from the protocol |
-| OpenCode | ✅ | ✅ ACP | once, before the task; as brain, sandboxed, asked calls via her gate | built from the protocol |
+| Gemini CLI | ✅ | experimental ACP | once, before the task; as brain, sandboxed, asked calls via her gate | built from the protocol |
+| OpenCode | ✅ | experimental ACP | once, before the task; as brain, sandboxed, asked calls via her gate | built from the protocol |
 | Pi | ✅ | | once, before the task | built from the docs |
 | Claude Desktop, OpenClaw, Hermes, Oh My Pi, DeepSeek Harness, Antigravity CLI | detect + switch provider | | | |
-| Grok Build, MiniMax Code, Kimi Code | detect + switch provider | ✅ ACP | sandboxed, asked calls via her gate | built from the protocol |
-| Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | ✅ ACP | sandboxed, asked calls via her gate | built from the protocol |
+| Grok Build, MiniMax Code, Kimi Code | detect + switch provider | experimental ACP | sandboxed, asked calls via her gate | built from the protocol |
+| Qwen Code, Cursor CLI, GitHub Copilot CLI, Goose, Factory Droid, Auggie, CodeBuddy Code, Qoder CLI, Cline, Kilo | detect | experimental ACP | sandboxed, asked calls via her gate | built from the protocol |
 
 The brain chip in the corner (「用 pi 思考 ▾」) lists every brain on this machine with what stands between it and thinking,
 and switches in one click. Someone without a model is offered a signed-in Claude Code or Codex instead.
 
 Agents in the catalog that speak the Agent Client Protocol (ACP) can be her brain too, running inside her sandbox, but this
 is off by default: it has only run against protocol fakes, not a real agent. Set `ANNA_ACP=1` to try it (see
-[docs/kernels.md](docs/kernels.md#acp-brains)).
+[docs/architecture.md#kernels-and-delegation](docs/architecture.md#acp-brains)).
 
 Anna snapshots the workspace before each delegation, so whatever another agent changes can be diffed and undone too.
-See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new agent.
+See [docs/architecture.md#kernels-and-delegation](docs/architecture.md#kernels-and-delegation) for the protocols and how to add a new agent.
 
 ## How it works
 
@@ -227,9 +228,11 @@ flowchart LR
 - **The policy engine is a pure function.** Given mode, rules, workspace and tool call, it returns allow, ask or deny.
   Path resolution mirrors pi's exactly and follows symlinks. The OS sandbox is the real boundary.
 
-More in [docs/architecture.md](docs/architecture.md).
+Read the [architecture](docs/architecture.md), [iteration roadmap](docs/roadmap.md), and [release and operations guide](docs/release-operations.md).
 
 ## Development
+
+[Voice conversation](docs/architecture.md#speech) connects directly to local speech services or cloud APIs, with independent recognition and synthesis settings. The desktop package needs no New API, gateway, Python or model weights to start. Camera, screen observation and the service workbench have been removed; existing brains, tools and memories remain available.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -245,10 +248,13 @@ tools. Her data lives in `~/Library/Application Support/Anna` on macOS, `%APPDAT
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
 pnpm build && pnpm test:scripted           # desktop acceptance with a scripted model, no API key needed
-pnpm package:mac                           # or package:windows / package:linux
+ANNA_TEST_SHOW=1 pnpm test:scripted       # the same, with the window shown (on a Mac it runs hidden by default)
+pnpm package:mac                           # or package:windows / package:linux; then package:dmg, package:windows-installer, package:deb
+pnpm verify:package windows                # or linux: checks a package without running it
+pnpm smoke:package                         # starts this system's package; pass a path for an installed app
 ```
 
-CI runs all of this on macOS, Windows and Linux. To test against the agents installed on your machine, run
+The Windows and Linux packages can also be built on a Mac. The installers need `makensis` and `dpkg-deb` (on macOS: `brew install makensis dpkg`). A package built this way still has to be started on its own system before it counts as working. To test against the agents installed on your machine, run
 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`.
 
 <details>
@@ -281,9 +287,7 @@ Anna has changed brains three times, and she's still Anna.
 
 ## Among her peers
 
-Anna sits where three kinds of projects meet: AI companions like Project AIRI, desktop pets that watch your coding
-agents like Clawd on Desk, and desktop shells for coding agents like cc-switch and AionUi. What she does better, where
-she still falls short, and which projects she learned from are in [docs/comparison.md](docs/comparison.md).
+The dated project comparison and influences are preserved in [docs/reviews/comparison.md](docs/reviews/comparison.md).
 
 ## Roadmap
 
@@ -292,7 +296,7 @@ she still falls short, and which projects she learned from are in [docs/comparis
 - [ ] Verify the Gemini CLI, OpenCode and Pi adapters on real machines
 - [ ] MCP and skills sync across agents; usage statistics
 - [x] Anna's own tools (memory, delegation) when Claude Code or Codex is the brain
-- [ ] A command sandbox on Windows
+- [ ] Windows permission modes without an OS command sandbox (see the iteration roadmap)
 - [ ] Phoneme-level lip sync
 
 ## Contributing

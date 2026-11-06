@@ -16,13 +16,15 @@
 
 [English](README.md) · **简体中文** · [官网](https://anna.mayuanyuan.top) · [在线体验](https://modelscope.cn/studios/mayy101184/anna)
 
-<img src="docs/media/work.webp" alt="Anna 连接 DeepSeek 完成一个真实任务：回复、执行过的步骤和交付卡" width="880">
+<img src="docs/media/desktop-v060.webp" alt="Anna v0.6.0：房间舞台与首次启动的大脑选择" width="880">
 
 </div>
 
 ## v0.6.0 更新
 
-Anna 现在有自己的本体和房间，也可以用人物图或 `.mavatar` 创造你的 Anna；外观变化不影响她的性格和记忆。新增一键选择大脑与 ACP 内核支持，并修复版本显示和长期记忆的来源记录。
+Anna 现在有自己的本体和房间，也可以用人物图或 `.mavatar` 创造你的 Anna；外观变化不影响她的性格和记忆。新增一键选择大脑；ACP 内核为默认关闭的实验功能，并修复版本显示和长期记忆的来源记录。
+
+**从 v0.5.1 或更早版本升级：**请手动安装一次 v0.6.0。本次更换了发布签名密钥，旧版无法验证新密钥签署的更新；文件夹和钥匙串访问可能需要重新授权。
 
 ## 认识 Anna
 
@@ -35,6 +37,8 @@ Anna 现在有自己的本体和房间，也可以用人物图或 `.mavatar` 创
 
 她有两种形态，本体和 Live2D 二次元形态，可以在“外观与能力”里切换。你也可以创造你自己的 Anna：在 更多 → 创造我的 Anna 里，给她一张人物图再点五下，或者给她一个做好的 `.mavatar`，她就变成那个样子，性格和记忆不变。
 
+快速制作完全在本机完成，不用联网或模型。快速版能呼吸、转头、眨眼和张嘴，但头发不会飘，表情较简单。要精修，可以把素材交给有看图能力的大脑，用完整工具处理，通常需要几十分钟。
+
 她的话浮在脸旁，说完会淡去；确认卡和交付卡从她手里递出来。不管是她自己把活交给 Claude Code 或 Codex，还是你用 `@claude`、`@codex` 派的活，结果都会回到她手里：她用自己的工具检查改动（有很快的测试也会跑），再告诉你能不能放心用。审阅一次 `@` 派的活要多花一轮模型调用，可以在“外观与能力”里关掉；大脑本身是 Claude Code 或 Codex 时不审阅。她的日记（长期记忆）和工作记录在换大脑后都还在。提到别的 agent 做的事，她会说明是谁做的，不抢功。
 
 ## 她能做什么
@@ -42,30 +46,30 @@ Anna 现在有自己的本体和房间，也可以用人物图或 `.mavatar` 创
 - 🧠 **真正的 agent 大脑**：基于 [pi coding agent](https://github.com/earendil-works/pi) SDK，有文件工具、终端、上下文压缩、自动重试和可续接的会话。大脑也可以换成 **Claude Code** 或 **Codex**，共同记忆、状态和派活这些自带工具通过本机的 MCP 服务一起带过去。
 - 🤝 **会派活**：像 [cc-switch](https://github.com/farion1231/cc-switch) 一样识别你电脑上已装的 coding agent。输入 `@claude 修一下那个不稳定的测试`，Claude Code 就会开工，它的授权请求出现在 *Anna 的* 确认卡上。
 - 🛡️ **Claude Code 式权限模式**：规划、谨慎、协作、放手，每种模式有自己的站姿。规则沿用 Claude Code 的格式和匹配方式（`Bash(pnpm test *)`、`Edit(src/**)`），Anna 自己的密钥和数据永远碰不到。
-- 📦 **真正的系统沙箱**：终端命令通过 Anthropic 的 [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) 运行在 Seatbelt（macOS）或 bubblewrap（Linux）里。只能写工作区，每个新域名都要你同意才能联网。
+- 📦 **真正的系统沙箱**：终端命令通过 Anthropic 的 [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) 运行在 Seatbelt（macOS）或 bubblewrap（Linux）里。沙箱可用时，只能写工作区、临时目录和包管理缓存；联网按权限模式确认。Windows 或沙箱不可用时，界面会说明状态，修改类命令需要更多确认。Claude Code / Codex 的外部进程另有其自身权限机制。
 - ↩️ **改动可查看、可撤销**：每个任务结束都有交付卡，可以看 diff，也可以一键撤销。
 - 🔀 **内置 cc-switch**：每个 agent（Claude Code、Codex、Gemini CLI）都有服务商页：来自 cc-switch 的 289 个预设（可搜索）或自己填；统一服务商（一个网关给三个 agent 用）；多地址测速；余额和 Coding Plan 额度；导入链接（cc-switch 格式）和导出 / 导入。选好的服务商用于派活和当大脑的 Claude Code / Codex，也可以写进 agent 自己的配置（先备份，可一键恢复）；在面板、托盘里切，或者直接让伙伴帮你切。Codex 用第三方模型时会带上模型目录，也可以直接用 DeepSeek（原生支持 Responses API）；只支持 Chat Completions 的服务商经 Anna 的本地路由接给 Claude Code 和 Codex，在本机转换格式，真实密钥只留在 Anna 里。给 Claude Code 或 Codex 设上备用服务商，正在用的出错时会自动换下一家，每家服务商都有熔断保护。打开“终端也走 Anna 的路由”，你在终端里直接运行的 Claude Code 或 Codex 也经过 Anna（Anna 退出时恢复原配置）。MCP 和 Skills 同步、用量统计在下一阶段。
-- 💬 **微信远程派活**：通过微信 ClawBot 在手机上给 Anna 发任务，她会排队执行，做完后发回结果。授权仍然只在桌面端进行。
+- 💬 **微信远程派活**：通过微信 ClawBot 在手机上给 Anna 发任务，她会排队执行，做完后发回结果。普通授权可以在微信回复 `1` 允许、`0` 拒绝；高风险操作仍需在桌面确认。
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/media/delegation.webp" alt="Anna 督工 Claude Code"></td>
-    <td width="33%"><img src="docs/media/result.webp" alt="交付卡：diff 与撤销"></td>
-    <td width="33%"><img src="docs/media/agents.webp" alt="识别到的 agent 与服务商"></td>
+    <td width="33%"><img src="docs/media/brains-v060.webp" alt="选择她的大脑"></td>
+    <td width="33%"><img src="docs/media/create-v060.webp" alt="用图片创造你的 Anna"></td>
+    <td width="33%"><img src="docs/media/agents-v060.webp" alt="外部 agent 与服务商"></td>
   </tr>
   <tr>
-    <td align="center"><sub>督工 Claude Code</sub></td>
-    <td align="center"><sub>交付卡：diff 与撤销</sub></td>
-    <td align="center"><sub>识别到的 agent 与服务商</sub></td>
+    <td align="center"><sub>选择她的大脑</sub></td>
+    <td align="center"><sub>用图片创造你的 Anna</sub></td>
+    <td align="center"><sub>外部 agent 与服务商</sub></td>
   </tr>
 </table>
 
 ## 安装
 
 > [!TIP]
-> 想先见见她再决定装不装？[魔搭创空间](https://modelscope.cn/studios/mayy101184/anna)上有完整的 Anna 在线版，用免费模型：不用安装，不用填 API Key，每位访客都有自己独立的沙箱会话。
+> 想先见见她再决定装不装？[魔搭创空间](https://modelscope.cn/studios/mayy101184/anna)上有 Anna 浏览器体验版，用免费模型：不用安装，不用填 API Key。每位访客有独立的 Linux 账号、工作区和临时记忆；微信、本机服务商配置及换大脑需要桌面版。命令沙箱是否可用以界面状态为准。
 
-<p align="center"><img src="docs/media/online-demo.webp" alt="在线体验：Anna 跑测试，找到 planner.js 里少算一天的 bug，修好后交出交付卡" width="720"></p>
+<p align="center"><img src="docs/media/online-v060.webp" alt="当前魔搭在线版：独立会话、体验引导与桌面版功能说明" width="880"></p>
 
 下载安装包，双击安装：
 
@@ -91,9 +95,13 @@ irm https://anna.mayuanyuan.top/install.ps1 | iex
 
 安装脚本会下载最新版本、校验 SHA-256，然后完成安装。用 `curl` 或 PowerShell 下载的文件不带隔离标记，所以不会弹出 Gatekeeper 或 SmartScreen 的拦截。不管用哪种方式装，之后的更新都在应用内完成（`.deb` 装在系统目录里，更新时会打开下载页，下载新的安装包覆盖安装即可）。
 
-Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每个版本都用同一个自签名身份签名，所以升级后文件夹授权会保留。钥匙串更严格：没有 Apple 团队 ID 时，保存密钥的钥匙串条目只认每个版本的代码哈希，所以每次升级后新版本第一次读取密钥时，macOS 会请你输入一次登录密码。点“始终允许”后，这个版本就不会再问。安装脚本很短，可以[先读一遍](website/public/install.sh)再运行。
+Anna 没有经过 Apple 公证（作者没有付费开发者账号），但v0.6.0 起使用重建的自签名身份；旧版本升级时可能需要重新授权文件夹。后续使用同一身份签名，但权限保留仍取决于 macOS。钥匙串更严格：没有 Apple 团队 ID 时，保存密钥的钥匙串条目只认每个版本的代码哈希，所以每次升级后新版本第一次读取密钥时，macOS 会请你输入一次登录密码。点“始终允许”后，这个版本就不会再问。安装脚本很短，可以[先读一遍](website/public/install.sh)再运行。
 
-第一次启动时，在“模型与设置”里配置服务商：DeepSeek 开箱即用，任何兼容 OpenAI 或 Anthropic 协议的 HTTPS 端点也可以用。密钥由系统凭据库加密保存（Keychain、DPAPI 或 libsecret）。然后选择一个文件夹，告诉 Anna 你信任它，就可以派活了。按 <kbd>Shift</kbd>+<kbd>Tab</kbd> 切换权限模式。
+第一次启动不预设模型。点右上角“用 pi 思考”：如果已安装并登录 Claude Code 或 Codex，可以直接选它；也可以选“模型与设置”，为内置 pi 配置 DeepSeek 或兼容 OpenAI / Anthropic 协议的 HTTPS 服务。密钥由系统凭据库加密保存（Keychain、DPAPI 或 libsecret）。然后选择一个文件夹，告诉 Anna 你信任它，就可以派活了。按 <kbd>Shift</kbd>+<kbd>Tab</kbd> 切换权限模式。
+
+## 语音对话与轻量安装
+
+桌面端直接连接本地语音服务或云端 API，识别和合成可以分别选择。不需要本地 New API、服务工作台、Python 或模型权重即可启动。摄像头、屏幕观察和视觉分析已移除，现有大脑、工具、记忆和形象保留。打开“语音对话”录音或选择音频，核对识别文字后发送，可同时开启模型语音回复。详见[语音配置与本地服务说明](docs/architecture.md#speech)。
 
 ## 权限模式
 
@@ -109,7 +117,7 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每�
 | Anna 自己的密钥和数据 | ❌ | ❌ | ❌ | ❌ |
 | 舞台表现 | 安静地看笔记 | 专注 | 中性 | 前倾、节奏快 |
 
-确认卡有四个选项：**拒绝**、**仅允许一次**、**本次会话都允许**、**总是允许**。“总是允许”会把一条 Claude Code 格式的规则写进这个工作区。微信派来的任务始终按“谨慎”执行。详见 [docs/permissions.md](docs/permissions.md)。
+确认卡有四个选项：**拒绝**、**仅允许一次**、**本次会话都允许**、**总是允许**。“总是允许”会把一条 Claude Code 格式的规则写进这个工作区。微信派来的任务始终按“谨慎”执行。详见 [docs/architecture.md#permission-policy](docs/architecture.md#permission-policy)。
 
 ## 其他 agent
 
@@ -120,11 +128,12 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每�
 | Gemini CLI | ✅ | ACP | 派活前确认一次 | 按协议实现 |
 | OpenCode | ✅ | ACP | 派活前确认一次 | 按协议实现 |
 | Pi | ✅ | | 派活前确认一次 | 按文档实现 |
-| Claude Desktop、Grok Build、OpenClaw、Hermes、MiniMax Code | 识别 + 切换服务商 | | | |
+| Claude Desktop、Grok Build、OpenClaw、Hermes、MiniMax Code、Kimi Code、Oh My Pi、DeepSeek Harness、Antigravity CLI | 识别 + 切换服务商 | 部分支持实验性 ACP | | |
+| Qwen Code、Cursor CLI、GitHub Copilot CLI、Goose、Factory Droid、Auggie、CodeBuddy Code、Qoder CLI、Cline、Kilo | 识别 | 实验性 ACP | | |
 
-说 ACP 的 agent 也可以当她的大脑，在她的沙箱里运行。这项默认关闭，因为还只跑过协议模拟，没跑过真实 agent；想试的话设置 `ANNA_ACP=1`（见 [docs/kernels.md](docs/kernels.md#acp-brains)）。
+说 ACP 的 agent 也可以当她的大脑，在她的沙箱里运行。这项默认关闭，因为还只跑过协议模拟，没跑过真实 agent；想试的话设置 `ANNA_ACP=1`（见 [docs/architecture.md#kernels-and-delegation](docs/architecture.md#acp-brains)）。
 
-每次派活前，Anna 会给工作区拍一张快照，所以其他 agent 做的改动同样可以看 diff、可以撤销。协议细节和新增 agent 的方法见 [docs/kernels.md](docs/kernels.md)。
+每次派活前，Anna 会给工作区拍一张快照，所以其他 agent 做的改动同样可以看 diff、可以撤销。协议细节和新增 agent 的方法见 [docs/architecture.md#kernels-and-delegation](docs/architecture.md#kernels-and-delegation)。
 
 ## 工作原理
 
@@ -132,7 +141,7 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但每�
 - **agent 不会卡住窗口**：core 运行在独立进程里，崩溃后会自动重启，并从内核的 JSONL 日志恢复会话。
 - **策略引擎是纯函数**：输入模式、规则、工作区和工具调用，输出允许、询问或拒绝。路径解析与 pi 完全一致，并会跟随符号链接。真正的安全边界是系统沙箱。
 
-架构图和更多细节见 [docs/architecture.md](docs/architecture.md)。
+参阅[架构](docs/architecture.md)、[迭代路线](docs/roadmap.md)和[发布与运维](docs/release-operations.md)。
 
 ## 开发
 
@@ -142,7 +151,7 @@ pnpm assets          # 下载她的 Live2D 模型（不在 Git 里，见 NOTICE.
 pnpm dev:desktop
 ```
 
-只需要装 [pnpm](https://pnpm.io/zh/installation)，macOS、Windows、Linux，Intel 或 ARM 都一样。它会自动切换到锁定的 10.33.0，并下载锁定的 Node 24.21.0（和 Electron 44 内置的版本相同），所以每台电脑用的工具都一样。她的数据在 macOS 的 `~/Library/Application Support/Anna`、Windows 的 `%APPDATA%\Anna`、Linux 的 `$XDG_DATA_HOME/anna`。全新安装没有预设模型，从左上角的大脑入口选一个就行。
+只需要装 [pnpm](https://pnpm.io/zh/installation)，macOS、Windows、Linux，Intel 或 ARM 都一样。它会自动切换到锁定的 10.33.0，并下载锁定的 Node 24.21.0（和 Electron 44 内置的版本相同），所以每台电脑用的工具都一样。她的数据在 macOS 的 `~/Library/Application Support/Anna`、Windows 的 `%APPDATA%\Anna`、Linux 的 `$XDG_DATA_HOME/anna`。全新安装没有预设模型，从右上角的大脑入口选一个就行。
 
 在中国大陆下载慢的话，先设置镜像再安装：
 
@@ -161,10 +170,13 @@ export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # 单元测试、真实 pi 工具循环（faux 模型）、真实沙箱
 pnpm build && pnpm test:scripted           # 桌面验收，使用脚本模型，不需要 API Key
-pnpm package:mac                           # 或 package:windows / package:linux
+ANNA_TEST_SHOW=1 pnpm test:scripted       # 同上，但显示窗口（Mac 上默认在后台运行）
+pnpm package:mac                           # 或 package:windows / package:linux；然后 package:dmg、package:windows-installer、package:deb
+pnpm verify:package windows                # 或 linux：不运行，只检查安装包
+pnpm smoke:package                         # 启动本机系统对应的包；也可以传入已安装应用的路径
 ```
 
-CI 会在 macOS、Windows、Linux 上运行以上全部检查。想用你电脑上真实安装的 agent 测试，运行 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`。
+Windows 和 Linux 包也可以在 Mac 上构建。安装器需要 `makensis` 和 `dpkg-deb`（macOS 上运行 `brew install makensis dpkg`）。这样构建的包，仍然要在对应系统上启动过才算可用。想用你电脑上真实安装的 agent 测试，运行 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`。
 
 ## 一路走来
 
@@ -177,9 +189,8 @@ Anna 换了三次大脑，她一直是 Anna。
 
 ## 同类项目
 
-Anna 站在三类项目的交汇处：Project AIRI 这样的 AI 伴侣，Clawd on Desk 这样盯着 coding agent 的桌宠，
-以及 cc-switch、AionUi 这样的 coding agent 桌面工具。她强在哪里、还差在哪里、向谁学了什么，写在
-[docs/comparison.zh-CN.md](docs/comparison.zh-CN.md)。
+项目早期的对比和借鉴记录保存在
+[docs/reviews/comparison.zh-CN.md](docs/reviews/comparison.zh-CN.md)。
 
 ## 路线图
 

@@ -86,6 +86,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .speech .bubble, .speech .suggestions button { pointer-events: auto }
 .speech.left { text-align: right; align-items: flex-end }
 .speaker { font-size: 10px; letter-spacing: 3px; color: #fff6ee; text-shadow: 0 1px 8px #2a1b3acc }
+.speaker small { letter-spacing: 0; color: var(--muted) }
 .bubble { position: relative; max-height: 42vh; overflow: auto; scrollbar-width: none; padding: 12px 16px; border-radius: 18px; text-align: left; background: #fffaf6e0; box-shadow: 0 10px 34px #2a1b3a33; backdrop-filter: blur(14px) }
 .bubble::-webkit-scrollbar { display: none }
 .bubble p { margin: 0; font-size: 15px; line-height: 1.85 }
@@ -140,10 +141,10 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
 .dock { padding: 8px 26px 18px; display: flex; flex-direction: column; gap: 8px; z-index: 3 }
 /* The whisper line at her feet: one line to talk to her, the mode and controls tucked beside it. */
 .composer { max-width: 920px; width: 100%; margin: 0 auto; padding: 6px 8px 6px 18px; border: 1px solid #e3d9ea; border-radius: 999px; background: var(--glass); box-shadow: var(--shadow); backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px }
-.composer textarea { flex: 1; min-width: 0; height: 26px; border: 0; resize: none; outline: none; background: transparent; padding: 3px 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden }
+.composer textarea { flex: 1; min-width: 240px; height: 26px; border: 0; resize: none; outline: none; background: transparent; padding: 3px 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden }
 .composer textarea:focus { white-space: normal; overflow: auto }
 .composer textarea::placeholder { color: #b1a2bc; overflow: hidden; text-overflow: ellipsis }
-.composer-actions { display: flex; align-items: center; gap: 8px; flex: none }
+.composer-actions { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end }
 .composer-actions label { font-size: 11px; color: #a491b2; display: flex; align-items: center; gap: 5px; margin-right: auto }
 .composer-actions input { accent-color: #947aae }
 .composer-actions button { font-size: 12px; padding: 8px 15px }
@@ -303,13 +304,6 @@ pre.diff .hunk { color: #8b7aa0; background: #f2edf7 }
 .brain-options button small { font-size: 10px; color: var(--muted) }
 .brain-options button[aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
 
-/* ── Stage interaction: hand tethers ──────────────── */
-.stage-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; overflow: visible }
-.tether { fill: none; stroke: var(--mode, var(--accent)); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 2 7; opacity: .55; animation: tether-flow 1.4s linear infinite }
-.tether.review { stroke: var(--accent); stroke-dasharray: 1 6; opacity: .45 }
-@keyframes tether-flow { to { stroke-dashoffset: -18 } }
-.speaker small { letter-spacing: 0; color: var(--muted) }
-@media (prefers-reduced-motion: reduce) { .tether { animation: none } }
 
 /* External agents: tabs, and the providers section (cc-switch in Anna) */
 .sheet.agents { width: 640px }
@@ -396,3 +390,73 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .web-notice a { color: #7d64a3; font-weight: 500; white-space: nowrap; }
 .web-notice a:hover { text-decoration: underline; }
 .quota-notice a { flex: none; margin-left: auto; color: #7d64a3; font-weight: 600; }
+
+/* Brain cards and the first meeting share the same connection form. */
+.life-sheet { width: min(820px, 94vw); max-width: 94vw }
+.life-onboarding .sheet-backdrop { backdrop-filter: none; background: #47365018 }
+.life-onboarding .life-sheet { width: min(700px, 62vw) }
+.life-onboarding .stage { right: calc(min(700px, 62vw) + 36px) }
+.brain-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 16px 0 }
+.brain-tile { border: 1px solid var(--line); border-radius: 16px; padding: 6px; background: var(--glass) }
+.brain-tile > button:first-child, .personality-card { width: 100%; min-height: 124px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; border-radius: 12px }
+.brain-tile small, .personality-card small { font-size: 11px; line-height: 1.5; color: var(--muted) }
+.brain-tile.unavailable { background: #efedf0 }
+.brain-tile.unavailable > button:first-child { opacity: .55 }
+.brain-cards [aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
+.vendor-cards { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) }
+.vendor-cards .vendor-card { min-height: 64px; gap: 4px; padding: 10px 12px }
+.brain-symbol { display: grid; place-items: center; min-width: 32px; height: 32px; border-radius: 10px; background: #e8dff0; color: #705786; font-size: 14px }
+.vital-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px }
+.vital-grid article { padding: 16px; border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere }
+.vital-grid small { color: var(--muted) }
+.capability-tags { display: flex; flex-wrap: wrap; gap: 8px }
+.workspace-path { overflow-wrap: anywhere }
+.life-sheet progress { width: 100%; accent-color: var(--accent) }
+.life-sheet .sheet-tabs { flex-wrap: wrap }
+.connection-inline pre { white-space: pre-wrap; overflow-wrap: anywhere }
+
+.life-sheet .check-row { flex-direction: row; align-items: center; margin: 10px 0 }
+.life-sheet .check-row input { width: auto; margin: 0 }
+.history-preview { white-space: pre-wrap; overflow-wrap: anywhere }
+
+.approval-request label { display: flex; flex-direction: column; gap: 6px; font-size: 12px }
+.approval-request textarea, .life-sheet textarea { width: 100%; min-height: 90px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; font: inherit; resize: vertical }
+.approval-request select { border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit }
+
+/* ── 我们: their time together ───────────────────── */
+.together-stats { margin: 10px 0 14px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) }
+.together-stats article { padding: 10px 14px }
+.together-stats span { display: block; margin-top: 2px }
+.portrait { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: var(--glass); margin-bottom: 14px }
+.portrait h4 { margin: 0 0 6px }
+.portrait-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px }
+.portrait-group > small { min-width: 56px; color: var(--muted) }
+.memory-chip { padding: 4px 10px; border-radius: 999px; background: #f0e9f7; color: #5a4670; font-size: 13px }
+.portrait-group[data-kind=agreement] .memory-chip { background: #fbefe2; color: #7a5530 }
+.portrait-group[data-kind=experience] .memory-chip { background: #e6f1ec; color: #3f6654 }
+.story { list-style: none; margin: 0 0 18px; padding: 0 0 0 16px; border-left: 2px solid #e8dff0 }
+.story li { position: relative; display: grid; grid-template-columns: 72px 1fr; gap: 8px; padding: 6px 0; font-size: 13px }
+.story li::before { content: ''; position: absolute; left: -22px; top: 11px; width: 10px; height: 10px; border-radius: 50%; background: #d9cce6 }
+.story li[data-kind=memory]::before { background: #c9a6e4 }
+.story li[data-kind=milestone]::before { background: var(--accent); box-shadow: 0 0 0 4px #f0e9f7 }
+.story li[data-kind=milestone] span { font-weight: 600 }
+.story time { color: var(--muted) }
+
+/* ── Talking with her ─────────────────────────────── */
+.talk-button[aria-pressed=true] { background: var(--accent); color: #fff; border-color: var(--accent) }
+.talk-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #f0e9f7; color: #5a4670; font-size: 12px; white-space: nowrap }
+.talk-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #c0392b; animation: talk-pulse 1.2s ease-in-out infinite }
+.talk-state[data-state=hearing]::before { background: #2e9e6b }
+.talk-state[data-state=recognising]::before, .talk-state[data-state=thinking]::before { background: var(--accent) }
+@keyframes talk-pulse { 50% { opacity: .35 } }
+@media (prefers-reduced-motion: reduce) { .talk-state::before { animation: none } }
+
+/* With the talk controls the actions can outgrow one line: the box grows a second line instead of squeezing the text. */
+.composer { flex-wrap: wrap; row-gap: 6px; border-radius: 26px }
+
+/* ── Installing a brain, step by step ─────────────── */
+.install-steps { margin: 8px 0; padding-left: 20px; line-height: 1.7; font-size: 13px }
+.install-command { display: flex; gap: 8px; align-items: center }
+.install-command pre { flex: 1; margin: 0; padding: 8px 10px; border-radius: 10px; background: #f3eef7; overflow-x: auto; font-size: 12px }
+
+.talk-button { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0 !important; border-radius: 50% }

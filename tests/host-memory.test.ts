@@ -56,7 +56,12 @@ it('a line a Claude Code brain stores through anna_memory names Anna and the bra
     kernel: 'claude-code',
     turn: async (context) => { await context.tools.find(tool => tool.name === 'anna_memory')!.execute({ action: 'remember', text: '复习时喜欢番茄钟' }) },
   })
-  await host.execute({ type: 'send', text: '我复习时喜欢用番茄钟' })
+  const pending = host.execute({ type: 'send', text: '我复习时喜欢用番茄钟' })
+  await expect.poll(() => host.snapshot().approvals.length).toBe(1)
+  const question = host.snapshot().approvals[0]!
+  expect(host.snapshot().memories).toEqual([])
+  await host.execute({ type: 'approval', id: question.id, allow: true })
+  await pending
   expect(host.snapshot().memories.map(item => [item.text, item.by])).toEqual([['复习时喜欢番茄钟', 'Anna（Claude Code）']])
   await host.close()
 })
@@ -109,4 +114,32 @@ it('repeating a line already in the diary names whoever first wrote it', async (
   expect(host.snapshot().memories.map(item => item.by)).toEqual(['Anna'])
   expect(log.notes.at(-1)).toContain('Anna 记下')
   await host.close()
+})
+
+it('accepts user edits on a memory approval and keeps its source', async () => {
+  const { host } = await setup({ turn: async (context) => { await context.tools.find(tool => tool.name === 'anna_memory')!.execute({ action: 'remember', text: '喜欢绿茶' }) } })
+  try {
+    const pending = host.execute({ type: 'send', text: '我喜欢喝茶' })
+    await expect.poll(() => host.snapshot().approvals.length).toBe(1)
+    const question = host.snapshot().approvals[0]!
+    await host.execute({ type: 'approval', id: question.id, allow: true, memory: { text: '喜欢淡一点的绿茶', kind: 'preference' } })
+    await pending
+    expect(host.snapshot().memories[0]).toMatchObject({ text: '喜欢淡一点的绿茶', by: 'Anna' })
+  }
+  finally { await host.close() }
+})
+
+it('removes corrected and forgotten memories from newly constructed model instructions', async () => {
+  const { host, log } = await setup()
+  try {
+    await host.execute({ type: 'send', text: '记住：喜欢绿茶' })
+    const id = host.snapshot().memories[0]!.id
+    await host.execute({ type: 'memory-update', id, memory: { text: '喜欢红茶', kind: 'preference' } })
+    expect(log.contexts.at(-1)!.instructions.join('\n')).not.toContain('喜欢绿茶')
+    expect(log.contexts.at(-1)!.instructions.join('\n')).toContain('喜欢红茶')
+    await host.execute({ type: 'memory-forget', id })
+    expect(log.contexts.at(-1)!.instructions.join('\n')).not.toContain('喜欢红茶')
+    expect(host.snapshot().settings.brainSessions).toBeUndefined()
+  }
+  finally { await host.close() }
 })

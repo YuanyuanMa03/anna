@@ -1,6 +1,6 @@
 import type { AnnaPhase } from '../packages/shared/contracts'
 import { describe, expect, it } from 'vitest'
-import { aim, beats, BodyDirector, bodyRegions, frameBody, headPoint, motionSeconds, regionAt, voiceAt } from '../packages/character/body'
+import { aim, beats, BodyDirector, bodyRegions, frameBody, headPoint, motionSeconds, regionAt } from '../packages/character/body'
 
 const awake = (now: number) => ({ pointerAt: now, activeAt: now, listening: false })
 /** Runs the director frame by frame and collects the motions it starts. */
@@ -52,7 +52,7 @@ describe('body director', () => {
     expect(director.frame('waiting', 150, awake(150)).motion).toBe('tilt')
   })
   it('starts a phase with its entry motion, then repeats its working motion', () => {
-    const motions = run(new BodyDirector(), 'thinking', 0, 9000)
+    const motions = run(new BodyDirector(), 'thinking', 0, 30000)
     expect(motions[0]).toEqual({ at: 0, motion: 'think' })
     expect(motions.length).toBeGreaterThanOrEqual(2)
     expect(motions.every(item => item.motion === 'think')).toBe(true)
@@ -117,6 +117,19 @@ describe('body director', () => {
     expect(director.frame('idle', 1000, awake(1000))).toMatchObject({ look: 'person', idle: false })
     expect(director.frame('idle', 9000, { pointerAt: 1000, activeAt: 9000, listening: false })).toMatchObject({ look: 'free', idle: true })
   })
+  it('breaks eye contact even while the pointer keeps moving, then can attend again', () => {
+    const director = new BodyDirector()
+    expect(director.frame('idle', 0, awake(0)).look).toBe('person')
+    expect(director.frame('idle', 2000, awake(2000)).look).toBe('free')
+    expect(director.frame('idle', 5000, awake(5000)).look).toBe('free')
+    expect(director.frame('idle', 7000, awake(7000)).look).toBe('person')
+  })
+  it('leaves quiet time between work gestures and asks for approval only once', () => {
+    const motions = run(new BodyDirector(), 'thinking', 0, 30000)
+    for (let index = 1; index < motions.length; index++)
+      expect(motions[index]!.at - motions[index - 1]!.at - motionSeconds.think * 1000).toBeGreaterThanOrEqual(8000)
+    expect(run(new BodyDirector(), 'waiting', 0, 30000)).toEqual([{ at: 0, motion: 'tilt' }])
+  })
   it('turns stage cues and mode gestures into motions', () => {
     const director = new BodyDirector()
     director.cue('celebrate', 0)
@@ -146,29 +159,6 @@ describe('body aim', () => {
   it('adds the beat head offset to a fixed look', () => {
     const params = aim({ x: 0, y: 0 }, { z: -7 })
     expect(params).toMatchObject({ gazeX: 0, gazeY: 0, angleZ: -3 })
-  })
-})
-
-describe('speech rhythm', () => {
-  it('closes between syllables and opens in the middle of one', () => {
-    expect(voiceAt(0)).toBeLessThan(0.05)
-    const peaks = Array.from({ length: 40 }, (_, index) => voiceAt(index / 6.5 + 0.5 / 6.5))
-    expect(peaks.filter(level => level > 0.4).length).toBeGreaterThan(20)
-  })
-  it('stays between 0 and 1 and pauses for breath within every few seconds', () => {
-    const levels = Array.from({ length: 600 }, (_, index) => voiceAt(index / 100))
-    expect(Math.min(...levels)).toBeGreaterThanOrEqual(0)
-    expect(Math.max(...levels)).toBeLessThanOrEqual(1)
-    for (let start = 0; start < 3; start++) {
-      const window = levels.slice(start * 100, start * 100 + 300)
-      let quiet = 0
-      let longest = 0
-      for (const level of window) {
-        quiet = level < 0.05 ? quiet + 1 : 0
-        longest = Math.max(longest, quiet)
-      }
-      expect(longest).toBeGreaterThanOrEqual(15)
-    }
   })
 })
 

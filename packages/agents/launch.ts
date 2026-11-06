@@ -5,6 +5,7 @@ import { mcpServerName } from '../kernels/external/mcp'
 import { providerLaunch } from './providers'
 
 export interface LaunchInput {
+  verification?: boolean
   cwd: string
   prompt: string
   mode: PermissionMode
@@ -73,14 +74,14 @@ export function buildLaunch(agent: DelegateAgent, input: LaunchInput): Launch {
     case 'claude': {
       const deny = input.denyPaths.flatMap(pathRules)
       return {
-        args: ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio', '--permission-mode', claudeModes[input.mode], '--settings', JSON.stringify({ permissions: { deny } }), ...(input.instructions ? ['--append-system-prompt', input.instructions] : []), ...claudeTools(input.tools), ...(input.sessionId ? ['--resume', input.sessionId] : [])],
+        args: ['-p', ...(input.verification ? ['--tools', '', '--bare'] : []), '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio', '--permission-mode', claudeModes[input.mode], '--settings', JSON.stringify({ permissions: { deny } }), ...(input.instructions ? ['--append-system-prompt', input.instructions] : []), ...claudeTools(input.tools), ...(input.sessionId ? ['--resume', input.sessionId] : [])],
         env: provider.env,
         stdin: [{ type: 'user', message: { role: 'user', content: input.prompt } }],
       }
     }
     case 'codex':
       return {
-        args: ['app-server', ...provider.args, ...codexTools(input.tools)],
+        args: ['app-server', ...(input.verification ? ['-c', 'features.shell_tool=false', '-c', 'web_search="disabled"'] : []), ...provider.args, ...codexTools(input.tools)],
         env: provider.env,
         files: provider.files,
         stdin: [],

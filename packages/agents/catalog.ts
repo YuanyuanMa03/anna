@@ -5,7 +5,7 @@
  * and can have their provider switched (cc-switch's apps); `detect` agents are other local agents Anna recognises.
  */
 export type AgentId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi' | 'claude-desktop' | 'grok' | 'openclaw' | 'hermes' | 'mcode'
-  | 'kimi' | 'omp' | 'dsh' | 'agy' | 'qwen' | 'cursor' | 'copilot' | 'goose' | 'droid' | 'auggie' | 'codebuddy' | 'qoder' | 'cline' | 'kilo'
+  | 'kimi' | 'omp' | 'dsh' | 'agy' | 'workbuddy' | 'qoder-cn' | 'trae' | 'qwen' | 'cursor' | 'copilot' | 'goose' | 'droid' | 'auggie' | 'codebuddy' | 'qoder' | 'cline' | 'kilo'
 export type AgentTier = 'delegate' | 'switch' | 'detect'
 
 export interface AgentDescriptor {
@@ -24,12 +24,15 @@ export interface AgentDescriptor {
   install?: string
   update?: string[]
   /** Desktop app bundle paths (relative to home or absolute). */
-  appPaths?: string[]
+  appPaths?: string[] | Partial<Record<NodeJS.Platform, string[]>>
   /** Arguments that start the installed agent as an Agent Client Protocol server, so it can be Anna's brain (from the ACP registry). */
   acp?: string[]
 }
 
 export const catalog: AgentDescriptor[] = [
+  { id: 'workbuddy', label: 'WorkBuddy', tier: 'detect', binaries: [], configDir: '.workbuddy', configFiles: [], appPaths: { darwin: ['/Applications/WorkBuddy.app', 'Applications/WorkBuddy.app'], win32: ['%LOCALAPPDATA%/Programs/WorkBuddy/WorkBuddy.exe', '%LOCALAPPDATA%/WorkBuddy/WorkBuddy.exe', '%ProgramFiles%/WorkBuddy/WorkBuddy.exe'] } },
+  { id: 'qoder-cn', label: 'Qoder CN', tier: 'detect', binaries: ['qodercn'], configDir: '.qoder-cn', configFiles: [] },
+  { id: 'trae', label: 'TRAE CLI', tier: 'detect', binaries: ['traecli'], configDir: '.trae', configFiles: [] },
   {
     id: 'claude',
     label: 'Claude Code',
