@@ -121,6 +121,12 @@ jobs:
           if (Test-Path "$app\Anna.exe") { throw 'Anna.exe is still there after uninstalling' }
           if (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Anna') { throw 'the uninstall entry is still registered' }
           Write-Host "installed, then uninstalled with: $uninstall"
+      - name: Start Linux before installing the AppArmor package profile
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb
+          xvfb-run -a pnpm smoke:package
       - name: Test the .deb (Linux)
         if: runner.os == 'Linux'
         run: |

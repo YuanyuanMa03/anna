@@ -132,7 +132,7 @@ try {
     const at = (x, y) => ({ x: canvas.x + x * canvas.width / 1672, y: canvas.y + y * canvas.height / 941 })
     const hair = at(840, 120)
     await page.mouse.click(hair.x, hair.y)
-    await page.locator('.body-stage[data-motion="shy"][data-expression="shy"]').waitFor({ timeout: 3000 })
+    await page.locator('.body-stage[data-motion="giggle"][data-expression="smile"]').waitFor({ timeout: 3000 })
     await page.waitForTimeout(2600)
     await page.mouse.dblclick(hair.x, hair.y)
     await page.locator('.body-stage[data-motion="wink"]').waitFor({ timeout: 3000 })

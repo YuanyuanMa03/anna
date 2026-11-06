@@ -14,6 +14,7 @@ export interface Anchors { mouth?: { x: number, y: number }, hand?: { x: number,
 const props = withDefaults(defineProps<{ character: AnnaCharacter, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, voiceLevel?: number, zoom?: number, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, voiceLevel: 0, zoom: 1, align: 0.5 })
 /** `anchors` reports where her mouth and her outward hand are on screen (viewport pixels), a few times a second. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors] }>()
+let mouth = 0
 const element = ref<HTMLDivElement>()
 const state = ref('loading')
 const error = ref('')
@@ -91,7 +92,10 @@ function perform() {
   core.setParameterValueById('ParamCheek', Math.max(0, smile - 0.6))
   for (const name of ['ParamEyeLOpen', 'ParamEyeROpen'])
     core.multiplyParameterValueById(name, pose.eyeOpen)
-  core.setParameterValueById('ParamMouthOpenY', props.speaking ? Math.max(0, Math.min(1, props.voiceLevel)) * 0.65 : 0)
+  // Smoothed: raw 20 ms loudness made her mouth flutter. It opens quickly and closes more slowly, like speech.
+  const target = props.speaking ? Math.max(0, Math.min(1, props.voiceLevel)) * 0.55 : 0
+  mouth += (target - mouth) * (target > mouth ? 0.3 : 0.12)
+  core.setParameterValueById('ParamMouthOpenY', mouth)
 }
 
 async function load() {

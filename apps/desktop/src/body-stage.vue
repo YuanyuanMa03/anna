@@ -13,6 +13,8 @@ import { Director, gestureForModeChange } from '../../../packages/character/dire
 const props = withDefaults(defineProps<{ body: Pick<NonNullable<Companion['body']>, 'crop' | 'hands'> & { path?: string, archive?: Blob }, name: string, phase?: AnnaPhase, mode?: PermissionMode, speaking?: boolean, voiceLevel?: number, listening?: boolean, align?: number, cue?: { kind: MotionCue, at: number } }>(), { phase: 'idle', mode: 'edit', speaking: false, voiceLevel: 0, listening: false, align: 0.5 })
 /** `anchors` reports her mouth and the hand she holds things in (viewport pixels). `unavailable` says why the body cannot be shown. */
 const emit = defineEmits<{ poke: [], anchors: [anchors: Anchors], unavailable: [reason: string] }>()
+/** The runtime's Relaxed lip sync (slow syllables, gentle closing), a little less open: the default flapped too fast. */
+const herLipSync = { granularity: 0, openness: 0.4, closeSpeed: 0 }
 const element = ref<HTMLDivElement>()
 const canvas = ref<HTMLCanvasElement>()
 const state = ref('loading')
@@ -39,7 +41,6 @@ let observer: ResizeObserver | undefined
 let frame = 0
 let disposed = false
 let gestureUntil = 0
-let weight = 0
 const look = { gazeX: 0, gazeY: 0, angleX: 0, angleY: 0, angleZ: 0 }
 const pointer = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY }
 let activeAt = performance.now()
@@ -129,9 +130,10 @@ function tick() {
     expression.value = next.expression
     avatar.setExpression(next.expression)
   }
-  const idle = next.idle && !reduced.matches
-  avatar.setAutoIdle(idle)
-  avatar.setAutoMotion(idle)
+  // The runtime's own random motions (idle and emotion sets) include the uncanny ones; her director plays calm ones.
+  // Blinking and breathing continue without them.
+  avatar.setAutoIdle(false)
+  avatar.setAutoMotion(false)
   playing.value = now < gestureUntil ? playing.value : ''
 
   // Gaze leads and the head follows; a playing motion gets most of the head back so it reads clearly.
@@ -139,8 +141,8 @@ function tick() {
   const target = aim(next.look, next.head, { dx: pointer.x - face.x, dy: pointer.y - face.y, reach: Math.max(320, placement.value.width * 0.35) })
   followBodyLook(look, target, (now - lastFrameAt) / 1000)
   lastFrameAt = now
-  weight += ((next.look === 'free' ? 0 : motion.value ? 0.3 : 0.8) - weight) * 0.08
-  avatar.setParameters(look, weight)
+  // Hold every gaze/head axis, even during motions: releasing pitch also reintroduced the runtime's automatic drift.
+  avatar.setParameters(look, 1)
 
   // Only actual playback drives the mouth; silence and text streaming keep it closed.
   const talking = props.speaking && !reduced.matches
@@ -194,7 +196,7 @@ onMounted(async () => {
     traceSilhouette(opened.assets['base.png']!).catch(() => {})
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', lipSync: { openness: 0.65 } })
+    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', ...(props.body.archive ? {} : { lipSync: herLipSync }) })
     if (disposed) {
       loaded.destroy()
       return

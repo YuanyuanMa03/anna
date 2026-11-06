@@ -37,7 +37,7 @@ export const copy = {
     meta: { title: 'Anna · 她在你的桌面上醒来', lang: 'zh-CN' },
     nav: { forms: '她的形态', meet: '认识她', demo: '一起干活', features: '能力', modes: '权限模式', download: '安装', home: 'Anna 首页' },
     hero: {
-      eyebrow: '源码公开 · 个人免费 · v1.0.0 · macOS / Windows / Linux',
+      eyebrow: '源码公开 · 个人免费 · v1.0.1 · macOS / Windows / Linux',
       title: ['她在你的桌面上', '醒来。'],
       desc: '陪你说话，替你做事，从不说谎。她有自己的样子、性情和记忆；会读代码、改文件、跑测试，遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。',
       github: '在 GitHub 上查看',
@@ -229,7 +229,7 @@ export const copy = {
     meta: { title: 'Anna · She wakes on your desktop', lang: 'en' },
     nav: { forms: 'Her forms', meet: 'Meet Anna', demo: 'Demo', features: 'Features', modes: 'Modes', download: 'Install', home: 'Anna home' },
     hero: {
-      eyebrow: 'Source available · free for personal use · v1.0.0 · macOS / Windows / Linux',
+      eyebrow: 'Source available · free for personal use · v1.0.1 · macOS / Windows / Linux',
       title: ['She wakes', 'on your desktop.'],
       desc: 'She keeps you company, does the work, and never lies to you. She has a face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
       github: 'View on GitHub',

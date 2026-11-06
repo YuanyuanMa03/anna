@@ -641,9 +641,9 @@ onBeforeUnmount(() => { stopTalk(); voicePlayer.stop(); window.removeEventListen
         <div class="composer-actions">
           <button type="button" class="talk-button" :aria-pressed="talking" :aria-label="talking || starting ? '结束对话' : '和她说话'" :title="talking || starting ? '结束对话（Esc）' : '和她说话'" :disabled="!talking && (configuring || !canChat || needsTrust)" @click="toggleTalk"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" /></svg></button>
           <span v-if="talking" class="talk-state" role="status" :data-state="recognising ? 'recognising' : running ? 'thinking' : preparing || speaking ? 'speaking' : talkState">{{ talkLabel }}</span>
-          <button v-if="(speaking || preparing) && !talking" type="button" @click="voicePlayer.stop()">停止说话</button>
+          <button :class="{ 'control-hidden': !(speaking || preparing) || talking }" :disabled="!(speaking || preparing) || talking" :aria-hidden="!(speaking || preparing) || talking" type="button" @click="voicePlayer.stop()">停止说话</button>
           <ModeSwitch ref="modeSwitch" :mode="mode" :trusted="snapshot.workspace.trusted" :platform="snapshot.platform.os" :sandboxed="snapshot.platform.sandbox.available" :auto-acknowledged="snapshot.settings.windowsAutoAcknowledged" :disabled="!canChat" @change="(next, acknowledge) => run({ type: 'mode', mode: next, acknowledge })" />
-          <button v-if="running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
+          <button :class="{ 'control-hidden': !running }" :disabled="!running" :aria-hidden="!running" type="button" @click="run({ type: 'stop' })">中断本轮</button>
           <button class="primary" :disabled="configuring || !input.trim() || !canChat || needsTrust" type="submit">{{ running ? '插话 ↗' : '发送 ↗' }}</button>
         </div>
       </form>

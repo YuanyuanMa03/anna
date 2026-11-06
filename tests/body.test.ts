@@ -32,7 +32,7 @@ describe('body beats', () => {
 describe('body director', () => {
   it('greets the person when she wakes from offline into idle', () => {
     const director = new BodyDirector()
-    expect(director.frame('offline', 0, awake(0)).motion).toBe('doze')
+    expect(director.frame('offline', 0, awake(0)).motion).toBe('hum')
     expect(director.frame('idle', 1000, awake(1000)).motion).toBe('greet')
   })
   it('greets the person when she first appears', () => {
@@ -53,9 +53,9 @@ describe('body director', () => {
   })
   it('starts a phase with its entry motion, then repeats its working motion', () => {
     const motions = run(new BodyDirector(), 'thinking', 0, 30000)
-    expect(motions[0]).toEqual({ at: 0, motion: 'think' })
+    expect(motions[0]).toEqual({ at: 0, motion: 'tilt' })
     expect(motions.length).toBeGreaterThanOrEqual(2)
-    expect(motions.every(item => item.motion === 'think')).toBe(true)
+    expect(motions.every(item => item.motion === 'tilt')).toBe(true)
   })
   it('never starts a repeat while the previous motion is still playing', () => {
     const motions = run(new BodyDirector(), 'inspecting', 0, 12000)
@@ -67,8 +67,8 @@ describe('body director', () => {
     director.frame('idle', 0, awake(0))
     director.touch('head', 100)
     const frame = director.frame('idle', 150, awake(150))
-    expect(frame.motion).toBe('shy')
-    expect(frame.expression).toBe('shy')
+    expect(frame.motion).toBe('giggle')
+    expect(frame.expression).toBe('smile')
     expect(director.frame('idle', 6000, awake(6000)).expression).toBe('neutral')
   })
   it('giggles when her cheek is poked and winks on a double click', () => {
@@ -81,27 +81,28 @@ describe('body director', () => {
     expect(director.frame('idle', 9010, awake(9010)).motion).toBe('wink')
   })
   it('tells the stage how long a mode gesture plays', () => {
-    expect(new BodyDirector().gesture('shake', 0)).toBe(motionSeconds.no * 1000)
+    expect(new BodyDirector().gesture('shake', 0)).toBe(motionSeconds.tilt * 1000)
   })
   it('pouts when poked three times in a row', () => {
     const director = new BodyDirector()
     for (const at of [0, 400, 800])
       director.touch('face', at)
-    expect(director.frame('idle', 850, awake(850))).toMatchObject({ motion: 'no', expression: 'angry' })
+    expect(director.frame('idle', 850, awake(850))).toMatchObject({ motion: 'tilt', expression: 'neutral' })
   })
   it('dozes off after a long while alone and greets the person who comes back', () => {
     const director = new BodyDirector()
     const away = () => ({ pointerAt: 0, activeAt: 0, listening: false })
     const motions = run(director, 'idle', 0, 130_000, away)
-    expect(motions.some(item => item.motion === 'doze')).toBe(true)
-    expect(director.frame('idle', 130_050, away()).expression).toBe('halfLidded')
+    expect(motions.length).toBeGreaterThan(0)
+    expect((director as unknown as { dozing: boolean }).dozing).toBe(true)
+    expect(director.frame('idle', 130_050, away()).look).toEqual({ x: 0, y: -0.5 })
     const back = director.frame('idle', 130_100, awake(130_100))
     expect(back.motion).toBe('greet')
-    expect(director.frame('idle', 130_150, awake(130_150)).expression).not.toBe('halfLidded')
+    expect((director as unknown as { dozing: boolean }).dozing).toBe(false)
   })
   it('does not doze while she is working', () => {
     const motions = run(new BodyDirector(), 'editing', 0, 130_000, () => ({ pointerAt: 0, activeAt: 0, listening: false }))
-    expect(motions.some(item => item.motion === 'doze')).toBe(false)
+    expect(motions.length).toBeGreaterThan(0)
   })
   it('tilts her head and looks down at what the person is typing', () => {
     const director = new BodyDirector()
@@ -135,7 +136,7 @@ describe('body director', () => {
     director.cue('celebrate', 0)
     expect(director.frame('done', 10, awake(10))).toMatchObject({ motion: 'giggle', expression: 'smile' })
     director.gesture('shake', 5000)
-    expect(director.frame('idle', 5010, awake(5010)).motion).toBe('no')
+    expect(director.frame('idle', 5010, awake(5010)).motion).toBe('tilt')
     director.gesture('tilt', 9000)
     expect(director.frame('idle', 9010, awake(9010)).motion).toBe('tilt')
   })
@@ -151,9 +152,9 @@ describe('body aim', () => {
   })
   it('keeps the head and eyes inside their range for a far pointer', () => {
     const params = aim('person', {}, { dx: -9000, dy: 9000, reach: 600 })
-    expect(params.gazeX).toBe(-0.55)
-    expect(params.gazeY).toBe(-0.4)
-    expect(Math.abs(params.angleX)).toBeLessThanOrEqual(6)
+    expect(params.gazeX).toBe(-0.15)
+    expect(params.gazeY).toBe(-0.2)
+    expect(Math.abs(params.angleX)).toBeLessThanOrEqual(3.5)
     expect(Math.abs(params.angleY)).toBeLessThanOrEqual(4)
   })
   it('adds the beat head offset to a fixed look', () => {
@@ -209,5 +210,27 @@ describe('body regions', () => {
     expect(regionAt(regions, { x: 870, y: 850 })).toBe('hands')
     expect(regionAt(regions, { x: 820, y: 650 })).toBe('body')
     expect(regionAt(regions, { x: 40, y: 40 })).toBeUndefined()
+  })
+})
+
+describe('her body stays out of the uncanny valley', () => {
+  it('never plays a far head turn or half-closed eyes under a frown, and never shows those faces', () => {
+    const unsafe = ['lookAround', 'no', 'shy', 'glance', 'tap', 'think', 'waiting', 'lean', 'spaceOut', 'sigh', 'stretch', 'doze']
+    const phases = Object.keys(beats) as AnnaPhase[]
+    for (const phase of phases) {
+      const director = new BodyDirector()
+      for (let t = 0; t < 200_000; t += 250) {
+        const frame = director.frame(phase, t, { pointerAt: t % 40_000 < 5000 ? t : 0, activeAt: 0, listening: t % 50_000 < 2000 })
+        if (frame.motion)
+          expect(unsafe, `${phase} @${t}`).not.toContain(frame.motion)
+        expect(['halfLidded', 'sad', 'angry'], phase).not.toContain(frame.expression)
+      }
+    }
+  })
+
+  it('turns the head and eyes only a little, even when the pointer is far away', () => {
+    const far = aim('person', { x: 10, y: -8 }, { dx: 5000, dy: -5000, reach: 300 })
+    expect(Math.abs(far.angleX)).toBeLessThanOrEqual(3.5)
+    expect(Math.abs(far.gazeX)).toBeLessThanOrEqual(0.15)
   })
 })

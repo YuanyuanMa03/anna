@@ -429,3 +429,14 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .install-command pre { flex: 1; margin: 0; padding: 8px 10px; border-radius: 10px; background: #f3eef7; overflow-x: auto; font-size: 12px }
 
 .talk-button { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0 !important; border-radius: 50% }
+
+/* Keep typing in the same place as task and voice controls change. */
+.composer { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 32px 40px; gap: 6px; padding: 8px 12px; }
+.composer textarea { width: 100%; min-width: 0; height: 32px; box-sizing: border-box; }
+.composer-actions { min-width: 0; height: 40px; flex-wrap: nowrap; justify-content: flex-end; gap: 6px; }
+.composer-actions .talk-button { flex: none; margin-right: auto; }
+.composer-actions .talk-state { position: absolute; bottom: calc(100% + 8px); left: 12px; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.composer-actions .mode-switch { flex: none; }
+.composer-actions .mode-switch button small { display: none; }
+.composer-actions > button:not(.talk-button) { flex: none; min-width: 76px; padding: 8px 10px; }
+.composer-actions .control-hidden { visibility: hidden; pointer-events: none; }
