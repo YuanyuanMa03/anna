@@ -378,6 +378,8 @@ p.warn { color: #9a6a24; margin: 4px 0 }
 .brain-tile.unavailable { background: #efedf0 }
 .brain-tile.unavailable > button:first-child { opacity: .55 }
 .brain-cards [aria-checked=true] { border-color: var(--accent); background: #f0e9f7 }
+.vendor-cards { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) }
+.vendor-cards .vendor-card { min-height: 64px; gap: 4px; padding: 10px 12px }
 .brain-symbol { display: grid; place-items: center; min-width: 32px; height: 32px; border-radius: 10px; background: #e8dff0; color: #705786; font-size: 14px }
 .vital-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px }
 .vital-grid article { padding: 16px; border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere }

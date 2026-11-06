@@ -222,6 +222,8 @@ export interface RuntimeSnapshot {
   starterTasks?: string[]
   welcome?: string
   externalHistory?: ExternalHistoryPage
+  /** The last model list asked for while setting up pi's model; `error` says why it is empty. */
+  modelList?: { baseURL: string, api: ModelSettings['api'], models: string[], error?: string, at: string }
   capabilities?: CapabilityReport
   actualModel?: string
   workRecords?: TaskRecord[]
@@ -270,6 +272,8 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'plugin', enabled: boolean }
   | { type: 'avatar-job', image: string }
   | { type: 'configure', model: ModelSettings, key: string } | { type: 'connect' }
+  /** The models a vendor offers: with the typed key, or the saved one when the address is the one it was saved for. */
+  | { type: 'model-list', model: Pick<ModelSettings, 'baseURL' | 'api'>, key?: string }
   | { type: 'restart' } | { type: 'stop' } | { type: 'new-session' }
   | { type: 'workspace', path: string }
   | { type: 'choose-workspace' }

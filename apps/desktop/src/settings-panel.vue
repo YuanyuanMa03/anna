@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Command, ModelSettings, RuntimeSnapshot } from '../../../packages/shared/contracts'
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { brainChoices } from '../../../packages/agents/brains'
 import { catalog } from '../../../packages/agents/catalog'
 import { installationGuide } from '../../../packages/agents/installation'
 import { companion } from '../../../packages/character/manifest'
+import { modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
 import ProvidersPanel from './components/providers-panel.vue'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean, inline?: boolean, section?: 'brain' | 'connection' }>()
@@ -33,10 +34,50 @@ function selectBrain(id: string) {
   emit('command', { type: 'kernel', id: id as RuntimeSnapshot['settings']['kernel'] })
 }
 
-function save() { emit('command', { type: 'configure', model: { ...model }, key: key.value }); key.value = '' }
-function selectProvider() {
-  if (model.provider === 'deepseek-official') { model.baseURL = 'https://api.deepseek.com'; model.model = 'deepseek-flash'; model.api = 'openai-completions' }
+function save() { emit('command', { type: 'configure', model: { ...model, model: model.model.trim() }, key: key.value }); key.value = '' }
+
+/** Vendor tiles, then a custom endpoint; DeepSeek stays on pi's own catalogue. */
+const vendorTiles = [...modelVendors, { id: 'custom', label: '自定义', hint: '兼容 OpenAI / Anthropic 的端点' }]
+const vendorId = ref(vendorFor(props.snapshot.settings.model)?.id ?? 'custom')
+const vendor = computed(() => modelVendors.find(item => item.id === vendorId.value))
+/** The saved key may only go back to the address it was saved for. */
+const savedKeyFits = computed(() => props.snapshot.hasKey && sameEndpoint(props.snapshot.settings.model.baseURL, model.baseURL))
+const list = computed(() => props.snapshot.modelList && sameEndpoint(props.snapshot.modelList.baseURL, model.baseURL) && props.snapshot.modelList.api === model.api ? props.snapshot.modelList : undefined)
+const choices = computed(() => [...new Set([...(list.value?.models ?? []), ...(vendor.value?.models ?? [])])])
+const requested = ref<string>()
+const listing = computed(() => requested.value !== undefined && (!props.snapshot.modelList || props.snapshot.modelList.at < requested.value))
+let timer: ReturnType<typeof setTimeout> | undefined
+function fetchModels() {
+  clearTimeout(timer)
+  if (!model.baseURL || (!key.value.trim() && !savedKeyFits.value))
+    return
+  const at = new Date().toISOString()
+  requested.value = at
+  // A command the host refuses outright never answers with a list; stop showing progress after a while.
+  setTimeout(() => {
+    if (requested.value === at)
+      requested.value = undefined
+  }, 20_000)
+  emit('command', { type: 'model-list', model: { baseURL: model.baseURL, api: model.api }, ...(key.value.trim() ? { key: key.value.trim() } : {}) })
 }
+/** Typing a key fetches the list once the user pauses. */
+function scheduleList() {
+  clearTimeout(timer)
+  if (key.value.trim().length >= 8)
+    timer = setTimeout(fetchModels, 800)
+}
+function pickVendor(id: string) {
+  vendorId.value = id
+  const picked = modelVendors.find(item => item.id === id)
+  if (picked)
+    Object.assign(model, vendorSettings(picked, picked.models[0] ?? ''))
+  else
+    model.provider = 'custom'
+  key.value = ''
+  if (picked && savedKeyFits.value)
+    fetchModels()
+}
+onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
@@ -70,17 +111,23 @@ function selectProvider() {
         </template>
         <template v-if="snapshot.settings.kernel === 'pi'">
           <h3>pi 的模型</h3>
-          <p class="small muted">还没有模型密钥？可以从 <a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer">DeepSeek 开放平台</a>注册账号，在 API Keys 中创建密钥，并查看账户余额。把密钥填到下面；它不同于聊天网站的登录密码。</p>
-          <p class="muted">模型提供商负责提供推理服务，模型 ID 是具体型号，API Key 是访问凭据。密钥加密保存在本机；发送任务时会把任务内容交给你选择的模型。</p>
+          <p class="small muted">选一家模型厂商，填入它的 API Key，Anna 会去取这个 Key 能用的模型。密钥加密保存在本机，只发给你选的这家厂商；发送任务时会把任务内容交给所选模型。API Key 不同于网站的登录密码。</p>
+          <div class="brain-cards vendor-cards" role="radiogroup" aria-label="模型厂商">
+            <button v-for="tile in vendorTiles" :key="tile.id" type="button" role="radio" class="personality-card vendor-card" :aria-checked="vendorId === tile.id" :disabled="busy" @click="pickVendor(tile.id)"><strong>{{ tile.label }}</strong><small>{{ tile.hint }}</small></button>
+          </div>
           <form @submit.prevent="save">
-            <label>模型提供商<select v-model="model.provider" @change="selectProvider"><option value="deepseek-official">DeepSeek · 官方 API（pi 内置目录）</option><option value="custom">自定义 · 兼容 OpenAI / Anthropic 的端点</option></select></label>
-            <template v-if="model.provider === 'custom'">
+            <template v-if="vendorId === 'custom'">
               <label>API 协议<select v-model="model.api"><option value="anthropic-messages">Anthropic Messages</option><option value="openai-completions">OpenAI Chat Completions</option><option value="openai-responses">OpenAI Responses</option></select></label>
               <label>API 端点<input v-model="model.baseURL" type="url" required aria-label="API 端点"></label>
             </template>
-            <label>模型 ID<input v-model="model.model" required aria-label="模型 ID" list="models"><datalist id="models"><option v-if="model.provider === 'deepseek-official'" value="deepseek-flash" /><option v-if="model.provider === 'deepseek-official'" value="deepseek-v4-pro" /><option v-if="model.provider === 'custom'" value="glm-5.3" /></datalist></label>
-            <label>API Key<input v-model="key" type="password" autocomplete="off" :placeholder="snapshot.hasKey ? '已保存，留空保持原密钥' : '输入供应商密钥'" aria-label="API Key"></label>
-            <button class="primary" :disabled="busy" type="submit">保存并连接</button>
+            <p v-else-if="vendor" class="small"><a :href="vendor.keyPage" target="_blank" rel="noreferrer">去 {{ vendor.label }} 领取 API Key</a></p>
+            <label>API Key<input v-model="key" type="password" autocomplete="off" :placeholder="savedKeyFits ? '已保存，留空保持原密钥' : '输入这个服务的 API Key'" aria-label="API Key" @input="scheduleList"></label>
+            <div class="card-actions left"><button type="button" :disabled="busy || listing || (!key.trim() && !savedKeyFits) || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
+            <p v-if="list?.error" class="error small" role="alert">{{ list.error }}</p>
+            <p v-else-if="list" class="small muted">这个 Key 可以用 {{ list.models.length }} 个模型{{ list.models.length ? '，可以在下面搜索或选择' : '' }}。</p>
+            <label>模型<input v-model="model.model" required aria-label="模型 ID" list="models" placeholder="搜索或填写模型 ID"><datalist id="models"><option v-for="id in choices" :key="id" :value="id" /></datalist></label>
+            <div v-if="vendor?.models.length" class="card-actions left"><span class="small muted">推荐：</span><button v-for="id in vendor.models" :key="id" type="button" :aria-pressed="model.model === id" @click="model.model = id">{{ id }}</button></div>
+            <button class="primary" :disabled="busy || !model.model.trim() || (!key.trim() && !savedKeyFits)" type="submit">保存并连接</button>
           </form>
         </template>
         <h3>共用 pi 的模型</h3>
