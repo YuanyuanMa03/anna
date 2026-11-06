@@ -104,7 +104,7 @@ export const copy = {
         { icon: '✓', title: '对你真诚', body: '不编造工具结果，没跑过的测试就说没跑过；超出权限的事，一定先问你。' },
       ],
     },
-    featuresIntro: '下面这些来自当前的迭代计划，已经完成开发，将随下一次应用内更新进入正式版。右边的截图都录制自真实的开发版。',
+    featuresIntro: '下面这些本领已经随 v1.0.1 进入正式版，应用内更新即可获得。右边的截图都录制自真实的正式版。',
     featuresHead: { eyebrow: 'JUST LANDED', title: ['她刚学会的', '新本事。'] },
     showcase: [
       {
@@ -296,7 +296,7 @@ export const copy = {
         { icon: '✓', title: 'Honest with you', body: 'No made-up tool results: a test she didn\'t run is a test she says she didn\'t run. Anything beyond her permissions, she asks first.' },
       ],
     },
-    featuresIntro: 'These come from the current iteration plan: development is complete, and they arrive in the stable line with the next in-app update. The screenshots are real captures from the development build.',
+    featuresIntro: 'These shipped in v1.0.1 and are one in-app update away. The screenshots are real captures from the release build.',
     featuresHead: { eyebrow: 'JUST LANDED', title: ['New skills,', 'just landed.'] },
     showcase: [
       {
