@@ -101,7 +101,7 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但v0.6.
 
 ## 语音对话与轻量安装
 
-桌面端直接连接本地语音服务或云端 API，识别和合成可以分别选择。不需要本地 New API、服务工作台、Python 或模型权重即可启动。摄像头、屏幕观察和视觉分析已移除，现有大脑、工具、记忆和形象保留。打开“语音对话”录音或选择音频，核对识别文字后发送，可同时开启模型语音回复。详见[语音配置与本地服务说明](docs/voice.md)。
+桌面端直接连接本地语音服务或云端 API，识别和合成可以分别选择。不需要本地 New API、服务工作台、Python 或模型权重即可启动。摄像头、屏幕观察和视觉分析已移除，现有大脑、工具、记忆和形象保留。打开“语音对话”录音或选择音频，核对识别文字后发送，可同时开启模型语音回复。详见[语音配置与本地服务说明](docs/architecture.md#speech)。
 
 ## 权限模式
 
@@ -117,7 +117,7 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但v0.6.
 | Anna 自己的密钥和数据 | ❌ | ❌ | ❌ | ❌ |
 | 舞台表现 | 安静地看笔记 | 专注 | 中性 | 前倾、节奏快 |
 
-确认卡有四个选项：**拒绝**、**仅允许一次**、**本次会话都允许**、**总是允许**。“总是允许”会把一条 Claude Code 格式的规则写进这个工作区。微信派来的任务始终按“谨慎”执行。详见 [docs/permissions.md](docs/permissions.md)。
+确认卡有四个选项：**拒绝**、**仅允许一次**、**本次会话都允许**、**总是允许**。“总是允许”会把一条 Claude Code 格式的规则写进这个工作区。微信派来的任务始终按“谨慎”执行。详见 [docs/architecture.md#permission-policy](docs/architecture.md#permission-policy)。
 
 ## 其他 agent
 
@@ -131,9 +131,9 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但v0.6.
 | Claude Desktop、Grok Build、OpenClaw、Hermes、MiniMax Code、Kimi Code、Oh My Pi、DeepSeek Harness、Antigravity CLI | 识别 + 切换服务商 | 部分支持实验性 ACP | | |
 | Qwen Code、Cursor CLI、GitHub Copilot CLI、Goose、Factory Droid、Auggie、CodeBuddy Code、Qoder CLI、Cline、Kilo | 识别 | 实验性 ACP | | |
 
-说 ACP 的 agent 也可以当她的大脑，在她的沙箱里运行。这项默认关闭，因为还只跑过协议模拟，没跑过真实 agent；想试的话设置 `ANNA_ACP=1`（见 [docs/kernels.md](docs/kernels.md#acp-brains)）。
+说 ACP 的 agent 也可以当她的大脑，在她的沙箱里运行。这项默认关闭，因为还只跑过协议模拟，没跑过真实 agent；想试的话设置 `ANNA_ACP=1`（见 [docs/architecture.md#kernels-and-delegation](docs/architecture.md#acp-brains)）。
 
-每次派活前，Anna 会给工作区拍一张快照，所以其他 agent 做的改动同样可以看 diff、可以撤销。协议细节和新增 agent 的方法见 [docs/kernels.md](docs/kernels.md)。
+每次派活前，Anna 会给工作区拍一张快照，所以其他 agent 做的改动同样可以看 diff、可以撤销。协议细节和新增 agent 的方法见 [docs/architecture.md#kernels-and-delegation](docs/architecture.md#kernels-and-delegation)。
 
 ## 工作原理
 
@@ -141,7 +141,7 @@ Anna 没有经过 Apple 公证（作者没有付费开发者账号），但v0.6.
 - **agent 不会卡住窗口**：core 运行在独立进程里，崩溃后会自动重启，并从内核的 JSONL 日志恢复会话。
 - **策略引擎是纯函数**：输入模式、规则、工作区和工具调用，输出允许、询问或拒绝。路径解析与 pi 完全一致，并会跟随符号链接。真正的安全边界是系统沙箱。
 
-架构图和更多细节见 [docs/architecture.md](docs/architecture.md)。
+参阅[架构](docs/architecture.md)、[迭代路线](docs/roadmap.md)和[发布与运维](docs/release-operations.md)。
 
 ## 开发
 
@@ -170,6 +170,7 @@ export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # 单元测试、真实 pi 工具循环（faux 模型）、真实沙箱
 pnpm build && pnpm test:scripted           # 桌面验收，使用脚本模型，不需要 API Key
+ANNA_TEST_SHOW=1 pnpm test:scripted       # 同上，但显示窗口（Mac 上默认在后台运行）
 pnpm package:mac                           # 或 package:windows / package:linux；然后 package:dmg、package:windows-installer、package:deb
 pnpm verify:package windows                # 或 linux：不运行，只检查安装包
 pnpm smoke:package                         # 启动本机系统对应的包；也可以传入已安装应用的路径
@@ -188,9 +189,8 @@ Anna 换了三次大脑，她一直是 Anna。
 
 ## 同类项目
 
-Anna 站在三类项目的交汇处：Project AIRI 这样的 AI 伴侣，Clawd on Desk 这样盯着 coding agent 的桌宠，
-以及 cc-switch、AionUi 这样的 coding agent 桌面工具。她强在哪里、还差在哪里、向谁学了什么，写在
-[docs/comparison.zh-CN.md](docs/comparison.zh-CN.md)。
+项目早期的对比和借鉴记录保存在
+[docs/reviews/comparison.zh-CN.md](docs/reviews/comparison.zh-CN.md)。
 
 ## 路线图
 

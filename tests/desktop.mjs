@@ -4,12 +4,10 @@ import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import electron from 'electron'
 import { _electron } from 'playwright'
-import { assertBuiltAssets } from './built-assets.mjs'
+import { desktopLaunch } from './desktop-launch.mjs'
 
 /** Real-model acceptance: a work task with tools, a real approval, the stage performing it, and session resume. */
-const root = process.cwd()
 await mkdir('.data', { recursive: true })
 await mkdir('artifacts', { recursive: true })
 const data = await mkdtemp(resolve('.data/e2e-'))
@@ -27,10 +25,7 @@ const evidence = { data, checks: [], phases: [], consoleErrors: [] }
 let desktop
 
 async function launch() {
-  const packaged = process.env.ANNA_PACKAGED_APP
-  if (!packaged)
-    assertBuiltAssets(root)
-  desktop = await _electron.launch({ executablePath: packaged ? join(packaged, 'Contents/MacOS/Anna') : electron, args: packaged ? [] : ['dist/host/apps/desktop/boot.js'], cwd: packaged ? '/' : root, env: { ...process.env, ANNA_DEV_URL: packaged ? 'http://127.0.0.1:9' : '', ANNA_TEST_CDP: '', ANNA_ROOT: packaged ? '/nonexistent/anna-source' : root, ANNA_DATA_DIR: data } })
+  desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_CDP: '' }))
   const page = await desktop.firstWindow()
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()

@@ -26,10 +26,10 @@ macOS, Windows and Linux.
 ## Guidelines
 
 - **Security first.** Anything that touches `packages/permissions`, the sandbox, the vault or the gate needs a
-  regression test that tries the bypass. Read [docs/permissions.md](docs/permissions.md) first.
+  regression test that tries the bypass. Read [docs/architecture.md#permission-policy](docs/architecture.md#permission-policy) first.
 - **Test at the public seams.** That means the policy engine's `decide()`, the Host commands, the agent decoders with
   recorded fixtures, and the scripted desktop run. Avoid tests that mock internals.
-- **New agents.** Follow [docs/kernels.md](docs/kernels.md#adding-an-agent). Record fixtures with
+- **New agents.** Follow [adding an agent](docs/architecture.md#adding-an-agent). Record fixtures with
   `scripts/record-agent.mjs`, which strips personal details.
 - **Shell scripts.** Brace variables that are followed by text (`${VAR}`), and keep user-facing messages in English.
   A test checks this.

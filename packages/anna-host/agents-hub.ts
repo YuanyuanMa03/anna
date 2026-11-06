@@ -14,11 +14,12 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { claudePickerRows, codexAggregateCatalog, modelKeyFor } from '../agents/aggregate'
-import { autoInstallable, catalog } from '../agents/catalog'
+import { catalog } from '../agents/catalog'
 import { codexCatalog } from '../agents/codex-catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
-import { detectAgents } from '../agents/detect'
+import { detectAgents, findCommand } from '../agents/detect'
 import { GlobalSwitcher, routedOnlyInAnna } from '../agents/global'
+import { installLaunch } from '../agents/install-launch'
 import { nodeEnvironment } from '../agents/node-environment'
 import { canRoute, chatReasoningOf, chatRouteOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna, upstreamOf } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
@@ -26,6 +27,7 @@ import { RoutingTakeover } from '../agents/takeover'
 import { queryUsage, usageKind } from '../agents/usage'
 import { failoverDefaults } from '../routing/breaker'
 import { routing, routingIfStarted } from '../routing/server'
+import { withSearchTools } from '../shared/search-path'
 import { SettingsStore } from './settings'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
@@ -804,10 +806,11 @@ export class AgentsHub {
     const entry = catalog.find(item => item.id === agent)
     if (!entry?.install)
       throw new Error('这个 agent 没有可自动执行的安装命令')
-    if (!autoInstallable(entry.install))
-      throw new Error(`请在终端里运行：${entry.install}`)
-    const [command, ...args] = entry.install.split(' ')
-    return new Promise<string>((resolve, reject) => execFile(process.platform === 'win32' ? `${command}.cmd` : command!, args, { timeout: 10 * 60 * 1000, shell: process.platform === 'win32' }, (error, stdout, stderr) => error ? reject(new Error(`${stderr || error.message}`.slice(-600))) : resolve(stdout.slice(-600))))
+    const environment = nodeEnvironment()
+    // Never `shell: true`: on Windows that concatenates the arguments into cmd.exe text.
+    const launch = installLaunch(entry.install, process.platform, name => findCommand(name, environment))
+    const env = withSearchTools({ ...process.env }, launch.bin, process.platform)
+    return new Promise<string>((resolve, reject) => execFile(launch.command, launch.args, { timeout: 10 * 60 * 1000, windowsHide: true, windowsVerbatimArguments: launch.verbatim, env }, (error, stdout, stderr) => error ? reject(new Error(`${stderr || error.message}`.slice(-600))) : resolve(stdout.slice(-600))))
   }
 
   async snapshot(): Promise<AgentsSnapshot> {

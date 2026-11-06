@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest'
-import { unwrapCmdShim } from '../packages/agents/windows-shim'
+import { describe, expect, it } from 'vitest'
+import { scriptLaunch, unwrapCmdShim } from '../packages/agents/windows-shim'
 
 const shim = (script: string) => `@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n\r\nIF EXIST "%dp0%\\node.exe" (\r\n  SET "_prog=%dp0%\\node.exe"\r\n) ELSE (\r\n  SET "_prog=node"\r\n  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n)\r\n\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\${script}" %*\r\n`
 const dir = 'C:\\Users\\a b\\AppData\\Roaming\\npm'
@@ -31,4 +31,35 @@ it('leaves a shim for something other than node alone', () => {
 
 it('leaves a .cmd that is not such a shim alone', () => {
   expect(unwrapCmdShim(`${dir}\\other.cmd`, { read: () => '@echo off\r\nsomething.exe %*\r\n', exists: () => false })).toBeUndefined()
+})
+
+describe('starting a Windows script without shell: true', () => {
+  const deps = (files: Record<string, string> = {}) => ({ read: (path: string) => files[path] ?? '', exists: (path: string) => path in files, comspec: 'C:\\Windows\\system32\\cmd.exe', systemRoot: 'C:\\Windows' })
+
+  it('starts programs as they are', () => {
+    expect(scriptLaunch(`${dir}\\claude.exe`, ['--version'], deps())).toEqual({ command: `${dir}\\claude.exe`, args: ['--version'] })
+  })
+
+  it('unwraps an npm shim into node and its script', () => {
+    const files = { [`${dir}\\codex.cmd`]: shim('node_modules\\@openai\\codex\\bin\\codex.js') }
+    expect(scriptLaunch(`${dir}\\codex.cmd`, ['login', 'status'], deps(files))).toEqual({ command: 'node', args: [`${dir}\\node_modules\\@openai\\codex\\bin\\codex.js`, 'login', 'status'] })
+  })
+
+  it('runs Node\'s own npm.cmd through npm-cli.js beside it', () => {
+    const node = 'C:\\Program Files\\nodejs'
+    const files = { [`${node}\\npm.cmd`]: ':: Created by npm, please don\'t edit manually.\r\n"%NODE_EXE%" "%NPM_CLI_JS%" %*\r\n', [`${node}\\node.exe`]: '', [`${node}\\node_modules\\npm\\bin\\npm-cli.js`]: '' }
+    expect(scriptLaunch(`${node}\\npm.cmd`, ['i', '-g', '@openai/codex@latest'], deps(files))).toEqual({ command: `${node}\\node.exe`, args: [`${node}\\node_modules\\npm\\bin\\npm-cli.js`, 'i', '-g', '@openai/codex@latest'] })
+  })
+
+  it('runs a PowerShell script through powershell.exe -File, each argument separate', () => {
+    expect(scriptLaunch(`${dir}\\tool.ps1`, ['--version'], deps())).toEqual({ command: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', `${dir}\\tool.ps1`, '--version'] })
+  })
+
+  it('passes an opaque .cmd to cmd.exe verbatim only when every argument is plain', () => {
+    const files = { [`${dir}\\tool.cmd`]: '@ECHO off\r\nSET "_prog=sh"\r\n"%_prog%"  "%dp0%\\tool" %*\r\n' }
+    expect(scriptLaunch(`${dir}\\tool.cmd`, ['--version'], deps(files))).toEqual({ command: 'C:\\Windows\\system32\\cmd.exe', args: ['/d', '/v:off', '/s', '/c', `""${dir}\\tool.cmd" --version"`], verbatim: true })
+    for (const unsafe of ['a&b', 'a b', '"x"', '%PATH%', 'a|b', '^', 'a\nb', '!x!', '(a)', 'a,b', 'a;b', '请'])
+      expect(scriptLaunch(`${dir}\\tool.cmd`, [unsafe], deps(files))).toBeUndefined()
+    expect(scriptLaunch(`C:\\odd%dir\\tool.cmd`, ['--version'], deps({ 'C:\\odd%dir\\tool.cmd': files[`${dir}\\tool.cmd`]! }))).toBeUndefined()
+  })
 })

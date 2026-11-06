@@ -70,3 +70,14 @@ export function stricter(a: PermissionMode, b: PermissionMode): PermissionMode {
 
 /** Package registries the sandbox lets through without asking in `auto` mode. */
 export const trustedRegistries = ['registry.npmjs.org', 'registry.yarnpkg.com', 'registry.npmmirror.com', 'pypi.org', 'files.pythonhosted.org', 'crates.io', 'static.crates.io', 'index.crates.io', 'proxy.golang.org', 'sum.golang.org', 'github.com', 'codeload.github.com', 'objects.githubusercontent.com', 'raw.githubusercontent.com']
+
+/** Describe the boundary actually available on this machine; do not promise an absent sandbox. */
+export function modeInfo(mode: PermissionMode, platform: string, sandboxed: boolean): ModeInfo {
+  const info = modes[mode]
+  if (sandboxed || mode !== 'auto')
+    return info
+  if (platform === 'win32') {
+    return { ...info, short: '无沙箱自主执行', description: '这台电脑没有命令沙箱。确认后在已信任的文件夹里自主执行普通命令；高风险命令、工作区外的修改和密钥读取仍逐次确认，Anna 自己的数据禁止访问。', greeting: '交给我吧。这台电脑没有命令沙箱，我会自主处理普通操作；高风险、工作区外修改和密钥读取仍逐次问你。' }
+  }
+  return { ...info, short: '修改命令先确认', description: '这台电脑没有可用的命令沙箱。工作区内文件工具和测试可直接进行，其他修改类命令先确认；高风险操作和密钥读取仍先问你。', greeting: '这台电脑没有可用的命令沙箱，修改类命令我会先问你，文件工具和测试按放手模式处理。' }
+}

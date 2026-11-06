@@ -31,13 +31,13 @@ function draw() {
 <template>
   <div class="sheet-backdrop" @click.self="!onboarding && emit('close')">
     <section class="sheet life-sheet" role="dialog" aria-modal="true" aria-label="Anna 档案">
-      <div class="sheet-heading"><div><span class="eyebrow">HELLO, ANNA</span><h2>{{ snapshot.settings.firstTaskPending ? '第一次一起做事' : onboarding ? 'Anna 正在醒来' : 'Anna 档案' }}</h2><p class="small muted">{{ onboarding ? '一步一步来，让我认识你，也准备好陪你做事。' : '她的大脑、相处方式和当前能力。' }}</p></div><button v-if="!onboarding && !snapshot.settings.firstTaskPending" class="icon-button" aria-label="关闭设置" @click="emit('close')">×</button></div>
+      <div class="sheet-heading"><div><span class="eyebrow">HELLO, ANNA</span><h2>{{ snapshot.settings.firstTaskPending ? '第一次一起做事' : onboarding ? 'Anna 正在醒来' : 'Anna 档案' }}</h2><p class="small muted">{{ onboarding ? '一步一步来，让我认识你，也准备好陪你做事。' : '你们一起的时光、她的大脑、相处方式和当前能力。' }}</p></div><button v-if="!onboarding && !snapshot.settings.firstTaskPending" class="icon-button" aria-label="关闭设置" @click="emit('close')">×</button></div>
       <nav class="sheet-tabs" aria-label="配置步骤">
         <button :aria-pressed="step === 'workspace'" @click="step = 'workspace'">1 工作目录</button>
         <button :disabled="onboarding && (!snapshot.settings.workspace || !snapshot.workspace.known)" :aria-pressed="step === 'brain'" @click="step = 'brain'">2 选择大脑</button>
         <button :disabled="onboarding && (!snapshot.settings.workspace || !snapshot.workspace.known)" :aria-pressed="step === 'connection'" @click="step = 'connection'">3 接通模型</button>
         <button :disabled="onboarding && !ready" :aria-pressed="step === 'personality'" @click="step = 'personality'">4 认识彼此</button>
-        <button v-if="snapshot.settings.firstTaskPending" :aria-pressed="step === 'first-task'" @click="step = 'first-task'">5 第一次一起做事</button><button v-if="!onboarding" :aria-pressed="step === 'memory'" @click="step = 'memory'">共同记忆</button><button v-if="!onboarding" :aria-pressed="step === 'history'" @click="step = 'history'">其他会话</button><button v-if="!onboarding" :aria-pressed="step === 'records'" @click="step = 'records'">工作记录</button><button v-if="!onboarding" :aria-pressed="step === 'status'" @click="step = 'status'">生命状态</button>
+        <button v-if="snapshot.settings.firstTaskPending" :aria-pressed="step === 'first-task'" @click="step = 'first-task'">5 第一次一起做事</button><button v-if="!onboarding" :aria-pressed="step === 'memory'" @click="step = 'memory'">我们</button><button v-if="!onboarding" :aria-pressed="step === 'history'" @click="step = 'history'">其他会话</button><button v-if="!onboarding" :aria-pressed="step === 'records'" @click="step = 'records'">工作记录</button><button v-if="!onboarding" :aria-pressed="step === 'status'" @click="step = 'status'">生命状态</button>
       </nav>
       <template v-if="step === 'workspace'">
         <h3>先为我们选一个工作目录</h3>

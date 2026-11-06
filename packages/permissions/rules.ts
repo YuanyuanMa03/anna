@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { isAbsolute, relative } from 'node:path'
+import { posix as posixPath, win32 } from 'node:path'
 import process from 'node:process'
 import { looseParts, segments, stripWrappers } from './commands'
 import { globRegExp, isInside } from './paths'
@@ -100,8 +100,8 @@ function parsed(rules: RuleSet, tool: RuleTool) {
   return { deny: pick(rules.deny), ask: pick(rules.ask), allow: pick(rules.allow) }
 }
 
-function commandVerdict(rules: ReturnType<typeof parsed>, command: string): Verdict | undefined {
-  const parts = segments(command)
+function commandVerdict(rules: ReturnType<typeof parsed>, command: string, platform: NodeJS.Platform): Verdict | undefined {
+  const parts = segments(command, platform)
   const pieces = [command, ...(parts ?? looseParts(command))].flatMap((piece) => {
     const bare = stripWrappers(piece)
     return bare === piece ? [piece] : [piece, bare]
@@ -118,7 +118,7 @@ function commandVerdict(rules: ReturnType<typeof parsed>, command: string): Verd
 export function evaluateRules(rules: RuleSet, tool: RuleTool, subject: string | string[], workspace: string, options: RuleOptions = {}): Verdict | undefined {
   const set = parsed(rules, tool)
   if (tool === 'Bash')
-    return commandVerdict(set, String(subject))
+    return commandVerdict(set, String(subject), options.platform ?? process.platform)
   if (tool === 'Network') {
     const host = String(subject).toLowerCase().replace(/\.$/, '')
     return kinds.find(kind => set[kind].some(rule => rule.pattern === undefined || rule.pattern.toLowerCase() === host || globRegExp(rule.pattern.toLowerCase().replace(/^\*\./, '**.')).test(host)))
@@ -139,8 +139,8 @@ export function evaluateRules(rules: RuleSet, tool: RuleTool, subject: string | 
 }
 
 /** The parts of a parseable command no Bash allow rule covers; undefined when the line cannot be parsed. */
-export function uncoveredParts(rules: RuleSet, command: string) {
-  const parts = segments(command)
+export function uncoveredParts(rules: RuleSet, command: string, platform: NodeJS.Platform = process.platform) {
+  const parts = segments(command, platform)
   const allows = parsed(rules, 'Bash').allow
   return parts?.filter(part => !allows.some(rule => bashMatches(rule.pattern, part)))
 }
@@ -159,12 +159,13 @@ export function mergeRules(...sets: (RuleSet | undefined)[]): RuleSet {
  * The rule "always allow" saves for a path: relative inside the workspace (`./name` at the top level, so it does not
  * match the same name deeper down), `//absolute` outside. Undefined for paths with wildcard characters in them.
  */
-export function pathRule(tool: 'Read' | 'Edit', path: string, workspace: string, tree = false) {
+export function pathRule(tool: 'Read' | 'Edit', path: string, workspace: string, tree = false, platform: NodeJS.Platform = process.platform) {
   if (/[*?[\]]/.test(path))
     return undefined
   const suffix = tree ? '/**' : ''
-  const inside = posix(relative(workspace, path))
-  if (inside && !inside.startsWith('..') && !isAbsolute(inside))
+  const api = platform === 'win32' ? win32 : posixPath
+  const inside = posix(api.relative(workspace, path))
+  if (inside && inside !== '..' && !inside.startsWith('../') && !api.isAbsolute(inside))
     return `${tool}(${inside.includes('/') ? inside : `./${inside}`}${suffix})`
   const absolute = posix(path)
   return `${tool}(/${absolute.startsWith('/') ? absolute : `/${absolute}`}${suffix})`

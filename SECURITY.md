@@ -19,7 +19,7 @@ Include steps to reproduce and the version you tested. You'll get an answer with
 
 ## Known limits (not vulnerabilities)
 
-These are documented in [docs/permissions.md](docs/permissions.md#known-limits):
+These are documented in [docs/architecture.md#permission-policy](docs/architecture.md#known-limits):
 
 - pi's file tools are guarded by the policy engine, not the OS sandbox.
 - Windows has no command sandbox yet.
