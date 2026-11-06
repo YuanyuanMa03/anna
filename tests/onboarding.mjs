@@ -81,6 +81,14 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '已保存，留空保持原密钥')
+  // A model on this computer: no key field, an editable local address, and its list fetched right away.
+  await vendors.getByRole('radio', { name: /^本机模型/ }).click()
+  assert.equal(await flow.getByLabel('API Key', { exact: true }).count(), 0)
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:11434/v1')
+  await flow.getByRole('button', { name: 'LM Studio', exact: true }).click()
+  assert.equal(await flow.getByLabel('API 端点', { exact: true }).inputValue(), 'http://127.0.0.1:1234/v1')
+  await flow.getByText('这台电脑上有 2 个模型').waitFor()
+  await page.screenshot({ animations: 'disabled', path: 'artifacts/onboarding-local-model.png' })
   await vendors.getByRole('radio', { name: /^DeepSeek/ }).click()
   assert.equal(await flow.getByLabel('API Key', { exact: true }).getAttribute('placeholder'), '输入这个服务的 API Key')
   await flow.getByText('DeepSeek 的模型由 pi 内置的目录提供').waitFor()

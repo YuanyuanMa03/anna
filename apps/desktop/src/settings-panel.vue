@@ -5,8 +5,9 @@ import { brainChoices } from '../../../packages/agents/brains'
 import { catalog } from '../../../packages/agents/catalog'
 import { installSteps } from '../../../packages/agents/installation'
 import { companion } from '../../../packages/character/manifest'
-import { firstModel, listsModels, modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
+import { firstModel, isLocalEndpoint, listsModels, modelVendors, sameEndpoint, vendorFor, vendorSettings } from '../../../packages/shared/model-vendors'
 import ProvidersPanel from './components/providers-panel.vue'
+import { voiceState } from './voice-state'
 
 const props = defineProps<{ snapshot: RuntimeSnapshot, busy: boolean, inline?: boolean, section?: 'brain' | 'connection' }>()
 const emit = defineEmits<{ command: [command: Command], close: [] }>()
@@ -69,6 +70,15 @@ const vendor = computed(() => modelVendors.find(item => item.id === vendorId.val
 const canList = computed(() => !vendor.value || listsModels(vendor.value))
 /** The saved key may only go back to the address it was saved for. */
 const savedKeyFits = computed(() => props.snapshot.hasKey && sameEndpoint(props.snapshot.settings.model.baseURL, model.baseURL))
+/** A server on this computer needs no key. */
+const keyless = computed(() => isLocalEndpoint(model.baseURL))
+const haveKey = computed(() => keyless.value || Boolean(key.value.trim()) || savedKeyFits.value)
+/** Where each local tool serves its OpenAI-compatible API by default. */
+const localServers = [{ label: 'OpenVINO', url: 'http://127.0.0.1:8000/v3' }, { label: 'LM Studio', url: 'http://127.0.0.1:1234/v1' }, { label: 'Ollama', url: 'http://127.0.0.1:11434/v1' }, { label: 'llama.cpp', url: 'http://127.0.0.1:8080/v1' }]
+function useLocal(url: string) {
+  model.baseURL = url
+  fetchModels()
+}
 const list = computed(() => canList.value && props.snapshot.modelList && sameEndpoint(props.snapshot.modelList.baseURL, model.baseURL) && props.snapshot.modelList.api === model.api ? props.snapshot.modelList : undefined)
 const choices = computed(() => [...new Set([...(vendor.value?.models ?? []), ...(list.value?.models ?? [])])])
 const requested = ref<string>()
@@ -77,7 +87,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let fallback: ReturnType<typeof setTimeout> | undefined
 function fetchModels() {
   clearTimeout(timer)
-  if (!canList.value || !model.baseURL || (!key.value.trim() && !savedKeyFits.value))
+  if (!canList.value || !model.baseURL || !haveKey.value)
     return
   const at = new Date().toISOString()
   requested.value = at
@@ -110,7 +120,7 @@ function pickVendor(id: string) {
   }
   key.value = ''
   requested.value = undefined
-  if (savedKeyFits.value)
+  if (savedKeyFits.value || keyless.value)
     fetchModels()
 }
 // A list that arrives for an empty model box fills it, so a vendor without suggestions still ends up with a model.
@@ -169,22 +179,39 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(fallback); clearTimeou
             <button v-for="tile in vendorTiles" :key="tile.id" type="button" role="radio" class="personality-card vendor-card" :aria-checked="vendorId === tile.id" :disabled="busy" @click="pickVendor(tile.id)"><strong>{{ tile.label }}</strong><small>{{ tile.hint }}</small></button>
           </div>
           <form @submit.prevent="save">
+            <template v-if="vendor?.keyless">
+              <p class="small muted">先在这台电脑上把模型跑起来，再选它用的地址。模型在本机运行，对话内容不出这台电脑。</p>
+              <details class="small muted local-tips">
+                <summary>让它用上 GPU / NPU，并且好用</summary><ul>
+                  <li>Intel 显卡或 NPU：用 OpenVINO Model Server、LM Studio（Vulkan 运行时）或 IPEX-LLM 版 Ollama；官方 Ollama 在 Windows 上通常只用 CPU。回复时看任务管理器“性能”里的 GPU / NPU 是否升高。</li>
+                  <li>上下文长度设为 32k 左右（Ollama：OLLAMA_CONTEXT_LENGTH=32768；LM Studio：加载时调 Context Length），否则她的说明和工具会被截掉。</li>
+                  <li>Qwen 等模型请关掉“思考”，并确认运行时开启了工具调用（llama.cpp 加 --jinja；OpenVINO Model Server 启动时加 --rest_port 8000 和 --tool_parser）。</li>
+                  <li>第一次回复可能要等一两分钟；先在运行时里把模型加载好。</li>
+                  <li>保存本机模型后，再换回云端厂商时需要重新填那家的 API Key。</li>
+                </ul>
+              </details>
+              <div class="card-actions left"><button v-for="server in localServers" :key="server.url" type="button" :aria-pressed="model.baseURL === server.url" @click="useLocal(server.url)">{{ server.label }}</button></div>
+              <label>本机地址<input v-model="model.baseURL" type="url" required aria-label="API 端点" @change="fetchModels"></label>
+            </template>
             <template v-if="vendorId === 'custom'">
               <label>API 协议<select v-model="model.api"><option value="anthropic-messages">Anthropic Messages</option><option value="openai-completions">OpenAI Chat Completions</option><option value="openai-responses">OpenAI Responses</option></select></label>
               <label>API 端点<input v-model="model.baseURL" type="url" required aria-label="API 端点"></label>
             </template>
-            <p v-else-if="vendor" class="small"><a :href="vendor.keyPage" target="_blank" rel="noreferrer">去 {{ vendor.label }} 领取 API Key</a></p>
-            <label>API Key<input v-model="key" type="password" autocomplete="off" :placeholder="savedKeyFits ? '已保存，留空保持原密钥' : '输入这个服务的 API Key'" aria-label="API Key" @input="scheduleList"></label>
+            <p v-else-if="vendor && !vendor.keyless" class="small"><a :href="vendor.keyPage" target="_blank" rel="noreferrer">去 {{ vendor.label }} 领取 API Key</a></p>
+            <label v-if="!keyless">API Key<input v-model="key" type="password" autocomplete="off" :placeholder="savedKeyFits ? '已保存，留空保持原密钥' : '输入这个服务的 API Key'" aria-label="API Key" @input="scheduleList"></label>
             <p v-if="!canList" class="small muted">DeepSeek 的模型由 pi 内置的目录提供，直接从下面选择即可。</p>
-            <div v-else class="card-actions left"><button type="button" :disabled="busy || listing || (!key.trim() && !savedKeyFits) || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
+            <div v-else class="card-actions left"><button type="button" :disabled="busy || listing || !haveKey || !model.baseURL" @click="fetchModels">{{ listing ? '正在获取模型…' : '获取模型列表' }}</button></div>
             <p v-if="list?.error" class="error small" role="alert">{{ list.error }}</p>
-            <p v-else-if="list" class="small muted">这个 Key 可以用 {{ list.models.length }} 个模型{{ list.models.length ? '，点下面的输入框搜索或选择' : '' }}。</p>
+            <p v-else-if="list" class="small muted">{{ keyless ? '这台电脑上有' : '这个 Key 可以用' }} {{ list.models.length }} 个模型{{ list.models.length ? '，点下面的输入框搜索或选择' : '' }}。</p>
             <p v-else-if="canList && !vendor?.models.length && !model.model" class="small muted">填好 API Key 后会自动取到模型列表；取不到时，可以手动填写模型 ID。</p>
             <label>模型<input v-model="model.model" required aria-label="模型 ID" list="models" placeholder="搜索或填写模型 ID"><datalist id="models"><option v-for="id in choices" :key="id" :value="id" /></datalist></label>
             <div v-if="vendor?.models.length" class="card-actions left"><span class="small muted">推荐：</span><button v-for="id in vendor.models" :key="id" type="button" :aria-pressed="model.model === id" @click="model.model = id">{{ id }}</button></div>
-            <button class="primary" :disabled="busy || !model.model.trim() || (!key.trim() && !savedKeyFits)" type="submit">保存并连接</button>
+            <button class="primary" :disabled="busy || !model.model.trim() || !haveKey" type="submit">保存并连接</button>
           </form>
         </template>
+        <h3>她的声音</h3>
+        <p class="small muted">点输入框旁的麦克风就能和她说话；这里配置语音识别和语音合成。打开“开口说话”后，打字聊天时她也会把回复的要点说出来。</p>
+        <div class="card-actions left"><button type="button" @click="voiceState.settingsOpen = true">语音设置</button><button type="button" :aria-pressed="voiceState.enabled" @click="voiceState.enabled = !voiceState.enabled">{{ voiceState.enabled ? '关闭模型语音' : '开启模型语音' }}</button></div>
         <h3>共用 pi 的模型</h3>
         <p class="small muted">Chat Completions 模型可供 Claude Code、Codex 共用；Anthropic 协议仅供 Claude Code，Responses 仅供 Codex。只切换 Anna 内的大脑和派活配置，终端配置由服务商页单独管理。</p>
         <div v-if="sharingPreview" class="card"><p>将跟随 pi：{{ shareTargets }}。其余大脑尚未适配，将跳过。</p><p class="small muted">仅影响 Anna 内调用。首次保存原选择，可恢复；手动选择其他服务商后退出跟随。</p><button :disabled="busy" @click="emit('command', { type: 'share-pi-model' }); sharingPreview = false">确认应用</button><button @click="sharingPreview = false">取消</button></div>

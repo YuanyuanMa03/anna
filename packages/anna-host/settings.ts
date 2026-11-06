@@ -6,6 +6,7 @@ import * as v from 'valibot'
 import { characters } from '../character/manifest'
 import { profileSchema } from '../character/personality'
 import { emptyRules } from '../permissions/rules'
+import { modelEndpointAllowed } from '../shared/model-vendors'
 import { quarantine } from './json-file'
 
 const modelSchema = v.object({ provider: v.picklist(['deepseek-official', 'custom']), model: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[\w./:@+-]+$/)), baseURL: v.pipe(v.string(), v.url()), api: v.picklist(['anthropic-messages', 'openai-completions', 'openai-responses']) })
@@ -46,9 +47,8 @@ const settingsSchema = v.object({
 /** Validate the endpoint before a credential crosses the host network boundary. */
 export function validateModel(value: unknown): ModelSettings {
   const model = v.parse(modelSchema, value)
-  const url = new URL(model.baseURL)
-  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
-    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址')
+  if (!modelEndpointAllowed(model.baseURL))
+    throw new Error('API 端点必须是无凭据和查询参数的 HTTPS 地址，或这台电脑上的本机模型（127.0.0.1 / localhost）')
   return model
 }
 
