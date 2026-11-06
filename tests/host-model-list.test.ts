@@ -6,11 +6,12 @@ import { Host } from '../packages/anna-host/host'
 
 const saved = { provider: 'custom', model: 'kimi-k3', baseURL: 'https://api.moonshot.cn/v1', api: 'openai-completions' } as const
 
-async function setup(listModels: (model: { baseURL: string, api: string }, key: string, signal: AbortSignal) => Promise<string[]>) {
+async function setup(listModels: (model: { baseURL: string, api: string }, key: string, signal: AbortSignal) => Promise<string[]>, initial: Record<string, string> = saved) {
   const data = await mkdtemp(join(tmpdir(), 'anna-models-'))
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: saved, workspaces: {} }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: initial, workspaces: {} }))
   const written: string[] = []
-  const host = new Host(resolve('.'), data, { read: async () => 'sk-saved', write: async (key: string) => { written.push(key) } }, () => {}, { sandbox: { available: false, reason: 'test' }, listModels })
+  // The vault remembers what was written last, like the real one.
+  const host = new Host(resolve('.'), data, { read: async () => written.at(-1) ?? 'sk-saved', write: async (key: string) => { written.push(key) } }, () => {}, { sandbox: { available: false, reason: 'test' }, listModels })
   await host.initialize()
   return { host, written }
 }
@@ -80,5 +81,34 @@ it('shows a malformed request on the form too', async () => {
   await host.execute({ type: 'model-list', model: saved, key: 'bad\nkey' })
   expect(host.snapshot().modelList?.error).toMatch(/格式无效/)
   expect(host.snapshot().error).toBeUndefined()
+  await host.close()
+})
+
+it('connects to a model on this computer without a key, and lists its models', async () => {
+  const list = vi.fn(async () => ['qwen3.5:9b'])
+  const { host, written } = await setup(list)
+  const local = { provider: 'custom', model: 'qwen3.5:9b', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' } as const
+  await host.execute({ type: 'model-list', model: local })
+  expect(list).toHaveBeenCalledWith({ baseURL: local.baseURL, api: local.api }, '', expect.any(AbortSignal))
+  expect(host.snapshot().modelList).toMatchObject({ models: ['qwen3.5:9b'] })
+  await host.execute({ type: 'configure', model: local, key: '' })
+  // The moonshot key never follows the form to this machine; the local server gets a placeholder instead.
+  expect(written).toEqual(['local'])
+  expect(host.snapshot().settings.model.baseURL).toBe(local.baseURL)
+  await host.close()
+})
+
+it('asks for the cloud key again after a local model replaced it', async () => {
+  const { host } = await setup(async () => [])
+  await host.execute({ type: 'configure', model: { provider: 'custom', model: 'q', baseURL: 'http://127.0.0.1:11434/v1', api: 'openai-completions' }, key: '' })
+  await expect(host.execute({ type: 'configure', model: saved, key: '' })).rejects.toThrow(/填写.*API Key/)
+  await host.close()
+})
+
+it('keeps the key of a local server that uses one when only the model changes', async () => {
+  const lmstudio = { provider: 'custom', model: 'a', baseURL: 'http://127.0.0.1:1234/v1', api: 'openai-completions' } as const
+  const { host, written } = await setup(async () => [], lmstudio)
+  await host.execute({ type: 'configure', model: { ...lmstudio, model: 'b' }, key: '' })
+  expect(written).toEqual(['sk-saved'])
   await host.close()
 })
