@@ -2,6 +2,7 @@
 import type { SpeechConfig, VoiceConfig } from '../../../../packages/voice/contracts'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { recordingWav } from '../voice-audio'
+import { saveVoice } from '../voice-save'
 import MicrophonePanel from './microphone-panel.vue'
 import VoiceEndpoint from './voice-endpoint.vue'
 
@@ -41,14 +42,20 @@ async function save(kind: 'synthesis' | 'recognition', config: VoiceConfig, key?
     return
   busy.value = true
   try {
-    const result = await window.anna.voice(kind === 'synthesis' ? { type: 'voice-configure', config, key } : { type: 'recognition-configure', config, key })
+    const other = kind === 'synthesis' ? { saved: Boolean(recognition.value), dirty: recognitionDirty.value } : { saved: Boolean(synthesis.value), dirty: synthesisDirty.value }
+    const outcome = await saveVoice(window.anna.voice, kind, config, key, other, () => !closed)
     if (closed)
       return
-    if (!result.ok) { message.value = result.error; return }
-    // Update only the saved form; unsaved edits in the other form stay intact.
-    if (kind === 'synthesis') { synthesis.value = result.config; synthesisHasKey.value = Boolean(result.hasKey); releaseAudio() }
-    else { recognition.value = result.recognition; recognitionHasKey.value = Boolean(result.recognitionHasKey); transcript.value = '' }
-    message.value = `${kind === 'synthesis' ? '语音合成' : '语音识别'}配置已保存。`
+    message.value = outcome.message
+    const result = outcome.reply
+    if (!result)
+      return
+    // Update only the saved form, or both when both were saved; unsaved edits in the other form stay intact.
+    if (kind === 'synthesis' || outcome.both) { synthesis.value = result.config; releaseAudio() }
+    if (kind === 'recognition' || outcome.both) { recognition.value = result.recognition; transcript.value = '' }
+    // A key saved for one direction also serves the other at the same address.
+    synthesisHasKey.value = Boolean(result.hasKey)
+    recognitionHasKey.value = Boolean(result.recognitionHasKey)
   }
   catch {
     if (!closed)
@@ -144,7 +151,7 @@ onBeforeUnmount(() => { closed = true; stop(); releaseAudio() })
   <div class="voice-backdrop" @click.self="emit('close')">
     <section class="voice-sheet" role="dialog" aria-modal="true" aria-label="语音对话">
       <header><h2>语音对话</h2><button @click="emit('close')">关闭</button></header>
-      <p>识别和合成可分别选择本地部署或云端 API，继续使用你当前选择的大脑。</p>
+      <p>识别和合成默认走云端 API，也可分别换成本地部署；对话继续使用你当前选择的大脑。</p>
       <details :open="settingsOpen" @toggle="settingsOpen = ($event.target as HTMLDetailsElement).open">
         <summary>语音设置</summary>
         <VoiceEndpoint label="语音识别" :config="recognition" :has-key="recognitionHasKey" :disabled="loading || busy" @dirty="value => recognitionDirty = value" @save="(config, key) => save('recognition', config, key)" />

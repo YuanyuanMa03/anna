@@ -33,15 +33,27 @@ export class SpeechSession {
     this.output.stop()
   }
 
+  private prepare(segment: string, signal: AbortSignal): Promise<Blob> {
+    const audio = this.output.synthesize(segment, signal)
+    // Handled when awaited; until then, an early failure must not count as unhandled.
+    audio.catch(() => {})
+    return audio
+  }
+
   async speak(text: string): Promise<void> {
     this.stop()
     const controller = new AbortController()
     this.current = controller
     const { signal } = controller
     try {
-      for (const segment of speechSegments(text)) {
+      // The next sentence is synthesised while this one plays: a cloud request takes seconds, a pause between every
+      // sentence would be heard. Its failure is kept until playback reaches it.
+      const segments = speechSegments(text)
+      let next = segments.length ? this.prepare(segments[0]!, signal) : undefined
+      for (let index = 0; next; index++) {
         signal.throwIfAborted()
-        const audio = await this.output.synthesize(segment, signal)
+        const audio = await next
+        next = index + 1 < segments.length ? this.prepare(segments[index + 1]!, signal) : undefined
         signal.throwIfAborted()
         await this.output.play(audio, signal)
         signal.throwIfAborted()
@@ -52,6 +64,8 @@ export class SpeechSession {
         throw error
     }
     finally {
+      // A sentence prepared ahead must not keep its request (and a service slot) after a failure.
+      controller.abort()
       if (this.current === controller)
         this.current = undefined
     }

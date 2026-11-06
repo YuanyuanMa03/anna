@@ -43,7 +43,10 @@ describe('model-generated speech playback without speakers', () => {
     player.stop()
     await pending
     expect(audio.pause).toHaveBeenCalled()
-    expect(invoke).toHaveBeenCalledTimes(1)
+    // The second sentence is prepared while the first plays, but it is never played once stopped.
+    expect((invoke.mock.calls as unknown as [{ type: string }][]).filter(([request]) => request.type === 'voice-generate')).toHaveLength(2)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(SilentAudio.instances).toHaveLength(1)
     audio.onplaying?.()
     expect(speaking).toHaveBeenLastCalledWith(false)
   })

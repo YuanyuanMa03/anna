@@ -38,12 +38,20 @@ const evidence = { data, checks: [], consoleErrors: [] }
 const env = { ...process.env, ANNA_DEV_URL: '', ANNA_ROOT: root, ANNA_DATA_DIR: data, ANNA_TEST_SCRIPT: script, ANNA_TEST_KEY: 'scripted', ANNA_ACP: '1', ANNA_TEST_FAKE_AGENT: resolve('tests/fixtures/fake-agent.mjs'), ANNA_TEST_NODE: process.execPath, ANNA_FAKE_DELAY: '1500' }
 let recognitionReads = 0
 const voiceServer = createServer((req, res) => {
-  if (req.url === '/v1/audio/transcriptions' && req.method === 'POST') {
+  // Recognition goes through the chat protocol, as Xiaomi MiMo does; synthesis below keeps the OpenAI audio protocol.
+  if (req.url === '/v1/chat/completions' && req.method === 'POST') {
     recognitionReads++
-    assert.match(req.headers['content-type'], /^multipart\/form-data; boundary=/)
+    assert.equal(req.headers['content-type'], 'application/json')
     assert.equal(req.headers.authorization, 'Bearer fixture-asr-key')
-    req.resume()
-    req.on('end', () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ text: '合成录音用于验证语音链路。' })) })
+    const chunks = []
+    req.on('data', chunk => chunks.push(chunk))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      assert.equal(body.model, 'fixture-asr')
+      assert.match(body.messages[0].content[0].input_audio.data, /^data:audio\/wav;base64,UklGR/)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: '合成录音用于验证语音链路。' } }] }))
+    })
     return
   }
   if (req.url !== '/v1/audio/speech' || req.method !== 'POST') { res.writeHead(404); res.end(); return }
@@ -79,7 +87,7 @@ async function until(page, predicate, label, timeout = 20000) {
     if (state && predicate(state))
       return state
     if (Date.now() > deadline)
-      throw new Error(`Timed out: ${label} (${JSON.stringify({ state: state?.state, error: state?.error, anna: state?.anna })})`)
+      throw new Error(`Timed out: ${label} (${JSON.stringify({ state: state?.state, error: state?.error, anna: state?.anna, routing: state?.agents?.global?.codex?.routing })})`)
     await page.waitForTimeout(150)
   }
 }
@@ -459,11 +467,21 @@ try {
   assert.equal(await page.locator('video, iframe').count(), 0)
   const recognition = voice.getByRole('group', { name: '语音识别', exact: true })
   const synthesis = voice.getByRole('group', { name: '语音合成', exact: true })
+  // A fresh install has no local speech service, so an unsaved form starts on the cloud preset and only needs a key.
+  // (Synthesis was already saved above for model speech, so it shows that saved local service instead.)
+  assert.equal(await recognition.getByLabel('接入方式', { exact: true }).inputValue(), 'cloud')
+  assert.equal(await recognition.getByLabel('服务地址', { exact: true }).inputValue(), 'https://token-plan-cn.xiaomimimo.com/v1')
+  assert.equal(await recognition.getByLabel('接口格式', { exact: true }).inputValue(), 'chat')
+  assert.equal(await synthesis.getByLabel('接入方式', { exact: true }).inputValue(), 'local')
+  assert.equal(await synthesis.getByLabel('接口格式', { exact: true }).inputValue(), 'audio')
+  await recognition.getByLabel('接入方式', { exact: true }).selectOption('local')
+  await recognition.getByLabel('接口格式', { exact: true }).selectOption('chat')
   await recognition.getByLabel('服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
   await recognition.getByLabel('模型 ID', { exact: true }).fill('fixture-asr')
   await recognition.getByLabel('API Key', { exact: true }).fill('fixture-asr-key')
   await recognition.getByRole('button', { name: '保存语音识别配置', exact: true }).click()
   await voice.getByRole('status').filter({ hasText: '语音识别配置已保存' }).waitFor()
+  await synthesis.getByLabel('接入方式', { exact: true }).selectOption('local')
   await synthesis.getByLabel('服务地址', { exact: true }).fill(`http://127.0.0.1:${voicePort}/v1`)
   await synthesis.getByLabel('模型 ID', { exact: true }).fill('fixture-tts')
   await synthesis.getByLabel('音色 ID', { exact: true }).fill('fixture-voice')
@@ -493,9 +511,11 @@ try {
   await synthesis.getByLabel('API Key', { exact: true }).getAttribute('placeholder').then(value => assert.match(value, /已保存/))
   assert.equal(await synthesis.getByLabel('API Key', { exact: true }).inputValue(), '')
   assert.equal(await recognition.getByLabel('API Key', { exact: true }).inputValue(), '')
-  // Cloud selection is explicit, and changing endpoints never carries the local secret along.
+  // Switching back to the cloud restores its preset, and changing endpoints never carries the local secret along.
   await recognition.getByLabel('接入方式', { exact: true }).selectOption('cloud')
-  assert.equal(await recognition.getByLabel('服务地址', { exact: true }).inputValue(), '')
+  assert.equal(await recognition.getByLabel('服务地址', { exact: true }).inputValue(), 'https://token-plan-cn.xiaomimimo.com/v1')
+  assert.equal(await recognition.getByLabel('接口格式', { exact: true }).inputValue(), 'chat')
+  assert.equal(await recognition.getByLabel('API Key', { exact: true }).inputValue(), '')
   assert.equal(await recognition.getByLabel('替换密钥（输入框为空则清除）', { exact: true }).isChecked(), true)
   assert.equal(await voice.getByRole('button', { name: '开启麦克风录音', exact: true }).isDisabled(), true)
   await voice.getByRole('button', { name: '关闭', exact: true }).click()
@@ -505,7 +525,7 @@ try {
     assert.equal(vault.includes(Buffer.from('fixture-voice-key')), false)
     assert.equal(vault.includes(Buffer.from('fixture-asr-key')), false)
   }
-  evidence.checks.push('Voice: direct local ASR/TTS via synthetic WAV and fake HTTP service, editable transcription reaches the unsent composer, saved keys remain masked, cloud mode requires explicit endpoint setup; no physical device or playback')
+  evidence.checks.push('Voice: direct local ASR (chat protocol) and TTS (audio protocol) via synthetic WAV and fake HTTP service, editable transcription reaches the unsent composer, saved keys remain masked, forms start on the cloud preset and switching never carries a secret along; no physical device, playback or real cloud call')
   if (packaged && process.platform === 'darwin')
     evidence.checks.push('Packaged macOS scripted credentials use isolated file fixtures; native Keychain authorization is not exercised')
   assert.deepEqual(evidence.consoleErrors, [])

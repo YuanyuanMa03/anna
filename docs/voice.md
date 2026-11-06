@@ -2,10 +2,21 @@
 
 Anna is a desktop application with direct speech services. It does not require New API, a gateway, a service workbench, Python or model weights to start. Existing brains, provider routing, tools, permissions, memories, avatars and Weixin remain available.
 
-Open **语音对话 → 语音设置**. Recognition and synthesis each select **本地部署** or **云端 API**, independently. Save a service address including its API prefix (usually `/v1`), the actual model ID, and its key if required. Synthesis also needs a voice ID. Changing service addresses requires entering a new key or explicitly clearing the previous one. The renderer only sees whether a key exists.
+Open **语音对话 → 语音设置**. Recognition and synthesis each select **本地部署** or **云端 API**, independently. New forms start on **云端 API** with a Xiaomi MiMo Token Plan preset (`https://token-plan-cn.xiaomimimo.com/v1`, **接口格式** 对话接口, recognition `mimo-v2.5-asr`, synthesis `mimo-v2.5-tts` with voice `冰糖`), because a fresh install has no local speech service; only the key is missing. Pay-as-you-go MiMo keys (`sk-`) use `https://api.xiaomimimo.com/v1`. When recognition and synthesis use the same address, a key saved for one also serves the other, and it is never sent to any other address. Clearing one side's key does not stop the other side's key being used at that shared address; give them different addresses or clear both. Save a service address including its API prefix (usually `/v1`), the actual model ID, and its key if required. Synthesis also needs a voice ID. Changing service addresses requires entering a new key or explicitly clearing the previous one. The renderer only sees whether a key exists.
 
-- Recognition uses `POST /audio/transcriptions`, multipart fields `model`, `file` and `response_format=json`, and expects `{ "text": "..." }`.
-- Synthesis uses `POST /audio/speech`, JSON fields `model`, `voice`, `input` and `response_format=wav`. Supported responses are WAV, MP3, Ogg and FLAC.
+**接口格式** selects how speech is sent:
+
+- **对话接口** (`chat`, Xiaomi MiMo's convention; OpenAI's own audio chat models also need `modalities` and are not covered): both directions use `POST /chat/completions`. Synthesis sends the text as the assistant turn and `audio: { format: "wav", voice }`, and reads base64 audio from `choices[0].message.audio.data`; the form suggests MiMo's built-in voices. Recognition sends the WAV as an `input_audio` data URL in the user turn (at most 10,000,000 characters including the prefix, about 7.5 MB of WAV; Anna's two-minute recordings are about 3.8 MB) and reads `choices[0].message.content`.
+- **OpenAI 语音接口** (`audio`, the default for older settings and local services):
+  - Recognition uses `POST /audio/transcriptions`, multipart fields `model`, `file` and `response_format=json`, and expects `{ "text": "..." }`.
+  - Synthesis uses `POST /audio/speech`, JSON fields `model`, `voice`, `input` and `response_format=wav`.
+
+For both:
+
+- Synthesised audio must be WAV, MP3, Ogg or FLAC. A reply labelled `application/octet-stream`, a variant WAV/MP3 spelling or no type at all is accepted when its own header is one of these.
+- Saving one side on the cloud preset's address also saves the other side with its preset, if that side was never set up and is untouched, so a new user enters one key and saves once.
+- In conversation, the next sentence is synthesised while the current one plays.
+- A 401 or 403 says the key is invalid or does not match the address; a 404 or 405 suggests checking the address and 接口格式. Provider error text is never shown.
 - Local mode accepts loopback services (`127.0.0.1`, `localhost`, `::1`), including HTTP. Cloud mode requires HTTPS. Neither follows redirects.
 - These are compatible API contracts, not adapters for every provider's proprietary protocol. Confirm that the selected service supports the required endpoint.
 

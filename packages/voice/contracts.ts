@@ -1,7 +1,9 @@
 import { defineInvokeEventa } from '@moeru/eventa'
 
 export type VoiceMode = 'local' | 'cloud'
-export interface SpeechConfig { mode?: VoiceMode, baseURL: string, model: string }
+/** `audio`: OpenAI's /audio/speech and /audio/transcriptions. `chat`: speech through /chat/completions, as Xiaomi MiMo does. */
+export type VoiceProtocol = 'audio' | 'chat'
+export interface SpeechConfig { mode?: VoiceMode, protocol?: VoiceProtocol, baseURL: string, model: string }
 export interface VoiceConfig extends SpeechConfig { voice: string }
 export type VoiceRequest
   = | { type: 'voice-status' }
