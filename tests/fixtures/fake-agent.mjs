@@ -74,6 +74,24 @@ if (agent === 'codex') {
     if (message.method === 'initialize') {
       out({ id: message.id, result: { userAgent: 'fake', platformOs: 'macos' } })
     }
+    else if (message.method === 'thread/list') {
+      out({ id: message.id, result: { data: [{ id: 'source-thread', name: '外部原始任务', cwd: process.cwd(), updatedAt: 1700000000 }] } })
+    }
+    else if (message.method === 'thread/items/list') {
+      out({ id: message.id, result: { data: [{ item: { type: 'userMessage', content: [{ type: 'text', text: '原用户的问题' }] } }, { item: { type: 'agentMessage', text: '原 agent 的工作结果' } }] } })
+    }
+    else if (message.method === 'thread/fork') {
+      out({ id: message.id, result: { thread: { id: 'anna-forked-thread' } } })
+    }
+    else if (message.method === 'account/rateLimits/read') {
+      out({ id: message.id, result: { rateLimitsByLimitId: { codex: { primary: { usedPercent: 25, windowDurationMins: 15 } }, secondary: { primary: { usedPercent: 30, windowDurationMins: 15 } } } } })
+    }
+    else if (message.method === 'skills/list') {
+      out({ id: message.id, result: { data: [{ skills: [{ name: '测试工作方法', path: '/fake/skills/example', enabled: true }], errors: [] }] } })
+    }
+    else if (message.method === 'mcpServerStatus/list') {
+      out({ id: message.id, result: { data: [{ name: '测试服务', authStatus: 'notLoggedIn', tools: {} }] } })
+    }
     else if (message.method === 'thread/start' || message.method === 'thread/resume') {
       if (message.params?.threadId)
         thread = message.params.threadId

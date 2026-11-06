@@ -1,10 +1,12 @@
 import type { Command } from '../../packages/shared/contracts'
 import type { Wire } from '../../packages/shared/rpc'
+import type { VoiceRequest } from '../../packages/voice/contracts'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { Host } from '../../packages/anna-host/host'
 import { companion } from '../../packages/character/manifest'
 import { RpcPeer } from '../../packages/shared/rpc'
+import { VoiceService } from '../../packages/voice/service'
 import { WeixinChannel } from '../../packages/weixin/channel'
 
 /**
@@ -14,6 +16,7 @@ import { WeixinChannel } from '../../packages/weixin/channel'
 const parent = process.parentPort
 const root = process.env.ANNA_CORE_ROOT!
 const data = process.env.ANNA_CORE_DATA!
+let voice: VoiceService | undefined
 let host: Host | undefined
 let weixin: WeixinChannel | undefined
 let markReady!: () => void
@@ -22,6 +25,10 @@ const ready = new Promise<void>((resolve) => { markReady = resolve })
 const phaseNames: Record<string, string> = { offline: '离线', idle: '空闲', thinking: '思考中', responding: '正在回复', inspecting: '查看资料', editing: '修改文件', running: '运行命令', testing: '验证中', waiting: '等你确认', compacting: '整理上下文', retrying: '重试中', supervising: '在看其他 agent 干活', done: '刚完成', failed: '遇到问题' }
 
 const peer = new RpcPeer(message => parent.postMessage(message), {
+  voice: async (request: VoiceRequest) => {
+    await ready
+    return voice!.execute(request)
+  },
   execute: async (command: Command) => {
     await ready
     switch (command.type) {
@@ -34,6 +41,7 @@ const peer = new RpcPeer(message => parent.postMessage(message), {
     return host!.snapshot()
   },
   shutdown: async () => {
+    voice?.dispose()
     await Promise.allSettled([host?.shutdown(), weixin?.stop()])
     setTimeout(() => process.exit(0), 50)
   },
@@ -53,6 +61,8 @@ async function main() {
   // Deterministic desktop tests swap external agents for the protocol-faithful fake (tests/fixtures/fake-agent.mjs).
   const fake = process.env.ANNA_TEST_SCRIPT ? process.env.ANNA_TEST_FAKE_AGENT : undefined
   host = new Host(root, data, vaultFor('credential.bin'), event => peer.event(event), {
+    // Scripted acceptance answers a vendor's model list without the network.
+    ...(process.env.ANNA_TEST_SCRIPT && process.env.ANNA_TEST_MODELS ? { listModels: async () => (JSON.parse(process.env.ANNA_TEST_MODELS!) as unknown[]).filter((id): id is string => typeof id === 'string') } : {}),
     ...(fake
       ? { agents: {
           // Gemini CLI stands in for every ACP brain: it is answered by the ACP fake (tests/fixtures/fake-acp-agent.mjs).
@@ -69,6 +79,8 @@ async function main() {
     secrets: vaultFor('providers.bin'),
     secretsMode: () => peer.call<'system' | 'file'>('vault.mode'),
   })
+  // Keep the existing vault filename so saved TTS settings and credentials survive the upgrade.
+  voice = new VoiceService(vaultFor('senses.bin'))
   await host.initialize()
   const h = host
   weixin = new WeixinChannel(vaultFor('weixin-credential.bin'), state => peer.event({ type: 'weixin', state }), {

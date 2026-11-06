@@ -7,6 +7,23 @@ import { migrate, SettingsStore, validateModel } from '../packages/anna-host/set
 import { dataDirectory } from '../packages/shared/platform'
 
 describe('settings', () => {
+  it.each([
+    ['truncated JSON', '{"version": 2,'],
+    ['settings that fail validation', JSON.stringify({ version: 2, kernel: 12 })],
+  ])('sets %s aside and starts with defaults instead of crashing', async (_name, broken) => {
+    const dir = await mkdtemp(join(tmpdir(), 'anna-settings-'))
+    try {
+      await writeFile(join(dir, 'settings.json'), broken)
+      const store = new SettingsStore(dir)
+      await store.load()
+      expect(store.value.kernel).toBe('pi')
+      expect(store.quarantined).toMatch(/settings\.json\.corrupt-/)
+      expect(await readFile(store.quarantined!, 'utf8')).toBe(broken)
+      await expect(readFile(join(dir, 'settings.json'), 'utf8')).rejects.toThrow()
+    }
+    finally { await rm(dir, { recursive: true, force: true }) }
+  })
+
   it('round-trips v2 settings without a key', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'anna-settings-'))
     try {

@@ -2,6 +2,7 @@ import type { AgentTier } from '../agents/catalog'
 import type { CharacterId } from '../character/manifest'
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
+import type { VoiceReply, VoiceRequest } from '../voice/contracts'
 import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
 
 export type { PermissionMode } from '../permissions/modes'
@@ -17,7 +18,26 @@ export interface ModelSettings {
 export interface WorkspaceSettings { trusted: boolean, mode: PermissionMode, rules: RuleSet }
 /** Anna's brain: pi (built in), Claude Code or Codex, or any installed agent that speaks ACP (`acp:<agent id>`). */
 export type BrainId = 'pi' | 'claude-code' | 'codex' | `acp:${string}`
+export interface PersonalityProfile {
+  nickname: string
+  purpose: 'work' | 'study' | 'company'
+  tone: 'gentle' | 'direct' | 'curious' | 'playful'
+  type?: string
+  advice?: 'gentle' | 'direct'
+  detail: 'brief' | 'balanced' | 'detailed'
+}
 export interface Settings {
+  /** Explicit consent for unsandboxed Windows Auto mode; absent on upgrades until acknowledged. */
+  windowsAutoAcknowledged?: boolean
+  brainSessions?: Record<string, string>
+  onboardingComplete?: boolean
+  firstTaskPending?: boolean
+  /** A running tally of their time together; the journal and diary only keep recent entries. */
+  together?: import('./relationship').Together
+  memoryRevision?: number
+  connectionVerified?: string
+  personality?: PersonalityProfile
+  sharedModelBackup?: Partial<Record<'claude' | 'codex', { provider?: string, follow?: boolean }>>
   version: 2
   /** Anna's brain: pi (built in) or an installed agent (see BrainId). */
   kernel: BrainId
@@ -82,10 +102,12 @@ export interface MyProvider {
   health?: 'open' | 'half_open'
 }
 export interface UsageReport {
+  stale?: boolean
+  attemptedAt?: string
   at: string
   kind: 'balance' | 'quota'
   balances?: { label: string, remaining: number, total?: number, used?: number, unit: string }[]
-  windows?: { window: 'five_hour' | 'weekly', usedPercent: number, resetsAt?: string }[]
+  windows?: { window: 'five_hour' | 'weekly' | 'custom', label?: string, durationMinutes?: number, usedPercent: number, resetsAt?: string }[]
   plan?: string
   keyRejected?: boolean
   error?: string
@@ -124,7 +146,10 @@ export type UniversalDraft = UniversalProvider & { previous?: string, key?: stri
 /** `apiFormat` (claude, codex): the provider's protocol; Chat Completions goes through Anna's local routing. */
 export interface ProviderDraft { app: 'claude' | 'codex' | 'gemini', name: string, previous?: string, from?: string, baseUrl?: string, model?: string, key?: string, apiFormat?: 'anthropic' | 'openai_responses' | 'openai_chat' }
 export type Origin = 'desktop' | 'weixin'
+export type MemoryKind = 'preference' | 'agreement' | 'experience'
+export interface MemoryDraft { text: string, kind: MemoryKind }
 export interface ApprovalQuestion {
+  memory?: MemoryDraft
   id: string
   toolName: string
   reason: string
@@ -133,6 +158,8 @@ export interface ApprovalQuestion {
   origin: Origin
   /** The rule "always allow" would add (absent for dangerous calls, which are one at a time). */
   rule?: string
+  /** All safe subcommand rules covered by one explicit wider approval. */
+  rules?: string[]
 }
 export type ApprovalScope = 'once' | 'session' | 'always'
 export type ApprovalOutcome = 'allowed-once' | 'allowed-session' | 'allowed-always' | 'rejected' | 'cancelled'
@@ -141,14 +168,22 @@ export interface WeixinState { phase: 'offline' | 'loading' | 'waiting' | 'scann
 export interface Delegation { agent: string, label: string, provider?: string, status: 'completed' | 'failed' | 'aborted', steps: number, task: string }
 export interface Message { role: 'user' | 'assistant', text: string, origin?: Origin, /** System note such as an interruption. */ note?: boolean, delegation?: Delegation }
 /** `by`: the companion who wrote it (with the brain when it isn't pi); missing on items from before it was kept. */
-export interface MemoryItem { id: string, text: string, createdAt: string, by?: string }
+export interface MemoryItem { kind?: MemoryKind, updatedAt?: string, id: string, text: string, createdAt: string, by?: string }
 export interface FileChange { path: string, status: 'added' | 'modified' | 'deleted', added: number, removed: number, patch: string }
 
 /** What the stage performs. Derived from real runtime events only; the model never sets it. */
 export type AnnaPhase = 'offline' | 'idle' | 'thinking' | 'responding' | 'inspecting' | 'editing' | 'running' | 'testing' | 'waiting' | 'compacting' | 'retrying' | 'supervising' | 'reviewing' | 'done' | 'failed'
 export interface AnnaState { phase: AnnaPhase, line: string, step: number, target?: string }
 /** Deliverable summary for one finished task. */
+/** Input excludes cached reads/writes; output already includes reasoning tokens. */
+export interface TokenCounts { input?: number, output?: number, cacheRead?: number, cacheWrite?: number }
+export interface TaskUsage extends TokenCounts { partial: boolean }
 export interface TaskResult {
+  usage?: TaskUsage
+  elapsedMs?: number
+  toolCalls?: number
+  /** Model retries/failovers actually reported by the selected runtime. */
+  retries?: number
   taskId: string
   status: 'completed' | 'aborted' | 'failed'
   ok: boolean
@@ -164,9 +199,41 @@ export interface TaskResult {
 export interface ToolActivity { name: string, phase: 'call' | 'result', callId: string, text: string, isError?: boolean }
 export interface PlatformInfo { os: string, shell: 'bash' | 'powershell', sandbox: { available: boolean, reason?: string }, acp: boolean, secrets: 'system' | 'file' }
 
+export interface TaskRecord {
+  memoryRevision?: number
+  taskId: string
+  at: string
+  workspace: string
+  status: 'completed' | 'aborted' | 'failed'
+  origin: Origin
+  request: string
+  changes: { path: string, status: FileChange['status'] }[]
+  by?: string[]
+  undone?: boolean
+  result?: TaskResult
+}
+
+export interface CapabilityEntry { kind: 'skill' | 'mcp' | 'plugin' | 'tool', name: string, source: string, state: 'available' | 'configured' | 'error' }
+export interface CapabilityReport { at: string, source: string, entries: CapabilityEntry[], unknown: string[] }
+
+export interface ExternalSession { id: string, agent: 'claude' | 'codex', title: string, workspace?: string, updatedAt: string }
+export interface HistoryPreview { session: ExternalSession, messages: Message[], nextCursor?: string }
+export interface ExternalHistoryPage { agent: 'claude' | 'codex', all: boolean, items: ExternalSession[], nextCursor?: string, preview?: HistoryPreview }
+
 export interface RuntimeSnapshot {
+  starterTasks?: string[]
+  welcome?: string
+  externalHistory?: ExternalHistoryPage
+  /** The last model list asked for while setting up pi's model; `error` says why it is empty. */
+  modelList?: { baseURL: string, api: ModelSettings['api'], models: string[], error?: string, at: string }
+  /** Their time together, from every work record and her diary. */
+  relationship?: import('./relationship').Relationship
+  capabilities?: CapabilityReport
+  actualModel?: string
+  workRecords?: TaskRecord[]
   state: 'unconfigured' | 'stopped' | 'starting' | 'ready' | 'running' | 'error'
   error?: string
+  skills?: string[]
   plugins: string[]
   tools: string[]
   sessionId?: string
@@ -198,7 +265,7 @@ export type AnnaEvent = { type: 'navigate', panel: 'settings' | 'providers' } | 
   | ({ type: 'tool' } & ToolActivity)
   | { type: 'anna', state: AnnaState }
   | { type: 'stream', text: string }
-  | { type: 'result', result: TaskResult }
+  | { type: 'result', result: TaskResult, reply?: string }
   | { type: 'mode', mode: PermissionMode, previous: PermissionMode, line: string }
   | { type: 'changes', taskId: string, changes: FileChange[] }
   | { type: 'notify', title: string, body: string }
@@ -209,17 +276,21 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'plugin', enabled: boolean }
   | { type: 'avatar-job', image: string }
   | { type: 'configure', model: ModelSettings, key: string } | { type: 'connect' }
+  /** The models a vendor offers: with the typed key, or the saved one when the address is the one it was saved for. */
+  | { type: 'model-list', model: Pick<ModelSettings, 'baseURL' | 'api'>, key?: string }
   | { type: 'restart' } | { type: 'stop' } | { type: 'new-session' }
   | { type: 'workspace', path: string }
   | { type: 'choose-workspace' }
   | { type: 'trust', trusted: boolean }
-  | { type: 'mode', mode: PermissionMode }
-  | { type: 'approval', id: string, allow: boolean, scope?: ApprovalScope }
+  | { type: 'mode', mode: PermissionMode, acknowledge?: boolean }
+  | { type: 'windows-auto-revoke' }
+  | { type: 'approval', id: string, allow: boolean, scope?: ApprovalScope, memory?: MemoryDraft }
   | { type: 'rule-remove', rule: string }
   | { type: 'changes', taskId: string }
   | { type: 'undo', taskId: string, force?: boolean }
   | { type: 'memory', enabled: boolean }
   | { type: 'memory-forget', id: string }
+  | { type: 'memory-update', id: string, memory: MemoryDraft }
   | { type: 'review', enabled: boolean }
   | { type: 'agents-refresh' }
   | { type: 'agent-provider', agent: string, provider?: string, key?: string }
@@ -248,6 +319,16 @@ export type Command = { type: 'snapshot' } | { type: 'send', text: string }
   | { type: 'ccswitch-import' }
   | { type: 'agent-install', agent: string }
   | { type: 'kernel', id: BrainId }
+  | { type: 'personality', profile: PersonalityProfile, complete?: boolean }
+  | { type: 'share-pi-model', restore?: boolean }
+  | { type: 'pi-usage' }
+  | { type: 'native-usage' }
+  | { type: 'connection-test' }
+  | { type: 'first-task', text?: string }
+  | { type: 'capabilities-refresh' }
+  | { type: 'history-list', agent: 'claude' | 'codex', all?: boolean, cursor?: string }
+  | { type: 'history-preview', agent: 'claude' | 'codex', id: string, cursor?: string }
+  | { type: 'history-fork', agent: 'claude' | 'codex', id: string, useCurrentDirectory?: boolean }
   | { type: 'update-check' }
   | { type: 'update-install' }
   | { type: 'weixin-status' } | { type: 'weixin-login' } | { type: 'weixin-disconnect' }
@@ -256,6 +337,7 @@ export type Reply = { ok: true, snapshot: RuntimeSnapshot } | { ok: false, error
 export const command = defineInvokeEventa<Reply, { command: Command }>('anna:command')
 export const runtimeEvent = defineEventa<AnnaEvent>('anna:event')
 export interface AnnaBridge {
+  voice: (request: VoiceRequest) => Promise<VoiceReply>
   invoke: (command: Command) => Promise<Reply>
   subscribe: (listener: (event: AnnaEvent) => void) => () => void
 }

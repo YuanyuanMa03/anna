@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { MotionCue } from '../../packages/character/manifest'
 import type { AnnaPhase, PermissionMode } from '../../packages/shared/contracts'
 import type { Lang } from './copy'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -62,19 +63,60 @@ const taskIndex = ref(0)
 const task = computed(() => tasks[taskIndex.value]!)
 const character = characters[0]
 
-// ── Anna as a cut-out captured from the app ──
-const cast = [{ id: 'haru', top: 0.98, size: [1048, 900], z: 6, overlap: 0 }] as const
-const castRow = ref<HTMLElement>()
-function meet() {
-  document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })
-}
-// On a phone the cast scrolls sideways; start with Anna in the middle.
+// ── Her two forms, side by side: greet once seen, answer a poke with a motion ──
+const duoRow = ref<HTMLElement>()
+const bodyCue = ref<{ kind: MotionCue, at: number }>()
+const animeCue = ref<{ kind: MotionCue, at: number }>()
+const bodyMissing = ref(false)
+const pokeSide = ref<'body' | 'anime'>()
+let poked = 0
+let pokeTimer: ReturnType<typeof setTimeout> | undefined
+let observer: IntersectionObserver | undefined
 onMounted(() => {
-  const row = castRow.value
-  const lead = row?.querySelector<HTMLElement>('.lead')
-  if (row && lead && row.scrollWidth > row.clientWidth)
-    row.scrollLeft = lead.offsetLeft - (row.clientWidth - lead.clientWidth) / 2
+  const row = duoRow.value
+  if (!row)
+    return
+  observer = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      const at = Date.now()
+      bodyCue.value = { kind: 'greet', at }
+      animeCue.value = { kind: 'greet', at: at + 350 }
+      observer?.disconnect()
+    }
+  }, { threshold: 0.35 })
+  observer.observe(row)
 })
+function poke(side: 'body' | 'anime') {
+  const at = Date.now()
+  ;(side === 'body' ? bodyCue : animeCue).value = { kind: 'celebrate', at }
+  pokeSide.value = side
+  poked++
+  const id = poked
+  clearTimeout(pokeTimer)
+  pokeTimer = setTimeout(() => {
+    if (poked === id)
+      pokeSide.value = undefined
+  }, 1200)
+}
+
+// ── The video: the real app, hands-free voice, autoplaying muted in the window frame ──
+const video = ref<HTMLVideoElement>()
+const paused = ref(false)
+onMounted(() => {
+  // Reduced motion is the one case where the recording should not move by itself.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches)
+    video.value?.pause()
+})
+function toggleVideo() {
+  const element = video.value
+  if (!element)
+    return
+  if (element.paused)
+    void element.play()
+  else
+    element.pause()
+}
+
 const phase = ref<AnnaPhase>('idle')
 const line = ref('')
 const entries = ref<Entry[]>([])
@@ -86,7 +128,7 @@ let answer: ((allow: boolean) => void) | undefined
 let run = 0
 
 const changes = computed(() => entries.value.filter(entry => entry.status === 'done' && entry.step.change).map(entry => entry.step.change!))
-const bubble = computed(() => line.value || t.value.demo.lines.idle(t.value.cast.people[character.id].name))
+const bubble = computed(() => line.value || t.value.demo.lines.idle(character.name))
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 function reset() {
@@ -168,7 +210,11 @@ watch(lang, () => {
   if (!running.value && !finished.value)
     line.value = ''
 })
-onBeforeUnmount(reset)
+onBeforeUnmount(() => {
+  reset()
+  clearTimeout(pokeTimer)
+  observer?.disconnect()
+})
 
 // ── Install commands ──
 type Os = 'mac' | 'linux' | 'win'
@@ -196,15 +242,14 @@ async function copyCommand(command: string) {
   catch {}
 }
 
-const support = ref<HTMLDialogElement>()
-const payment = ref<'wechat' | 'alipay'>('wechat')
 const year = new Date().getFullYear()
 </script>
 
 <template>
   <header class="nav">
-    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v0.6.0</span></a>
+    <a href="#" class="wordmark" :aria-label="t.nav.home">anna<span>v1.0.0</span></a>
     <nav :aria-label="t.nav.home">
+      <a href="#duo">{{ t.nav.forms }}</a>
       <a href="#meet">{{ t.nav.meet }}</a>
       <a href="#demo">{{ t.nav.demo }}</a>
       <a href="#features">{{ t.nav.features }}</a>
@@ -212,7 +257,6 @@ const year = new Date().getFullYear()
       <a href="#download">{{ t.nav.download }}</a>
     </nav>
     <div class="nav-actions">
-      <button class="sponsor-nav" @click="support?.showModal()">♥ <span>{{ t.nav.coffee }}</span></button>
       <button class="lang" :aria-label="lang === 'zh' ? 'Switch to English' : '切换到中文'" @click="lang = lang === 'zh' ? 'en' : 'zh'">{{ lang === 'zh' ? 'EN' : '中' }}</button>
       <a class="github" :href="repo" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg><span>GitHub</span></a>
     </div>
@@ -230,35 +274,52 @@ const year = new Date().getFullYear()
           <a class="button" href="#download">{{ t.hero.others }}</a>
           <a class="button" :href="repo" target="_blank" rel="noopener">{{ t.hero.github }} <span>↗</span></a>
         </div>
-        <p class="sponsor-note"><span>♥</span>{{ t.hero.sponsor.text }} <button @click="support?.showModal()">{{ t.hero.sponsor.button }} →</button></p>
       </div>
     </section>
 
-    <section class="cast wrap" :aria-label="t.cast.label">
-      <div ref="castRow" class="cast-row">
-        <button v-for="item in cast" :key="item.id" class="member" :class="{ lead: item.id === 'haru' }" :style="{ '--top': item.top, '--ratio': item.size[0] / item.size[1], '--overlap': item.overlap, 'zIndex': item.z }" :aria-label="`${t.cast.people[item.id].name} · ${t.cast.people[item.id].tagline}`" @click="meet()">
-          <img src="/media/anna.webp" alt="" :width="item.size[0]" :height="item.size[1]">
-          <span class="tag"><b>{{ t.cast.people[item.id].name }}</b><small>{{ t.cast.people[item.id].tagline }}</small></span>
-        </button>
+    <section id="duo" class="duo wrap">
+      <div class="heading">
+        <div><p class="eyebrow">{{ t.duo.eyebrow }}</p><h2>{{ t.duo.title[0] }}<br><em>{{ t.duo.title[1] }}</em></h2></div>
+        <p>{{ t.duo.desc }}</p>
       </div>
-      <p class="cast-note">{{ t.cast.note }}</p>
+      <div ref="duoRow" class="duo-stage">
+        <figure class="duo-card" :class="{ poked: pokeSide === 'body' }">
+          <div class="duo-canvas">
+            <BodyStage v-if="character.body && !bodyMissing" :body="character.body" :name="character.name" phase="idle" mode="edit" :speaking="false" :cue="bodyCue" @poke="poke('body')" @unavailable="bodyMissing = true" />
+            <img v-if="!character.body || bodyMissing" src="/media/anna.webp" :alt="t.duo.left.name">
+          </div>
+          <figcaption><b>{{ t.duo.left.name }}</b><small>{{ t.duo.left.tagline }}</small></figcaption>
+          <span v-if="pokeSide === 'body'" class="poke-heart" aria-hidden="true">{{ t.duo.poke }}</span>
+        </figure>
+        <figure class="duo-card" :class="{ poked: pokeSide === 'anime' }">
+          <div class="duo-canvas">
+            <CharacterStage :character="character" phase="idle" mode="edit" :speaking="false" :zoom="1.5" :cue="animeCue" @poke="poke('anime')" />
+          </div>
+          <figcaption><b>{{ t.duo.right.name }}</b><small>{{ t.duo.right.tagline }}</small></figcaption>
+          <span v-if="pokeSide === 'anime'" class="poke-heart" aria-hidden="true">{{ t.duo.poke }}</span>
+        </figure>
+      </div>
+      <p class="cast-note">{{ t.duo.note }}</p>
+    </section>
+
+    <section class="shot wrap">
+      <figure class="hero-shot">
+        <div class="window window-video">
+          <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.video.shot }}</span><button class="video-toggle" :aria-pressed="!paused" @click="toggleVideo">{{ paused ? t.video.play : t.video.pause }}</button></div>
+          <video ref="video" muted loop playsinline autoplay preload="metadata" poster="/media/anna-live-poster.webp" :title="t.video.shot" @click="toggleVideo" @play="paused = false" @pause="paused = true">
+            <source src="/media/anna-live.mp4" type="video/mp4">
+          </video>
+        </div>
+        <figcaption class="chip chip-a">{{ t.video.chips[0] }}</figcaption>
+        <div class="chip chip-b">{{ t.video.chips[1] }}</div>
+      </figure>
+      <p class="fine video-note">{{ t.video.note }}</p>
     </section>
 
     <div class="strip wrap">
       <strong>{{ t.strip.lead }}</strong>
       <ul><li v-for="item in t.strip.items" :key="item">{{ item }}</li></ul>
     </div>
-
-    <section class="shot wrap">
-      <figure class="hero-shot">
-        <div class="window">
-          <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.hero.shot }}</span></div>
-          <img src="/media/desktop-v060.webp" :alt="t.hero.shot" width="1600" height="773" loading="lazy">
-        </div>
-        <figcaption class="chip chip-a"><i class="mode-dot edit" />{{ t.hero.chips[0] }}</figcaption>
-        <div class="chip chip-b">{{ t.hero.chips[1] }}</div>
-      </figure>
-    </section>
 
     <section id="meet" class="meet wrap">
       <div class="heading">
@@ -317,17 +378,50 @@ const year = new Date().getFullYear()
     </section>
 
     <section id="features" class="features wrap">
+      <div class="heading">
+        <div><p class="eyebrow">{{ t.featuresHead.eyebrow }}</p><h2>{{ t.featuresHead.title[0] }}<br><em>{{ t.featuresHead.title[1] }}</em></h2></div>
+        <p>{{ t.featuresIntro }}</p>
+      </div>
       <article v-for="(item, index) in t.showcase" :key="item.eyebrow" class="showcase" :class="{ flip: index % 2 === 1 }">
         <div class="showcase-copy">
           <p class="eyebrow">{{ item.eyebrow }}</p>
-          <h2>{{ item.title }}</h2>
+          <h3>{{ item.title }}</h3>
           <p>{{ item.body }}</p>
           <ul><li v-for="point in item.points" :key="point">{{ point }}</li></ul>
         </div>
-        <img :src="item.image" :alt="item.alt" loading="lazy" width="1600" height="965">
+        <img :src="item.image" :alt="item.alt" loading="lazy" width="1600" height="1080">
+      </article>
+      <article class="remote">
+        <div class="remote-copy">
+          <p class="eyebrow">{{ t.wechat.eyebrow }}</p>
+          <h3>{{ t.wechat.title[0] }}<br><em>{{ t.wechat.title[1] }}</em></h3>
+          <p>{{ t.wechat.body }}</p>
+          <ul><li v-for="point in t.wechat.points" :key="point">{{ point }}</li></ul>
+        </div>
+        <div class="remote-devices">
+          <figure class="remote-desktop">
+            <div class="window">
+              <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>anna</span></div>
+              <img src="/media/anna-working.webp" :alt="t.wechat.desktop" loading="lazy" width="1280" height="860">
+            </div>
+            <figcaption>{{ t.wechat.desktop }}</figcaption>
+          </figure>
+          <span class="remote-link" aria-hidden="true">⇄</span>
+          <figure class="remote-phone">
+            <div class="phone">
+              <i class="phone-notch" />
+              <div class="phone-head"><i class="phone-avatar" /><b>{{ t.wechat.phoneTitle }}</b><small>ClawBot</small></div>
+              <div class="phone-chat">
+                <p v-for="(message, index) in t.wechat.chat" :key="index" :class="message.from"><span>{{ message.text }}</span></p>
+              </div>
+              <div class="phone-input" />
+            </div>
+            <figcaption>{{ t.wechat.phone }}</figcaption>
+          </figure>
+        </div>
       </article>
       <div class="grid">
-        <article v-for="item in t.grid" :key="item.title"><span>{{ item.icon }}</span><h3>{{ item.title }}</h3><p>{{ item.body }}</p></article>
+        <article v-for="item in t.grid" :key="item.title"><span>{{ item.icon }}</span><h3>{{ item.title }}</h3><p>{{ item.body }}</p><a v-if="'link' in item" :href="repo" target="_blank" rel="noopener">{{ item.link }}</a></article>
       </div>
     </section>
 
@@ -379,14 +473,6 @@ const year = new Date().getFullYear()
           <a :href="`${repo}/blob/main/website/public/${os === 'win' ? 'install.ps1' : 'install.sh'}`" target="_blank" rel="noopener">{{ t.download.links.script }} ↗</a>
         </div>
       </div>
-      <aside class="coffee">
-        <span class="cup">☕</span>
-        <p class="eyebrow">{{ t.coffee.eyebrow }}</p>
-        <h3>{{ t.coffee.title[0] }}<br>{{ t.coffee.title[1] }}</h3>
-        <p>{{ t.coffee.body }}</p>
-        <button class="button" @click="support?.showModal()">{{ t.coffee.button }} <span>♡</span></button>
-        <small>{{ t.coffee.small }}</small>
-      </aside>
     </section>
   </main>
 
@@ -395,13 +481,4 @@ const year = new Date().getFullYear()
     <p>{{ t.footer.tagline }}<span>{{ t.footer.license }} © {{ year }}</span></p>
     <a :href="repo" target="_blank" rel="noopener">GitHub ↗</a>
   </footer>
-
-  <dialog ref="support" class="support-dialog">
-    <div class="support-heading"><div><p class="eyebrow">{{ t.dialog.eyebrow }}</p><h2>{{ t.dialog.title }}</h2></div><button :aria-label="t.dialog.close" @click="support?.close()">×</button></div>
-    <p>{{ t.dialog.body }}</p>
-    <div class="payment-tabs"><button :aria-pressed="payment === 'wechat'" @click="payment = 'wechat'">{{ t.dialog.wechat }}</button><button :aria-pressed="payment === 'alipay'" @click="payment = 'alipay'">{{ t.dialog.alipay }}</button></div>
-    <img class="payment-image" :src="`/media/${payment}.webp`" :alt="payment === 'wechat' ? t.dialog.wechat : t.dialog.alipay">
-    <p>{{ t.dialog.scan(payment === 'wechat' ? t.dialog.wechat : t.dialog.alipay) }}</p>
-    <a class="text-link" :href="`/media/${payment}.webp`" :download="`Anna-${payment}.webp`">{{ t.dialog.save }}</a>
-  </dialog>
 </template>

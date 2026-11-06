@@ -12,6 +12,9 @@ export function historyOf(entries: TranscriptEntry[]): Message[] {
       if (message.text)
         out.push({ role: message.kind, text: message.text, origin: message.origin })
     }
+    else if (entry.kind === 'notice') {
+      out.push({ role: 'assistant', text: String((entry as { data: { text: string } }).data.text), note: true })
+    }
     else if (entry.kind === 'aborted') {
       out.push({ role: 'assistant', text: '这一轮被中断了。随时可以继续。', note: true })
     }

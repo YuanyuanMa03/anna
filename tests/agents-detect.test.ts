@@ -31,6 +31,9 @@ describe('detectAgents', () => {
     expect(byId.gemini).toMatchObject({ installed: false, tier: 'delegate' })
     expect(byId['claude-desktop']).toMatchObject({ tier: 'switch' })
     expect(agents.map(agent => agent.id)).toEqual([
+      'workbuddy',
+      'qoder-cn',
+      'trae',
       'claude',
       'codex',
       'gemini',
@@ -81,4 +84,11 @@ describe('detectAgents on Windows and when signed out', () => {
     const agents = await detectAgents({ ...env, platform: 'win32', home: 'C:\\Users\\a' })
     expect(agents.find(agent => agent.id === 'codex')).toMatchObject({ installed: true, path: codex, version: '0.161.0', loggedIn: false })
   })
+})
+
+it('recognizes Windows desktop installation paths without interpreting macOS app bundles', async () => {
+  const files = new Set(['C:\\Users\\a\\AppData\\Local\\Programs\\WorkBuddy\\WorkBuddy.exe'])
+  const agents = await detectAgents({ platform: 'win32', home: 'C:\\Users\\a', env: { LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' }, exists: path => files.has(path), list: () => [], run: async () => ({ stdout: '', code: 1 }) })
+  expect(agents.find(agent => agent.id === 'workbuddy')).toMatchObject({ installed: true, path: 'C:\\Users\\a\\AppData\\Local\\Programs\\WorkBuddy\\WorkBuddy.exe' })
+  expect(agents.find(agent => agent.id === 'claude-desktop')?.installed).toBe(false)
 })

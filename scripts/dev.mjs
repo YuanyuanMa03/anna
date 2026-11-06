@@ -10,7 +10,7 @@ if (code !== 0)
 const server = await createServer()
 await server.listen()
 const electron = (await import('electron')).default
-const child = spawn(electron, ['dist/host/apps/desktop/main.js'], { stdio: 'inherit', env: { ...process.env, ANNA_DEV_URL: 'http://127.0.0.1:5193', ANNA_ROOT: process.cwd() } })
+const child = spawn(electron, ['dist/host/apps/desktop/boot.js'], { stdio: 'inherit', env: { ...process.env, ANNA_DEV_URL: 'http://127.0.0.1:5193', ANNA_ROOT: process.cwd() } })
 let closing = false
 async function close() {
   if (closing)

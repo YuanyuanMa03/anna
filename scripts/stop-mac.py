@@ -12,7 +12,7 @@ development = (root / 'node_modules/electron/dist/Electron.app/Contents/MacOS/El
 pids = []
 for line in subprocess.check_output(['/bin/ps', '-axo', 'pid=,command='], text=True).splitlines():
     pid, command = line.strip().split(None, 1)
-    if command == str(installed) or command.startswith(str(installed) + ' --') or command.startswith(str(development) + ' dist/host/apps/desktop/main.js'):
+    if command == str(installed) or command.startswith(str(installed) + ' --') or command.startswith(str(development) + ' dist/host/apps/desktop/boot.js'):
         pids.append(int(pid))
 for pid in pids:
     os.kill(pid, signal.SIGTERM)

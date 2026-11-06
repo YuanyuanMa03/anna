@@ -4,12 +4,10 @@ import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import electron from 'electron'
 import { _electron } from 'playwright'
-import { assertBuiltAssets } from './built-assets.mjs'
+import { desktopLaunch } from './desktop-launch.mjs'
 
 /** Real-model acceptance: a work task with tools, a real approval, the stage performing it, and session resume. */
-const root = process.cwd()
 await mkdir('.data', { recursive: true })
 await mkdir('artifacts', { recursive: true })
 const data = await mkdtemp(resolve('.data/e2e-'))
@@ -27,10 +25,7 @@ const evidence = { data, checks: [], phases: [], consoleErrors: [] }
 let desktop
 
 async function launch() {
-  const packaged = process.env.ANNA_PACKAGED_APP
-  if (!packaged)
-    assertBuiltAssets(root)
-  desktop = await _electron.launch({ executablePath: packaged ? join(packaged, 'Contents/MacOS/Anna') : electron, args: packaged ? [] : ['dist/host/apps/desktop/main.js'], cwd: packaged ? '/' : root, env: { ...process.env, ANNA_DEV_URL: packaged ? 'http://127.0.0.1:9' : '', ANNA_TEST_CDP: '', ANNA_ROOT: packaged ? '/nonexistent/anna-source' : root, ANNA_DATA_DIR: data } })
+  desktop = await _electron.launch(desktopLaunch(data, { ANNA_TEST_CDP: '' }))
   const page = await desktop.firstWindow()
   page.on('pageerror', e => evidence.consoleErrors.push(e.message))
   await page.locator('.scene').waitFor()
@@ -54,7 +49,7 @@ async function send(page, text, { approve } = {}) {
     if (state.approvals.length && approve) {
       await page.screenshot({ path: 'artifacts/stage-approval.png' })
       evidence.approval = state.approvals[0]
-      await page.getByRole('button', { name: '仅允许一次', exact: true }).first().click()
+      await page.getByRole('button', { name: state.approvals[0].memory ? '确认记住' : '仅允许一次', exact: true }).first().click()
       approved++
     }
     if (state.state !== 'running' && state.messages.length >= before + 2)
@@ -101,7 +96,7 @@ try {
   await page.getByRole('button', { name: '关闭抽屉', exact: true }).click()
 
   const token = `槐树-${Date.now().toString().slice(-6)}`
-  const status = await send(page, `调用你的状态工具，告诉我你现在的大脑和插件。另外请记住本次验收暗号是“${token}”。`)
+  const status = await send(page, `调用你的状态工具，告诉我你现在的大脑和插件。另外请记住本次验收暗号是“${token}”。`, { approve: true })
   assert.match(JSON.stringify(status.state), /anna_status/)
   evidence.statusReply = status.text
   evidence.checks.push('anna_status tool called through pi customTools')

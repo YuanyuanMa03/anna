@@ -2,7 +2,7 @@ import type { DelegateAgent } from '../agents/adapters'
 import type { ProviderChoice } from '../agents/providers'
 import type { GateVerdict, KernelEvent } from '../kernels/types'
 import type { PermissionMode } from '../permissions/modes'
-import type { AnnaEvent, ApprovalQuestion, Delegation, Origin } from '../shared/contracts'
+import type { AnnaEvent, ApprovalQuestion, Delegation, Origin, TokenCounts } from '../shared/contracts'
 import type { Checkpoints } from './checkpoints'
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -58,9 +58,9 @@ export class Delegator {
     catch { return {} }
   }
 
-  private async rememberSession(agent: string, sessionId: string) {
+  private async rememberSession(agent: string, sessionId: string, usage?: TokenCounts) {
     const all = await this.sessions()
-    all[this.deps.workspace()] = { ...all[this.deps.workspace()], [agent]: sessionId }
+    all[this.deps.workspace()] = { ...all[this.deps.workspace()], [agent]: sessionId, ...(usage ? { [`${agent}:usage`]: JSON.stringify(usage) } : {}) }
     await writeFile(`${this.sessionsFile}.tmp`, JSON.stringify(all), { mode: 0o600 })
     await rename(`${this.sessionsFile}.tmp`, this.sessionsFile)
   }
@@ -89,7 +89,9 @@ export class Delegator {
     // Snapshot every file the agent could touch, so the result card can show diffs and undo.
     const before = await workspaceFiles(workspace)
     for (const path of before) await this.deps.checkpoints.capture(context.taskId, workspace, path).catch(() => {})
-    const sessionId = (await this.sessions())[workspace]?.[agent]
+    const saved = (await this.sessions())[workspace]
+    const sessionId = saved?.[agent]
+    const usageBaseline = saved?.[`${agent}:usage`] ? JSON.parse(saved[`${agent}:usage`]!) as TokenCounts : undefined
     const card = (state: 'running' | 'done' | 'failed', line: string, step: number) => this.deps.emit({ type: 'collaborator', agent, label, provider: providerName, state, line, step })
     // With backups, a failing provider hands the run to the next one; the card says so and shows who works now.
     const backups = provider ? await this.deps.backups?.(agent, provider.preset.name) ?? [] : []
@@ -108,6 +110,7 @@ export class Delegator {
         command: located.command,
         prefix: located.prefix,
         launch,
+        usageBaseline,
         cwd: workspace,
         sessionId: agent === 'codex' ? sessionId : undefined,
         gate: async (tool, input) => {
@@ -118,7 +121,7 @@ export class Delegator {
         signal: this.abort.signal,
       })
       if (result.sessionId)
-        await this.rememberSession(agent, result.sessionId)
+        await this.rememberSession(agent, result.sessionId, result.cumulativeUsage)
       for (const path of await workspaceFiles(workspace)) {
         if (!await this.deps.checkpoints.has(context.taskId, path))
           await this.deps.checkpoints.markCreated(context.taskId, workspace, path)

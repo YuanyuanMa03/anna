@@ -4,8 +4,7 @@ import type { LinkImport } from '../agents/deeplink'
 import type { AgentInfo } from '../agents/detect'
 import type { ImportedProvider, Preset, ProviderApp, ProviderChoice } from '../agents/providers'
 import type { RouteHandle } from '../routing/server'
-import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, RoutingPolicy, UniversalDraft, UniversalProvider } from '../shared/contracts'
-import type { SettingsStore } from './settings'
+import type { AgentsSnapshot, AgentStatus, CustomProvider, MyProvider, ProviderDraft, RoutingPolicy, Settings, UniversalDraft, UniversalProvider } from '../shared/contracts'
 import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
@@ -15,11 +14,12 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { approvalStyle, verified } from '../agents/adapters'
 import { claudePickerRows, codexAggregateCatalog, modelKeyFor } from '../agents/aggregate'
-import { autoInstallable, catalog } from '../agents/catalog'
+import { catalog } from '../agents/catalog'
 import { codexCatalog } from '../agents/codex-catalog'
 import { maskKey, parseProviderLink } from '../agents/deeplink'
-import { detectAgents } from '../agents/detect'
+import { detectAgents, findCommand } from '../agents/detect'
 import { GlobalSwitcher, routedOnlyInAnna } from '../agents/global'
+import { installLaunch } from '../agents/install-launch'
 import { nodeEnvironment } from '../agents/node-environment'
 import { canRoute, chatReasoningOf, chatRouteOf, findPreset, importCcSwitch, keyFieldOf, presetsFor, providerEnv, routedThroughAnna, upstreamOf } from '../agents/providers'
 import { testEndpoints } from '../agents/speedtest'
@@ -27,6 +27,8 @@ import { RoutingTakeover } from '../agents/takeover'
 import { queryUsage, usageKind } from '../agents/usage'
 import { failoverDefaults } from '../routing/breaker'
 import { routing, routingIfStarted } from '../routing/server'
+import { withSearchTools } from '../shared/search-path'
+import { SettingsStore } from './settings'
 
 export interface SecretVault { read: () => Promise<string>, write: (value: string) => Promise<void> }
 export interface AgentsOptions {
@@ -42,6 +44,7 @@ export interface AgentsOptions {
 
 /** Global routing's port: next to cc-switch's 15721, so both can run. */
 export const globalRoutingPort = 15722
+const sharedTransactionKey = 'anna:shared-model-transaction'
 const routedApps = ['claude', 'codex'] as const
 /** The failover settings the user can change, and their bounds. */
 const policyBounds: Record<keyof RoutingPolicy, [number, number, string]> = { maxRetries: [0, 10, '最多再试几家'], firstByteTimeout: [5, 600, '等第一个字的秒数'], idleTimeout: [10, 1800, '输出中断多久算失败'], failureThreshold: [1, 50, '连续失败几次就暂停'], openSeconds: [5, 3600, '暂停的秒数'] }
@@ -314,10 +317,24 @@ export class AgentsHub {
   private async allKeys() {
     if (!this.keys) {
       const raw = await this.secrets.read()
-      this.keys = raw ? JSON.parse(raw) as Record<string, string> : {}
+      const keys = raw ? JSON.parse(raw) as Record<string, string> : {}
+      const pending = keys[sharedTransactionKey]
+      if (pending) {
+        const previous = JSON.parse(pending) as { settings: Settings, keys: Record<string, string> }
+        this.store.value = previous.settings
+        await this.store.save()
+        await this.secrets.write(JSON.stringify(previous.keys))
+        this.keys = previous.keys
+      }
+      else {
+        this.keys = keys
+      }
     }
     return this.keys
   }
+
+  /** Recover an interrupted shared-model transaction before the host uses its settings. */
+  async recoverSharedModel() { await this.allKeys() }
 
   private async saveKey(id: string, key: string) {
     const keys = await this.allKeys()
@@ -358,6 +375,9 @@ export class AgentsHub {
       const registry = Object.fromEntries(Object.entries(routingSettings.keys?.[agent] ?? {}).map(([key, name]) => [key, name === from ? to ?? null : name]))
       this.store.value.routing = { ...routingSettings, aggregate: { ...routingSettings.aggregate, [agent]: list }, keys: { ...routingSettings.keys, [agent]: registry } }
     }
+    const original = this.store.value.sharedModelBackup?.[agent as 'claude' | 'codex']
+    if (original?.provider === from)
+      original.provider = to
     const current = this.store.value.agents?.[agent]
     if (!current)
       return
@@ -395,6 +415,57 @@ export class AgentsHub {
     await this.store.save()
   }
 
+  async sharePiModel(key: string, restore: boolean, following = false) {
+    if (!restore && !key)
+      throw new Error('请先配置 pi 的模型和密钥')
+    const before = structuredClone(this.store.value)
+    const oldKeys = { ...await this.allKeys() }
+    // Build the entire change off to the side. Provider helpers cannot persist half an application.
+    const staged = new SettingsStore(this.data)
+    staged.value = structuredClone(before)
+    staged.save = async () => {}
+    let stagedKeys = JSON.stringify(oldKeys)
+    const hub = new AgentsHub(this.data, staged, { read: async () => stagedKeys, write: async (value) => { stagedKeys = value } })
+    const name = 'Anna · pi 共用模型'
+    const backup = staged.value.sharedModelBackup ?? {}
+    const model = staged.value.model
+    const targets: string[] = model.api === 'openai-completions' ? ['claude', 'codex'] : model.api === 'anthropic-messages' ? ['claude'] : ['codex']
+    for (const app of ['claude', 'codex'] as const) {
+      const saved = backup[app]
+      if (restore || (following && !targets.includes(app))) {
+        if (saved && saved.follow !== false && staged.value.agents?.[app]?.provider === name)
+          hub.setAgent(app, { provider: saved.provider })
+        continue
+      }
+      if (!targets.includes(app) || (following && (!saved || saved.follow === false)))
+        continue
+      backup[app] = saved ? { ...saved, follow: true } : { provider: staged.value.agents?.[app]?.provider, follow: true }
+      const previous = staged.value.providers?.find(item => item.app === app && item.name === name)
+      await hub.saveProvider({ app, name, previous: previous?.name, baseUrl: app === 'codex' ? codexBase(model.baseURL) : model.baseURL, model: model.model, key, apiFormat: model.api === 'openai-completions' ? 'openai_chat' : app === 'claude' ? 'anthropic' : 'openai_responses' })
+      backup[app]!.follow = true
+      hub.setAgent(app, { provider: name })
+    }
+    if (restore)
+      delete staged.value.sharedModelBackup
+    else staged.value.sharedModelBackup = backup
+    delete staged.value.connectionVerified
+    try {
+      const recovery = JSON.stringify({ ...JSON.parse(stagedKeys), [sharedTransactionKey]: JSON.stringify({ settings: before, keys: oldKeys }) })
+      await this.secrets.write(recovery)
+      this.keys = JSON.parse(stagedKeys)
+      this.store.value = staged.value
+      await this.store.save()
+      await this.secrets.write(stagedKeys)
+    }
+    catch (error) {
+      this.store.value = before
+      this.keys = oldKeys
+      await this.secrets.write(JSON.stringify(oldKeys))
+      await this.store.save()
+      throw error
+    }
+  }
+
   async setProvider(agent: string, provider?: string, key?: string) {
     const app = providerAppOf(agent)
     if (!app)
@@ -403,6 +474,9 @@ export class AgentsHub {
       throw new Error(`没有找到 ${provider} 这个服务商`)
     if (provider && key)
       await this.saveKey(`${app}:${provider}`, key.trim())
+    const shared = this.store.value.sharedModelBackup?.[app as 'claude' | 'codex']
+    if (shared)
+      shared.follow = false
     this.setAgent(agent, { provider })
     await this.store.save()
   }
@@ -468,6 +542,9 @@ export class AgentsHub {
     base.name = name
     const source: CustomProvider['source'] = previous?.source ?? (from || (draft.previous && findPreset(app, draft.previous)) ? 'preset' : 'custom')
     const entry = { app, name, source, preset: base } as CustomProvider
+    const shared = this.store.value.sharedModelBackup?.[app as 'claude' | 'codex']
+    if (shared && (draft.previous === 'Anna · pi 共用模型' || name === 'Anna · pi 共用模型'))
+      shared.follow = false
     this.store.value.providers = [...list.filter(item => !(item.app === app && (item.name === name || item.name === draft.previous))), entry]
     const keys = await this.allKeys()
     if (draft.previous && draft.previous !== name && keys[`${app}:${draft.previous}`]) {
@@ -568,6 +645,21 @@ export class AgentsHub {
   }
 
   /** Look up what's left on the provider's account (balance or Coding Plan quota) with its saved key. */
+  private recordUsage(id: string, result: Omit<import('../shared/contracts').UsageReport, 'at'>) {
+    const now = new Date().toISOString()
+    const previous = this.usage[id]
+    this.usage[id] = result.error && previous
+      ? { ...previous, error: result.error, keyRejected: result.keyRejected, stale: true, attemptedAt: now }
+      : { ...result, at: now, attemptedAt: now, stale: Boolean(result.error) }
+  }
+
+  async checkPiUsage(key: string) {
+    const baseURL = this.store.value.model.baseURL
+    if (!key || !usageKind(baseURL))
+      throw new Error('当前 pi 服务商暂不支持查询余额')
+    this.recordUsage('pi:current', await queryUsage(baseURL, key, { fetch: this.options.fetch }))
+  }
+
   async checkUsage(appName: string, name: string) {
     const app = providerAppOf(appName)
     const preset = app && this.preset(app, name)
@@ -575,7 +667,7 @@ export class AgentsHub {
     if (!app || !baseUrl || !usageKind(baseUrl))
       throw new Error('还不支持查询这个服务商的余额')
     const key = (await this.allKeys())[`${app}:${name}`] ?? ''
-    this.usage[`${app}:${name}`] = { at: new Date().toISOString(), ...await queryUsage(baseUrl, key, { fetch: this.options.fetch }) }
+    this.recordUsage(`${app}:${name}`, await queryUsage(baseUrl, key, { fetch: this.options.fetch }))
   }
 
   /** Read an import link and hold its provider for the user to confirm. */
@@ -714,10 +806,11 @@ export class AgentsHub {
     const entry = catalog.find(item => item.id === agent)
     if (!entry?.install)
       throw new Error('这个 agent 没有可自动执行的安装命令')
-    if (!autoInstallable(entry.install))
-      throw new Error(`请在终端里运行：${entry.install}`)
-    const [command, ...args] = entry.install.split(' ')
-    return new Promise<string>((resolve, reject) => execFile(process.platform === 'win32' ? `${command}.cmd` : command!, args, { timeout: 10 * 60 * 1000, shell: process.platform === 'win32' }, (error, stdout, stderr) => error ? reject(new Error(`${stderr || error.message}`.slice(-600))) : resolve(stdout.slice(-600))))
+    const environment = nodeEnvironment()
+    // Never `shell: true`: on Windows that concatenates the arguments into cmd.exe text.
+    const launch = installLaunch(entry.install, process.platform, name => findCommand(name, environment))
+    const env = withSearchTools({ ...process.env }, launch.bin, process.platform)
+    return new Promise<string>((resolve, reject) => execFile(launch.command, launch.args, { timeout: 10 * 60 * 1000, windowsHide: true, windowsVerbatimArguments: launch.verbatim, env }, (error, stdout, stderr) => error ? reject(new Error(`${stderr || error.message}`.slice(-600))) : resolve(stdout.slice(-600))))
   }
 
   async snapshot(): Promise<AgentsSnapshot> {

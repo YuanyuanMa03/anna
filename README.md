@@ -139,7 +139,7 @@ On Linux, Anna installs into `~/.local/share/anna-app` with an `anna` command an
 later block the unprivileged user namespaces that Chromium's sandbox needs. On those systems the `anna` launcher
 starts without that sandbox (and says so) instead of failing to start. To keep the sandbox, install with
 `curl -fsSL https://anna.mayuanyuan.top/install.sh | ANNA_INSTALL_APPARMOR=1 bash`, which uses sudo to add a small
-AppArmor profile for Anna. Details are in [docs/architecture.md](docs/architecture.md#linux-chromium-sandbox).
+AppArmor profile for Anna. Support status is in [release and operations](docs/release-operations.md#linux-support).
 
 A fresh install has no preconfigured model. Open the top-right brain picker: use an installed, signed-in Claude Code or Codex, or open **Model & Settings** to connect pi to DeepSeek or an HTTPS provider speaking OpenAI or Anthropic protocols. Keys are encrypted with the OS keychain (Keychain, DPAPI or
 libsecret). Then pick a folder, tell Anna you trust it, and give her a task. Press <kbd>Shift</kbd>+<kbd>Tab</kbd> to
@@ -164,7 +164,7 @@ switch permission modes.
 
 Approval cards offer **Deny**, **Allow once**, **Allow for this session** and **Always allow**. "Always allow"
 writes a Claude Code-format rule to the workspace. Tasks that come in over WeChat always run in Ask mode. Details are in
-[docs/permissions.md](docs/permissions.md).
+[docs/architecture.md#permission-policy](docs/architecture.md#permission-policy).
 
 ## Other agents
 
@@ -184,10 +184,10 @@ and switches in one click. Someone without a model is offered a signed-in Claude
 
 Agents in the catalog that speak the Agent Client Protocol (ACP) can be her brain too, running inside her sandbox, but this
 is off by default: it has only run against protocol fakes, not a real agent. Set `ANNA_ACP=1` to try it (see
-[docs/kernels.md](docs/kernels.md#acp-brains)).
+[docs/architecture.md#kernels-and-delegation](docs/architecture.md#acp-brains)).
 
 Anna snapshots the workspace before each delegation, so whatever another agent changes can be diffed and undone too.
-See [docs/kernels.md](docs/kernels.md) for the protocols and how to add a new agent.
+See [docs/architecture.md#kernels-and-delegation](docs/architecture.md#kernels-and-delegation) for the protocols and how to add a new agent.
 
 ## How it works
 
@@ -228,9 +228,11 @@ flowchart LR
 - **The policy engine is a pure function.** Given mode, rules, workspace and tool call, it returns allow, ask or deny.
   Path resolution mirrors pi's exactly and follows symlinks. The OS sandbox is the real boundary.
 
-More in [docs/architecture.md](docs/architecture.md).
+Read the [architecture](docs/architecture.md), [iteration roadmap](docs/roadmap.md), and [release and operations guide](docs/release-operations.md).
 
 ## Development
+
+[Voice conversation](docs/architecture.md#speech) connects directly to local speech services or cloud APIs, with independent recognition and synthesis settings. The desktop package needs no New API, gateway, Python or model weights to start. Camera, screen observation and the service workbench have been removed; existing brains, tools and memories remain available.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -246,10 +248,13 @@ tools. Her data lives in `~/Library/Application Support/Anna` on macOS, `%APPDAT
 ```bash
 pnpm lint && pnpm typecheck && pnpm test   # unit tests, a real pi tool loop (faux model) and the real sandbox
 pnpm build && pnpm test:scripted           # desktop acceptance with a scripted model, no API key needed
-pnpm package:mac                           # or package:windows / package:linux
+ANNA_TEST_SHOW=1 pnpm test:scripted       # the same, with the window shown (on a Mac it runs hidden by default)
+pnpm package:mac                           # or package:windows / package:linux; then package:dmg, package:windows-installer, package:deb
+pnpm verify:package windows                # or linux: checks a package without running it
+pnpm smoke:package                         # starts this system's package; pass a path for an installed app
 ```
 
-CI runs all of this on macOS, Windows and Linux. To test against the agents installed on your machine, run
+The Windows and Linux packages can also be built on a Mac. The installers need `makensis` and `dpkg-deb` (on macOS: `brew install makensis dpkg`). A package built this way still has to be started on its own system before it counts as working. To test against the agents installed on your machine, run
 `ANNA_REAL_AGENTS=claude,codex pnpm test tests/agents-real.test.ts`.
 
 <details>
@@ -282,9 +287,7 @@ Anna has changed brains three times, and she's still Anna.
 
 ## Among her peers
 
-Anna sits where three kinds of projects meet: AI companions like Project AIRI, desktop pets that watch your coding
-agents like Clawd on Desk, and desktop shells for coding agents like cc-switch and AionUi. What she does better, where
-she still falls short, and which projects she learned from are in [docs/comparison.md](docs/comparison.md).
+The dated project comparison and influences are preserved in [docs/reviews/comparison.md](docs/reviews/comparison.md).
 
 ## Roadmap
 
@@ -293,7 +296,7 @@ she still falls short, and which projects she learned from are in [docs/comparis
 - [ ] Verify the Gemini CLI, OpenCode and Pi adapters on real machines
 - [ ] MCP and skills sync across agents; usage statistics
 - [x] Anna's own tools (memory, delegation) when Claude Code or Codex is the brain
-- [ ] A command sandbox on Windows
+- [ ] Windows permission modes without an OS command sandbox (see the iteration roadmap)
 - [ ] Phoneme-level lip sync
 
 ## Contributing

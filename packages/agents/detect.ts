@@ -1,5 +1,5 @@
 import type { AgentDescriptor, AgentId, AgentTier } from './catalog'
-import { delimiter, join, posix, win32 } from 'node:path'
+import { delimiter, posix, win32 } from 'node:path'
 import { catalog, configDirOf } from './catalog'
 
 /** Everything detection needs from the machine, injectable for tests. */
@@ -57,6 +57,18 @@ export function searchDirectories(env: DetectEnvironment) {
   return dirs
 }
 
+/** A command on the search path, with the extensions Windows would try. */
+export function findCommand(name: string, env: DetectEnvironment): string | undefined {
+  const path = env.platform === 'win32' ? win32 : posix
+  const names = env.platform === 'win32' ? [`${name}.cmd`, `${name}.exe`, name] : [name]
+  for (const dir of searchDirectories(env)) {
+    for (const candidate of names.map(item => path.join(dir, item))) {
+      if (env.exists(candidate))
+        return candidate
+    }
+  }
+}
+
 function locate(agent: AgentDescriptor, env: DetectEnvironment, dirs: string[]) {
   const path = env.platform === 'win32' ? win32 : posix
   const names = env.platform === 'win32' ? agent.binaries.flatMap(name => [`${name}.cmd`, `${name}.exe`, `${name}.ps1`, name]) : agent.binaries
@@ -67,8 +79,10 @@ function locate(agent: AgentDescriptor, env: DetectEnvironment, dirs: string[]) 
         return candidate
     }
   }
-  for (const app of agent.appPaths ?? []) {
-    const candidate = app.startsWith('/') ? app : join(env.home, app)
+  const appPaths = Array.isArray(agent.appPaths) ? agent.appPaths : agent.appPaths?.[env.platform] ?? []
+  for (const app of appPaths) {
+    const expanded = app.replace(/%([^%]+)%/g, (match, name: string) => env.env[name] ?? (name === 'LOCALAPPDATA' ? path.join(env.home, 'AppData/Local') : match))
+    const candidate = path.normalize(path.isAbsolute(expanded) ? expanded : path.join(env.home, expanded))
     if (env.exists(candidate))
       return candidate
   }

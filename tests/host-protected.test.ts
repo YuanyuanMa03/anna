@@ -10,14 +10,14 @@ import { createPiKernel } from '../packages/kernels/pi/kernel'
 /** pi's shell tool: bash, or powershell on Windows. */
 const shell = process.platform === 'win32' ? 'powershell' : 'bash'
 
-it.each([['the agents\' config backups (their original keys)', 'agent-backups/codex/auth.json.orig'], ['the brain set aside by the data move', 'before-0.6/credential.bin']])('%s are Anna\'s own data: no tool reads them, even in Auto', async (_name, file) => {
+it.each([['the agents\' config backups (their original keys)', 'agent-backups/codex/auth.json.orig'], ['the brain set aside by the data move', 'before-0.6/credential.bin'], ['model speech credentials', 'senses.bin'], ['vision credentials', 'vision.bin'], ['the managed hearing model cache', 'hearing-model/current.json']])('%s are Anna\'s own data: no tool reads them, even in Auto', async (_name, file) => {
   const data = await mkdtemp(join(tmpdir(), 'anna-protected-'))
   const workspace = join(data, 'project')
   await mkdir(workspace)
   const backup = join(data, file)
   await mkdir(dirname(backup), { recursive: true })
   await writeFile(backup, '{"OPENAI_API_KEY":"sk-user-original"}')
-  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
+  await writeFile(join(data, 'settings.json'), JSON.stringify({ version: 2, windowsAutoAcknowledged: true, kernel: 'pi', characterId: 'haru', statusEnabled: false, memoryEnabled: false, model: { provider: 'custom', model: 'x', baseURL: 'https://x.invalid', api: 'openai-completions' }, workspace, workspaces: { [workspace]: { trusted: true, mode: 'auto', rules: { allow: [], ask: [], deny: [] } } } }))
   const backend = await scriptedBackend([{ tools: [{ name: 'read', args: { path: backup } }] }, { tools: [{ name: shell, args: { command: `cat '${backup}'` } }] }, { text: '好的。' }], data)
   const host = new Host(resolve('.'), data, { read: async () => 'key', write: async () => {} }, () => {}, { sandbox: { available: false, reason: 'test' }, kernel: context => createPiKernel(context, backend), agents: { detect: async () => [] } })
   await host.initialize()

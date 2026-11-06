@@ -1,9 +1,10 @@
 name: CI
+# Run a stable candidate after local review/preflight, rather than on every push or PR update.
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -26,11 +27,11 @@ jobs:
       - name: Linux sandbox and display dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y bubblewrap socat ripgrep xvfb
-      - name: Download the Live2D character assets
-        run: pnpm assets
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Download the Live2D character assets
+        run: pnpm assets
       - run: pnpm build
       # Deterministic desktop acceptance with a scripted model: no API key, no network.
       - name: Scripted desktop acceptance

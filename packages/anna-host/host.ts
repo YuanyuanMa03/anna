@@ -3,23 +3,33 @@ import type { AgentKernel, AnnaTool, GateVerdict, KernelFactory } from '../kerne
 import type { PermissionMode } from '../permissions/modes'
 import type { RuleSet } from '../permissions/rules'
 import type { SandboxStatus } from '../permissions/sandbox'
-import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
+import type { AgentsSnapshot, AnnaEvent, ApprovalQuestion, Command, Message, ModelSettings, Origin, PlatformInfo, RuntimeSnapshot, TaskResult, WorkspaceSettings } from '../shared/contracts'
 import type { AgentsOptions, SecretVault } from './agents-hub'
 import type { DelegationOutcome } from './delegator'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
+import * as v from 'valibot'
+import { codexCapabilities } from '../agents/capabilities'
+import { ExternalHistory } from '../agents/history'
+import { codexUsage } from '../agents/native-usage'
 import { avatarFolder, avatarTask } from '../character/avatar-task'
+import { firstTasks } from '../character/first-tasks'
 import { companion } from '../character/manifest'
+import { personalityInstructions, profileSchema } from '../character/personality'
+import { workMethod } from '../character/work-methods'
 import { kernelFor } from '../kernels/registry'
 import { decide } from '../permissions/engine'
-import { modes, stricter, trustedRegistries } from '../permissions/modes'
+import { modeInfo, modes, stricter, trustedRegistries } from '../permissions/modes'
 import { canonical, resolveToolPath } from '../permissions/paths'
 import { emptyRules, evaluateRules, mergeRules } from '../permissions/rules'
 import { CommandSandbox } from '../permissions/sandbox'
+import { approvalRules } from '../shared/approval-rules'
+import { isLocalEndpoint } from '../shared/model-vendors'
+import { advanceTogether, relationshipOf, seedTogether, undoTogether } from '../shared/relationship'
 import { AgentsHub } from './agents-hub'
 import { ApprovalBroker } from './approval-broker'
 import { Checkpoints } from './checkpoints'
@@ -27,14 +37,18 @@ import { delegateAgents, Delegator, labelOf, parseMention } from './delegator'
 import { TaskJournal } from './journal'
 import { explicitMemory, MemoryStore, signature } from './memory'
 import { describeModelError } from './model-errors'
+import { listModels, sameEndpoint } from './model-list'
 import { Presence } from './presence'
 import { SettingsStore, validateModel } from './settings'
+import { resolveWorkspace } from './workspace'
 
 export interface CredentialVault { read: () => Promise<string>, write: (key: string) => Promise<void> }
 /** A remote channel (Weixin today) that can push text to its owner outside a reply. */
 export interface Channel { notify: (text: string) => Promise<boolean> }
 interface Task { id: string, text: string, origin: Origin, resolve: (text: string) => void, reject: (error: Error) => void, delegate?: { agent: DelegateAgent, provider?: string, task: string }, /** Agents that did part of the work. */ collaborators?: Set<string>, /** The user pressed stop. */ stopped?: boolean, /** The companion is checking a collaborator's result. */ reviewing?: boolean }
 export interface HostOptions {
+  /** Platform policy injection for isolated tests; production uses process.platform. */
+  platform?: NodeJS.Platform
   kernel?: KernelFactory
   sandbox?: SandboxStatus
   /** External agents: detection, locations and config dirs (tests point these at fakes). */
@@ -45,6 +59,9 @@ export interface HostOptions {
   secretsMode?: () => Promise<'system' | 'file'>
   /** A section for this edition's brain (the online demo says what it lacks), after the persona and the rest. */
   notes?: string
+  histories?: Pick<ExternalHistory, 'list' | 'preview' | 'fork'>
+  /** How a vendor's model list is fetched (tests use a fake). */
+  listModels?: (model: Pick<ModelSettings, 'baseURL' | 'api'>, key: string, signal: AbortSignal) => Promise<string[]>
 }
 
 /** ACP brains stay off until one real agent has run as her brain: only protocol fakes have so far. */
@@ -55,6 +72,12 @@ const acpEnabled = () => process.env.ANNA_ACP === '1'
  * Desktop and remote channels feed the same queue; the kernel never sees credentials beyond its model key.
  */
 export class Host {
+  private histories: Pick<ExternalHistory, 'list' | 'preview' | 'fork'>
+  private nativeUsage: RuntimeSnapshot['agents']['usage'] = {}
+  private capabilityCache?: RuntimeSnapshot['capabilities']
+  private historyPage?: RuntimeSnapshot['externalHistory']
+  private modelList?: RuntimeSnapshot['modelList']
+  private modelListRequest?: AbortController
   private kernel?: AgentKernel
   private approvals: ApprovalBroker
   private presence: Presence
@@ -63,6 +86,9 @@ export class Host {
   private journal: TaskJournal
   /** Set when the provider rejected the key in this run; cleared by the next successful turn or a new key. */
   private keyRejected = false
+  private starterTasks: string[] = []
+  private memoryContextDirty = false
+  private notedMemory?: string
   private sandbox = new CommandSandbox()
   private sandboxStatus: SandboxStatus = { available: false, reason: '尚未检测' }
   private state: RuntimeSnapshot['state'] = 'stopped'
@@ -71,6 +97,7 @@ export class Host {
   private historyDirty = true
   private hasKey = false
   private mutating = false
+  private verifying = false
   /** Reconfiguration commands run one after another instead of failing when they overlap. */
   private mutations: Promise<unknown> = Promise.resolve()
   private tasks: Task[] = []
@@ -101,6 +128,7 @@ export class Host {
     })
     let memorySecret = ''
     this.hub = new AgentsHub(data, this.store, options.secrets ?? { read: async () => memorySecret, write: async (value) => { memorySecret = value } }, options.agents)
+    this.histories = options.histories ?? new ExternalHistory({ locate: agent => this.hub.locate(agent) })
     this.delegator = new Delegator({
       data,
       workspace: () => this.workspacePath,
@@ -130,20 +158,31 @@ export class Host {
 
   async initialize() {
     await this.store.load()
+    await this.hub.recoverSharedModel()
     // Connecting at start would hang on an agent that never answers, with no way left to choose another brain.
     if (this.store.value.kernel.startsWith('acp:') && !acpEnabled())
       this.store.value.kernel = 'pi'
     await this.store.character()
     await this.memory.load()
     await this.journal.load()
+    // The running tally starts from whatever the journal and diary still hold the first time this version runs.
+    if (!this.store.value.together) {
+      this.store.value.together = seedTogether(this.journal.entries, this.memory.items)
+      await this.store.save().catch(() => {})
+    }
     // 0.3.0 kept a separate UI transcript; the kernel session is now the only record. Keep the old file for reference.
     if (existsSync(join(this.data, 'transcript.json')))
       await rename(join(this.data, 'transcript.json'), join(this.data, 'transcript.legacy.json')).catch(() => {})
-    this.hasKey = Boolean(await this.vault.read())
+    // A key that cannot be decrypted (a copied profile, say) means asking for it again, not refusing to open. The file stays.
+    this.hasKey = Boolean(await this.vault.read().catch((error: unknown) => {
+      console.error('[anna-core] the saved key could not be read', error instanceof Error ? error.message : '')
+      return ''
+    }))
     this.sandboxStatus = this.options.sandbox ?? await CommandSandbox.probe()
     this.state = this.canConnect(this.hasKey ? 'key' : '') ? 'stopped' : 'unconfigured'
     this.secretsMode = await this.options.secretsMode?.().catch(() => 'system' as const) ?? 'system'
     await this.refreshAgents(false)
+    await this.refreshStarterTasks()
     this.publish()
     // Detection runs CLIs (--version, login status); never block startup on it.
     void this.refreshAgents(true).catch(() => {})
@@ -156,6 +195,26 @@ export class Host {
     await this.hub.syncRouting().catch(() => {})
     this.agentsCache = await this.hub.snapshot()
     this.publish()
+  }
+
+  private sessionKey(workspace = this.workspacePath, brain = this.store.value.kernel) { return JSON.stringify([canonical(workspace), brain]) }
+
+  private rememberSession() {
+    if (this.store.value.sessionFile) {
+      this.store.value.brainSessions ??= {}
+      this.store.value.brainSessions[this.sessionKey()] = this.store.value.sessionFile
+    }
+  }
+
+  private async refreshStarterTasks() {
+    this.starterTasks = firstTasks(await readdir(this.workspacePath).catch(() => []), this.workspaceSettings().trusted)
+  }
+
+  private welcome() {
+    const nickname = this.store.value.personality?.nickname
+    const entry = this.journal.entries.filter(entry => entry.workspace === this.workspacePath && (entry.memoryRevision ?? 0) === (this.store.value.memoryRevision ?? 0) && !/记住|忘记/.test(entry.request)).at(-1)
+    const last = entry ? `上次${entry.by?.length ? `由 ${entry.by.join('、')} 处理的` : '我们聊到的'}「${entry.request.slice(0, 40)}」${entry.undone ? '已撤销' : entry.status === 'completed' ? '已有记录' : '还没有完成'}，需要时我们可以接着看。` : '把要做的事交给我，或者先聊聊。'
+    return `${nickname ? `${nickname}，` : ''}我在这儿。${last}`
   }
 
   get busy() { return Boolean(this.current) }
@@ -175,6 +234,8 @@ export class Host {
   effectiveMode(origin: Origin = this.current?.origin ?? 'desktop'): PermissionMode {
     const ws = this.workspaceSettings()
     let mode = ws.mode
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged)
+      mode = 'ask'
     if (!ws.trusted)
       mode = stricter(mode, 'ask')
     if (origin !== 'desktop')
@@ -182,8 +243,10 @@ export class Host {
     return mode
   }
 
+  private get os() { return this.options.platform ?? process.platform }
+
   private platform(): PlatformInfo {
-    return { os: process.platform, shell: process.platform === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
+    return { os: this.os, shell: this.os === 'win32' ? 'powershell' : 'bash', sandbox: this.sandboxStatus, acp: acpEnabled(), secrets: this.secretsMode }
   }
 
   snapshot(full = true): RuntimeSnapshot {
@@ -193,6 +256,7 @@ export class Host {
     return {
       state: this.state,
       error: this.error,
+      skills: this.kernel?.skills,
       plugins: this.kernel?.plugins ?? [],
       tools: this.kernel?.tools ?? [],
       sessionId: this.kernel?.sessionId || undefined,
@@ -205,6 +269,7 @@ export class Host {
       queue: this.tasks.map(task => task.text),
       result: this.result,
       model: this.kernel?.modelInfo,
+      actualModel: this.kernel?.actualModel,
       kernel: { id: this.store.value.kernel, label: kernelFor(this.store.value.kernel).label },
       credential: this.store.value.kernel !== 'pi' ? undefined : this.keyRejected ? 'rejected' : this.store.value.modelVerified ? 'verified' : 'unverified',
       mode: this.effectiveMode('desktop'),
@@ -212,7 +277,14 @@ export class Host {
       sessionRules: [...this.sessionRules],
       platform: this.platform(),
       memories: [...this.memory.items],
-      agents: this.agentsCache,
+      externalHistory: this.historyPage,
+      modelList: this.modelList,
+      capabilities: this.kernel?.capabilityReport ?? this.capabilityCache,
+      starterTasks: this.starterTasks,
+      welcome: this.welcome(),
+      workRecords: this.journal.entries.filter(entry => entry.workspace === this.workspacePath),
+      relationship: relationshipOf(this.journal.entries, this.memory.items, new Date(), this.store.value.together),
+      agents: { ...this.agentsCache, usage: { ...this.agentsCache.usage, ...this.nativeUsage } },
     }
   }
 
@@ -232,12 +304,12 @@ export class Host {
    * the default workspace (`workspace`) is the one folder here tools may use.
    */
   private protectedPaths() {
-    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'transcript.legacy.json'].map(name => join(this.data, name))
+    return ['before-0.6', 'credential.bin', 'weixin-credential.bin', 'providers.bin', 'senses.bin', 'vision.bin', 'hearing-model', 'pi-agent', 'pi-sessions', 'electron', 'settings.json', 'memory.json', 'memory-dismissed.json', 'journal.json', 'delegations.json', 'checkpoints', 'external-sessions', 'agent-backups', 'last-error.log', 'logs', 'quarantine', 'transcript.legacy.json'].map(name => join(this.data, name))
   }
 
   private policyContext(origin: Origin) {
     const ws = this.workspaceSettings()
-    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
+    return { mode: this.effectiveMode(origin), workspace: canonical(this.workspacePath), sandboxed: this.sandboxStatus.available, platform: this.os, rules: mergeRules(ws.rules, { allow: this.sessionRules, ask: [], deny: [] }), protectedPaths: this.protectedPaths().map(path => canonical(path)) }
   }
 
   private async saveRule(rule: string) {
@@ -255,16 +327,20 @@ export class Host {
     this.presence.wait(question.reason)
     const outcome = await this.approvals.ask({ ...question, origin })
     this.presence.resume()
-    if (outcome === 'allowed-session' && question.rule)
-      this.sessionRules.push(question.rule)
-    if (outcome === 'allowed-always' && question.rule)
-      await this.saveRule(question.rule)
+    const rules = approvalRules(question)
+    if (outcome === 'allowed-session')
+      this.sessionRules.push(...rules.filter(rule => !this.sessionRules.includes(rule)))
+    if (outcome === 'allowed-always') {
+      for (const rule of rules) await this.saveRule(rule)
+    }
     this.publish()
     return outcome === 'cancelled' ? 'cancelled' : outcome.startsWith('allowed') ? 'allowed' : 'rejected'
   }
 
   private async gate(tool: string, input: Record<string, unknown>): Promise<GateVerdict> {
     const origin = this.current?.origin ?? 'desktop'
+    if (this.verifying)
+      return { allow: false, reason: '连接验证不允许使用工具。' }
     if (this.current?.reviewing && (tool === 'write' || tool === 'edit'))
       return { allow: false, reason: '现在是在审阅协作者的结果：只检查，不修改文件。需要改的地方告诉用户，由用户决定。' }
     const decision = decide(tool, input, this.policyContext(origin))
@@ -274,7 +350,7 @@ export class Host {
     if (decision.kind === 'ask' && this.current?.reviewing && origin !== 'desktop')
       return { allow: false, reason: '这次审阅来自微信，不向用户请求确认：这一步需要确认，所以不做。用不需要确认的方式检查，并说明哪些没能核实。' }
     if (decision.kind === 'ask') {
-      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule })
+      const outcome = await this.escalate({ toolName: tool, reason: decision.reason, details: decision.details, danger: decision.danger, rule: decision.rule, rules: decision.rules })
       if (outcome !== 'allowed')
         return { allow: false, reason: outcome === 'cancelled' ? '用户中断了这次任务。' : '用户在确认卡上拒绝了这次操作，这是用户本人的决定。不要换个写法、拆开命令或换个工具再试，也不要建议用户怎样更容易被放行；说明不做这一步的影响，再问用户想怎么做。', stop: outcome === 'cancelled' }
     }
@@ -345,8 +421,13 @@ export class Host {
     const tools: AnnaTool[] = []
     if (this.store.value.statusEnabled)
       tools.push(this.statusTool())
-    if (this.store.value.memoryEnabled)
-      tools.push(this.memory.tool(() => this.publish(), () => this.memoryWriter))
+    if (this.store.value.memoryEnabled) {
+      tools.push(this.memory.tool((forgotten) => { this.memoryContextDirty ||= Boolean(forgotten); this.publish() }, () => this.memoryWriter, async (draft) => {
+        const editable = { ...draft }
+        const outcome = await this.escalate({ toolName: 'anna_memory', reason: 'Anna 想记住这件事', details: draft.text, danger: false, memory: editable })
+        return outcome === 'allowed' ? editable : outcome === 'rejected' ? false : undefined
+      }))
+    }
     tools.push(this.delegateTool())
     tools.push(this.providersTool())
     return tools
@@ -491,8 +572,8 @@ export class Host {
     const card = `## 角色卡：${character.name}\n${character.persona}`
     const ws = this.workspaceSettings()
     const workspace = `## 当前工作区\n工作文件夹：${this.workspacePath}${ws.trusted ? '' : '\n这个文件夹尚未被用户信任：项目里的 AGENTS.md 等说明没有加载，修改和命令都需要确认。'}`
-    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（沙箱内自主完成）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : '这台电脑上没有命令沙箱，命令需要更多确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
-    return [persona, card, workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : []), ...(this.options.notes ? [this.options.notes] : [])]
+    const permissions = `## 权限\n工具调用由 Anna 的权限系统把关，模式由用户在界面上切换：规划（只读）、谨慎（每步都问）、协作（工作区内修改与测试直接进行）、放手（${modeInfo('auto', this.os, this.sandboxStatus.available).short}）。${this.sandboxStatus.available ? '终端命令运行在沙箱里：只能写工作区、临时目录和包管理缓存，联网会经过确认。' : this.os === 'win32' ? '这台电脑上没有命令沙箱；放手模式由用户首次明确确认后自主运行普通命令，高风险命令、工作区外修改和密钥读取仍逐次确认。' : '这台电脑上没有命令沙箱，修改类命令需要确认。'}读取工作文件夹之外的内容（包括 ~/.ssh 这类凭据目录）和可能含密钥的文件，会按模式请用户确认；Anna 自己的数据目录任何情况下都不可访问。被拒绝时你会收到原因，按原因调整做法，不要换个写法绕过。等待确认时不要重复请求。`
+    return [persona, card, personalityInstructions(this.store.value.personality), workspace, permissions, ...(this.store.value.memoryEnabled ? [this.memory.instructions()] : []), ...(this.options.notes ? [this.options.notes] : [])]
   }
 
   /** pi needs a model key; an external brain (Claude Code, Codex) uses its own login. */
@@ -514,6 +595,7 @@ export class Host {
     const factory = this.options.kernel ?? kernelFor(this.store.value.kernel).create
     const kernel = factory({
       root: this.root,
+      verification: this.verifying,
       data: this.data,
       workspace: this.workspacePath,
       trusted: ws.trusted,
@@ -523,9 +605,9 @@ export class Host {
       sessionFile: this.store.value.sessionFile,
       gate: (tool, input) => this.gate(tool, input),
       sandbox: this.sandboxStatus.available ? { wrap: (command, id) => this.sandbox.wrap(command, id) } : undefined,
-      tools: this.tools(),
+      tools: this.verifying ? [] : this.tools(),
       emit: event => this.presence.handle(event),
-      mode: () => this.effectiveMode(),
+      mode: () => this.verifying ? 'plan' : this.effectiveMode(),
       locate: agent => this.hub.locate(agent),
       provider: agent => this.hub.choice(agent),
       backups: agent => this.hub.backups(agent),
@@ -535,11 +617,13 @@ export class Host {
       await kernel.start()
       this.kernel = kernel
       this.notedMode = undefined
+      this.notedMemory = undefined
       this.notedDay = undefined
-      const brief = kernel.restored ? '' : this.journal.brief(this.workspacePath)
+      const brief = kernel.restored ? '' : this.journal.brief(this.workspacePath, 8, this.store.value.memoryRevision ?? 0)
       if (brief)
         kernel.note(brief)
       this.store.value.sessionFile = kernel.sessionFile
+      this.rememberSession()
       await this.store.save()
       this.refreshHistory()
       this.state = 'ready'
@@ -566,6 +650,7 @@ export class Host {
     if (this.kernel)
       await this.kernel.close()
     this.kernel = undefined
+    this.capabilityCache = undefined
     await this.sandbox.stop()
     this.presence.set('offline')
   }
@@ -602,12 +687,19 @@ export class Host {
     let key = ''
     try {
       key = await this.vault.read()
+      if (this.memoryContextDirty) {
+        await this.close()
+        this.clearMemoryContext()
+        await this.store.save()
+      }
       if (!this.kernel)
         await this.connect(key)
+      const startedAt = Date.now()
       const kernel = this.kernel!
+      kernel.note(workMethod(task.text))
       const mode = this.effectiveMode(task.origin)
       if (mode !== this.notedMode) {
-        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modes[mode].description}）`)
+        kernel.note(`[Anna 系统提示] 当前权限模式：${modes[mode].label}（${modeInfo(mode, this.os, this.sandboxStatus.available).description}）`)
         this.notedMode = mode
       }
       const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
@@ -623,6 +715,11 @@ export class Host {
         kernel.note('[Anna 系统提示] 用户这条消息要记住的内容看起来含有密码或密钥，没有记进共同记忆。如实告诉用户没有记，并说明原因；不要说已经记住。')
       else if (kept)
         kernel.note(`[Anna 系统提示] 用户这条消息要记住的内容，已经记进共同记忆（${signature(kept)}）：「${kept.text}」。不用再调用 anna_memory 记一次，直接向用户确认即可。`)
+      const memoryNote = this.store.value.memoryEnabled ? this.memory.instructions(task.text) : ''
+      if (memoryNote && memoryNote !== this.notedMemory) {
+        kernel.note(memoryNote)
+        this.notedMemory = memoryNote
+      }
       this.state = 'running'
       this.error = undefined
       this.result = undefined
@@ -652,8 +749,6 @@ export class Host {
       const stats = this.presence.stats
       if (outcome.status === 'aborted')
         kernel.note(`[Anna 系统提示] 用户中断了任务「${task.text.slice(0, 200)}」。这是用户的决定：之后不要主动接着做，也不要“顺带”把它做完。只有用户明确说继续时才继续；下一条消息按它本身来回应。`)
-      if (changes.length || outcome.status !== 'completed')
-        await this.journal.record({ taskId: task.id, at: new Date().toISOString(), workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators] }).catch(() => {})
       if (outcome.status === 'completed' && (!task.delegate || reviewed))
         await this.markVerified()
       if (outcome.text)
@@ -663,6 +758,10 @@ export class Host {
       this.presence.set(outcome.status === 'aborted' ? 'idle' : ok ? 'done' : 'failed', line)
       this.result = {
         taskId: task.id,
+        elapsedMs: Date.now() - startedAt,
+        toolCalls: stats.step,
+        retries: stats.retries,
+        usage: this.presence.usage,
         status: outcome.status,
         ok,
         files: [...stats.files],
@@ -673,12 +772,17 @@ export class Host {
         summary: outcome.text.split('\n').find(item => item.trim())?.slice(0, 160) ?? '',
         origin: task.origin,
       }
+      const recordedAt = new Date().toISOString()
+      await this.journal.record({ memoryRevision: this.store.value.memoryRevision ?? 0, taskId: task.id, at: recordedAt, workspace: this.workspacePath, status: outcome.status, origin: task.origin, request: task.text.slice(0, 80), changes: changes.map(change => ({ path: change.path, status: change.status })), by: task.collaborators && [...task.collaborators], result: this.result })
+      if (outcome.status === 'completed')
+        this.store.value.together = advanceTogether(this.store.value.together ?? seedTogether([], []), { at: recordedAt, request: task.text })
       this.store.value.sessionFile = kernel.sessionFile
+      this.rememberSession()
       await this.store.save()
       this.state = 'ready'
       this.error = outcome.status === 'failed' ? this.recordFailure(this.safeError(outcome.error, key)) : undefined
       this.refreshHistory()
-      this.emit({ type: 'result', result: this.result })
+      this.emit({ type: 'result', result: this.result, reply: outcome.text })
       if (outcome.status !== 'aborted')
         this.emit({ type: 'notify', title: `${this.companionName}${outcome.status === 'failed' ? ' 遇到问题' : ' 完成了'}`, body: this.result.summary || line })
       this.publish()
@@ -741,6 +845,10 @@ export class Host {
   private recordFailure(diagnostic: string) {
     const where = this.store.value.kernel === 'pi' ? '“模型与设置”' : '“外观与能力 → 外部 agent”的服务商设置（没选服务商时是它自己的登录）'
     const { message, keyRejected } = describeModelError(diagnostic.split('\n')[0]!, where)
+    if (keyRejected) {
+      delete this.store.value.connectionVerified
+      void this.store.save()
+    }
     if (keyRejected && this.store.value.kernel === 'pi') {
       this.keyRejected = true
       if (this.store.value.modelVerified) {
@@ -753,9 +861,12 @@ export class Host {
 
   private async markVerified() {
     this.keyRejected = false
-    if (this.store.value.kernel !== 'pi' || this.store.value.modelVerified)
+    const alreadyVerified = this.store.value.connectionVerified === this.store.value.kernel
+    if (alreadyVerified && (this.store.value.kernel !== 'pi' || this.store.value.modelVerified))
       return
-    this.store.value.modelVerified = true
+    this.store.value.connectionVerified = this.store.value.kernel
+    if (this.store.value.kernel === 'pi')
+      this.store.value.modelVerified = true
     await this.store.save()
   }
 
@@ -777,15 +888,26 @@ export class Host {
     switch (command.type) {
       case 'snapshot':
         return this.snapshot()
-      case 'approval':
+      case 'approval': {
+        const question = this.approvals.questions.find(question => question.id === command.id)
+        if (command.allow && command.memory && question?.memory)
+          Object.assign(question.memory, this.memory.validate(command.memory))
         this.approvals.decide(command.id, command.allow, command.scope)
         return this.snapshot()
+      }
       case 'stop':
         await this.stopWork()
         return this.snapshot()
       case 'avatar-job':
         await this.placeAvatarPicture(command.image)
         return this.execute({ type: 'send', text: avatarTask })
+      case 'first-task':
+        if (this.current)
+          throw new Error('请先等待当前任务完成')
+        this.store.value.firstTaskPending = false
+        await this.store.save()
+        this.publish()
+        return command.text ? this.execute({ type: 'send', text: command.text }) : this.snapshot()
       case 'send':
         if (this.current && this.current.origin === 'desktop' && this.kernel?.capabilities.steering) {
           const text = command.text.trim()
@@ -803,7 +925,20 @@ export class Host {
         }
         return this.snapshot()
       case 'mode':
-        return this.setMode(command.mode)
+        return this.mutate(() => this.setMode(command.mode, command.acknowledge))
+      case 'windows-auto-revoke': return this.mutate(async () => {
+        if (this.os !== 'win32')
+          throw new Error('此设置仅适用于 Windows')
+        this.store.value.windowsAutoAcknowledged = false
+        for (const ws of Object.values(this.store.value.workspaces)) {
+          if (ws.mode === 'auto')
+            ws.mode = 'ask'
+        }
+        await this.store.save()
+        this.kernel?.note('[Anna 系统提示] 用户撤销了 Windows 放手模式授权。后续操作按谨慎模式及当前权限规则执行。')
+        this.publish()
+        return this.snapshot()
+      })
       case 'rule-remove': {
         this.sessionRules = this.sessionRules.filter(rule => rule !== command.rule)
         const ws = this.workspaceSettings()
@@ -825,16 +960,88 @@ export class Host {
           throw new Error(`这些文件在任务之后又被改过：${conflicts.join('、')}。确认要覆盖时再点一次“仍然撤销”。`)
         if (this.result?.taskId === command.taskId)
           this.result = { ...this.result, undone: true }
-        await this.journal.markUndone(command.taskId).catch(() => {})
+        const undone = this.journal.entries.find(entry => entry.taskId === command.taskId)
+        const counted = undone?.status === 'completed' && !undone.undone
+        // Taken back only once the journal has marked it, so a failed mark cannot be counted twice.
+        const marked = await this.journal.markUndone(command.taskId).then(() => true, () => false)
+        if (counted && marked && this.store.value.together) {
+          this.store.value.together = undoTogether(this.store.value.together)
+          await this.store.save().catch(() => {})
+        }
         this.kernel?.note(`[Anna 系统提示] 用户撤销了上一次任务对这些文件的修改：${restored.join('、')}。它们已恢复到任务前的内容。`)
         this.presence.set('idle', `已撤销 ${restored.length} 个文件的改动。`)
         this.publish()
         return this.snapshot()
       }
+      case 'capabilities-refresh': {
+        if (this.store.value.kernel === 'codex') {
+          if (!this.workspaceSettings().trusted)
+            throw new Error('请先信任工作目录，再读取它的 agent 能力配置')
+          const located = await this.hub.locate('codex')
+          if (!located)
+            throw new Error('没有找到 Codex')
+          this.capabilityCache = await codexCapabilities(located, this.workspacePath)
+        }
+        else if (this.store.value.kernel === 'pi' && this.kernel) {
+          this.capabilityCache = { at: new Date().toISOString(), source: 'pi 运行时', unknown: ['mcp'], entries: [
+            ...(this.kernel.skills ?? []).map(name => ({ kind: 'skill' as const, name, source: 'pi 资源加载器', state: 'available' as const })),
+            ...this.kernel.tools.map(name => ({ kind: 'tool' as const, name, source: 'pi 运行时', state: 'available' as const })),
+          ] }
+        }
+        else {
+          this.capabilityCache = this.kernel?.capabilityReport ?? { at: new Date().toISOString(), source: '等待大脑初始化报告', entries: [], unknown: ['skills', 'plugins', 'mcp'] }
+        }
+        this.publish()
+        return this.snapshot()
+      }
+      case 'model-list': {
+        // Only the newest request may answer: a pause while typing a key starts one, the finished key another.
+        this.modelListRequest?.abort()
+        const request = new AbortController()
+        this.modelListRequest = request
+        const { baseURL, api } = command.model
+        const at = new Date().toISOString()
+        const answer = (result: { models: string[] } | { error: string }) => {
+          if (this.modelListRequest !== request)
+            return
+          this.modelList = { baseURL: String(baseURL), api, models: [], at, ...result }
+          this.modelListRequest = undefined
+        }
+        try {
+          if (!['anthropic-messages', 'openai-completions', 'openai-responses'].includes(api) || typeof baseURL !== 'string')
+            throw new Error('API 协议或端点无效')
+          const typed = typeof command.key === 'string' ? command.key.trim() : ''
+          if (typed.length > 8192 || /[\r\n\0]/.test(typed))
+            throw new Error('API Key 格式无效')
+          // Checked again after the read: a save to another vendor may land in between.
+          const fits = () => sameEndpoint(this.store.value.model.baseURL, baseURL)
+          const saved = !typed && fits() ? await this.vault.read().catch(() => '') : ''
+          const key = typed || (fits() ? saved : '')
+          if (!key && !isLocalEndpoint(baseURL))
+            throw new Error('请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
+          answer({ models: await (this.options.listModels ?? ((model, key, signal) => listModels(model, key, fetch, { signal })))({ baseURL, api }, key, request.signal) })
+        }
+        catch (error) {
+          answer({ error: error instanceof Error ? error.message : String(error) })
+        }
+        this.publish()
+        return this.snapshot()
+      }
+      case 'history-list':
+        this.historyPage = await this.histories.list(command.agent, this.workspacePath, Boolean(command.all), command.cursor)
+        this.publish()
+        return this.snapshot()
+      case 'history-preview':
+        if (!this.historyPage || this.historyPage.agent !== command.agent)
+          throw new Error('请先打开这个大脑的历史列表')
+        this.historyPage.preview = await this.histories.preview(command.agent, command.id, this.workspacePath, command.cursor)
+        this.publish()
+        return this.snapshot()
       case 'agents-refresh':
         await this.refreshAgents(true)
         return this.snapshot()
       case 'agent-provider':
+        delete this.store.value.connectionVerified
         await this.hub.setProvider(command.agent, command.provider, command.key)
         await this.refreshAgents(false)
         return this.snapshot()
@@ -859,6 +1066,7 @@ export class Host {
         await this.refreshAgents(false)
         return this.snapshot()
       case 'provider-save':
+        delete this.store.value.connectionVerified
         await this.hub.saveProvider(command)
         await this.refreshAgents(false)
         return this.snapshot()
@@ -868,6 +1076,24 @@ export class Host {
         return this.snapshot()
       case 'provider-speedtest':
         await this.hub.speedtest(command.app, command.name)
+        await this.refreshAgents(false)
+        return this.snapshot()
+      case 'native-usage': {
+        if (this.store.value.kernel !== 'codex' || this.store.value.agents?.codex?.provider)
+          throw new Error('这个入口用于 Codex 自己登录的账号；第三方 API 请查询对应服务商')
+        const location = await this.hub.locate('codex')
+        if (!location)
+          throw new Error('没有找到 Codex')
+        let usage: Omit<import('../shared/contracts').UsageReport, 'at'>
+        try { usage = await codexUsage(location, this.workspacePath) }
+        catch (error) { usage = { kind: 'quota', error: this.safeError(error, '') } }
+        const previous = this.nativeUsage['codex:current']
+        this.nativeUsage['codex:current'] = usage.error && previous ? { ...previous, error: usage.error, stale: true, attemptedAt: new Date().toISOString() } : { ...usage, at: new Date().toISOString(), stale: Boolean(usage.error) }
+        this.publish()
+        return this.snapshot()
+      }
+      case 'pi-usage':
+        await this.hub.checkPiUsage(await this.vault.read())
         await this.refreshAgents(false)
         return this.snapshot()
       case 'provider-usage':
@@ -924,32 +1150,59 @@ export class Host {
         await this.store.save()
         this.publish()
         return this.snapshot()
-      case 'memory-forget':
-        await this.memory.forget(command.id)
-        this.publish()
-        return this.snapshot()
       default:
         return this.reconfigure(command)
     }
   }
 
-  private async setMode(mode: PermissionMode) {
+  private async setMode(mode: PermissionMode, acknowledge = false) {
+    const path = this.workspacePath
     const ws = this.workspaceSettings()
     if (modes[mode].needsTrust && !ws.trusted)
       throw new Error(`${modes[mode].label}模式只能在你信任的工作文件夹里使用。`)
     const previous = this.effectiveMode('desktop')
-    this.store.value.workspaces[this.workspacePath] = { trusted: ws.trusted, mode, rules: ws.rules }
-    await this.store.save()
-    this.emit({ type: 'mode', mode, previous, line: modes[mode].greeting })
+    const previousWorkspace = this.store.value.workspaces[path]
+    const previousConsent = this.store.value.windowsAutoAcknowledged
+    if (this.os === 'win32' && mode === 'auto' && !this.store.value.windowsAutoAcknowledged) {
+      if (!acknowledge)
+        throw new Error('请先确认：Windows 没有命令沙箱，放手模式将自主运行普通命令。')
+      this.store.value.windowsAutoAcknowledged = true
+    }
+    this.store.value.workspaces[path] = { trusted: ws.trusted, mode, rules: ws.rules }
+    try { await this.store.save() }
+    catch (error) {
+      if (previousWorkspace)
+        this.store.value.workspaces[path] = previousWorkspace
+      else
+        delete this.store.value.workspaces[path]
+      if (previousConsent === undefined)
+        delete this.store.value.windowsAutoAcknowledged
+      else
+        this.store.value.windowsAutoAcknowledged = previousConsent
+      throw error
+    }
+    this.emit({ type: 'mode', mode, previous, line: modeInfo(mode, this.os, this.sandboxStatus.available).greeting })
     this.publish()
     return this.snapshot()
   }
 
   /** Commands that rebuild the kernel: serialized with each other, rejected while a task runs. */
   private reconfigure(command: Command): Promise<RuntimeSnapshot> {
-    const run = this.mutations.then(() => this.reconfigureNow(command), () => this.reconfigureNow(command))
+    return this.mutate(() => this.reconfigureNow(command))
+  }
+
+  /** Mode consent and workspace reconfiguration share one persistence order. */
+  private mutate(apply: () => Promise<RuntimeSnapshot>): Promise<RuntimeSnapshot> {
+    const run = this.mutations.then(apply, apply)
     this.mutations = run.catch(() => {})
     return run
+  }
+
+  private clearMemoryContext() {
+    delete this.store.value.sessionFile
+    delete this.store.value.brainSessions
+    this.store.value.memoryRevision = (this.store.value.memoryRevision ?? 0) + 1
+    this.memoryContextDirty = false
   }
 
   private async reconfigureNow(command: Command): Promise<RuntimeSnapshot> {
@@ -959,10 +1212,109 @@ export class Host {
     let key = ''
     try {
       key = await this.vault.read()
-      if (command.type === 'configure') {
+      if (command.type === 'memory-update' || command.type === 'memory-forget') {
+        if (command.type === 'memory-update')
+          await this.memory.correct(command.id, command.memory)
+        else await this.memory.forget(command.id)
+        await this.close()
+        this.clearMemoryContext()
+        await this.store.save()
+        if (this.canConnect(key))
+          await this.connect(key)
+      }
+      else if (command.type === 'history-fork') {
+        if (!this.workspaceSettings().known)
+          throw new Error('请先确认历史会话的工作目录')
+        const file = await this.histories.fork(command.agent, command.id, this.workspacePath, this.data, Boolean(command.useCurrentDirectory))
+        const previous = structuredClone(this.store.value)
+        await this.close()
+        if (this.store.value.sessionFile) {
+          this.store.value.brainSessions ??= {}
+          this.store.value.brainSessions[this.sessionKey()] = this.store.value.sessionFile
+        }
+        this.store.value.kernel = command.agent === 'claude' ? 'claude-code' : 'codex'
+        this.store.value.sessionFile = file
+        delete this.store.value.connectionVerified
+        this.sessionRules = []
+        this.result = undefined
+        try {
+          await this.connect(key)
+          await this.store.save()
+          this.kernel?.note('[Anna 系统提示] 你在一个从其他 agent 历史创建的分支中。此前经历来自原 agent，不要说成你亲自做过。当前角色、权限和共同记忆以 Anna 提供的说明为准。')
+        }
+        catch (error) {
+          await this.close()
+          this.store.value = previous
+          await this.store.save()
+          await this.connect(key).catch(() => {})
+          throw error
+        }
+      }
+      else if (command.type === 'connection-test') {
+        delete this.store.value.connectionVerified
+        if (!this.workspaceSettings().known)
+          throw new Error('请先选择并确认工作文件夹')
+        await this.close()
+        const saved = this.store.value.sessionFile
+        delete this.store.value.sessionFile
+        this.verifying = true
+        try {
+          await this.connect(key)
+          const kernel = this.kernel!
+          let timedOut = false
+          // A model on this computer may take minutes to read pi's long prompt the first time.
+          const timeout = setTimeout(() => { timedOut = true; void kernel.abort() }, isLocalEndpoint(this.store.value.model.baseURL) ? 180_000 : 60_000)
+          try {
+            const outcome = await kernel.prompt('这是连接验证。只用一句话问好，不调用任何工具。', { origin: 'desktop', hidden: true })
+            if (timedOut)
+              throw new Error('连接验证超时，填写的配置已保留。请检查网络、模型 ID，以及该大脑继承的登录或服务商配置后重试。')
+            if (outcome.status !== 'completed' || !outcome.text.trim())
+              throw new Error(outcome.error || '连接验证未完成，请检查模型、登录和额度')
+            this.store.value.connectionVerified = this.store.value.kernel
+            await this.markVerified()
+          }
+          finally { clearTimeout(timeout) }
+        }
+        finally {
+          await this.close()
+          this.verifying = false
+          this.store.value.sessionFile = saved
+          await this.store.save()
+          await this.connect(key)
+        }
+      }
+      else if (command.type === 'personality') {
+        const profile = v.parse(profileSchema, command.profile)
+        if (command.complete && (!this.store.value.workspace || !this.workspaceSettings().known || !this.kernel || this.state !== 'ready' || this.keyRejected || !this.store.value.connectionVerified))
+          throw new Error('请先选择工作目录并连接可用的大脑')
+        await this.close()
+        this.store.value.personality = profile
+        await this.store.save()
+        if (this.canConnect(key) && this.workspaceSettings().known)
+          await this.connect(key)
+        if (command.complete) {
+          this.store.value.onboardingComplete = true
+          this.store.value.firstTaskPending = true
+          await this.store.save()
+        }
+      }
+      else if (command.type === 'share-pi-model') {
+        await this.hub.sharePiModel(key, Boolean(command.restore))
+        await this.close()
+        await this.refreshAgents(false)
+        if (this.canConnect(key) && this.workspaceSettings().known)
+          await this.connect(key)
+      }
+      else if (command.type === 'configure') {
         const model = validateModel(command.model)
         if (command.key && (command.key.length > 8192 || /[\r\n\0]/.test(command.key)))
           throw new Error('API Key 格式无效')
+        // A server on this computer takes no key; pi still needs one to send, and it never leaves the machine.
+        // A local server with its own key keeps it when only the model changes; a new local address gets the placeholder.
+        if (!command.key.trim() && isLocalEndpoint(model.baseURL))
+          key = key && sameEndpoint(this.store.value.model.baseURL, model.baseURL) ? key : 'local'
+        else if (!command.key.trim() && key && !sameEndpoint(this.store.value.model.baseURL, model.baseURL))
+          throw new Error('换了服务地址，请为这个服务填写 API Key：已保存的密钥只用于保存时的地址')
         key = command.key.trim() || key
         if (!key)
           throw new Error('请填写 API Key')
@@ -971,18 +1323,23 @@ export class Host {
         this.hasKey = true
         if (command.key.trim() || JSON.stringify(model) !== JSON.stringify(this.store.value.model))
           this.store.value.modelVerified = false
+        delete this.store.value.connectionVerified
         this.keyRejected = false
         this.store.value.model = model
+        if (this.store.value.sharedModelBackup)
+          await this.hub.sharePiModel(key, false, true)
         await this.store.save()
         await this.connect(key)
       }
       else if (command.type === 'workspace') {
-        const path = await realpath(command.path)
-        if (!(await stat(path)).isDirectory())
-          throw new Error('请选择一个工作文件夹')
+        const path = await resolveWorkspace(command.path)
         await this.close()
-        if (this.workspacePath !== path) {
-          delete this.store.value.sessionFile
+        this.rememberSession()
+        if (canonical(this.workspacePath) !== path) {
+          const previous = this.workspaceSettings()
+          if (previous.known)
+            this.store.value.workspaces[canonical(this.workspacePath)] = { trusted: previous.trusted, mode: previous.mode, rules: previous.rules }
+          this.store.value.sessionFile = this.store.value.brainSessions?.[this.sessionKey(path)]
           this.sessionRules = []
           this.result = undefined
         }
@@ -1010,8 +1367,12 @@ export class Host {
           this.store.value.statusEnabled = command.enabled
         else
           this.store.value.memoryEnabled = command.enabled
+        if (command.type === 'memory' && !command.enabled)
+          this.clearMemoryContext()
         await this.store.save()
-        await this.connect(key)
+        if (this.canConnect(key))
+          await this.connect(key)
+        else this.state = 'unconfigured'
       }
       else if (command.type === 'connect' || command.type === 'restart') {
         if (command.type === 'restart')
@@ -1024,8 +1385,12 @@ export class Host {
           throw new Error('这个内核暂不可用')
         const { kernel: kernelBefore, sessionFile: sessionBefore } = this.store.value
         await this.close()
+        this.store.value.brainSessions ??= {}
+        if (sessionBefore)
+          this.store.value.brainSessions[this.sessionKey(this.workspacePath, kernelBefore)] = sessionBefore
+        delete this.store.value.connectionVerified
         this.store.value.kernel = command.id
-        delete this.store.value.sessionFile
+        this.store.value.sessionFile = this.store.value.brainSessions[this.sessionKey(this.workspacePath, command.id)]
         await this.store.save()
         try {
           if (this.canConnect(key))
@@ -1035,8 +1400,7 @@ export class Host {
         catch (error) {
           // A brain that cannot start is not her brain: she goes back to the one she had, with its conversation.
           this.store.value.kernel = kernelBefore
-          if (sessionBefore)
-            this.store.value.sessionFile = sessionBefore
+          this.store.value.sessionFile = sessionBefore
           await this.store.save()
           if (this.canConnect(key))
             await this.connect(key).catch(() => {})
@@ -1046,6 +1410,8 @@ export class Host {
       }
       else if (command.type === 'new-session') {
         await this.close()
+        if (this.store.value.brainSessions)
+          delete this.store.value.brainSessions[this.sessionKey()]
         delete this.store.value.sessionFile
         this.sessionRules = []
         this.result = undefined
@@ -1053,6 +1419,7 @@ export class Host {
         if (this.canConnect(key))
           await this.connect(key)
       }
+      await this.refreshStarterTasks()
       this.refreshHistory()
       this.publish()
       return this.snapshot()

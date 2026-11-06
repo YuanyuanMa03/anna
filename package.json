@@ -1,7 +1,7 @@
 {
   "name": "anna",
   "type": "module",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "devEngines": {
@@ -23,16 +23,21 @@
     "package:dmg": "node scripts/create-dmg.mjs",
     "install:mac": "python3 scripts/install-mac.py",
     "package:windows": "node scripts/package-windows.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
     "package:windows-installer": "node scripts/package-windows-installer.mjs",
     "test:unconfigured": "node tests/unconfigured.mjs",
     "build:website": "node scripts/build-website.mjs",
     "dev:website": "vite --config website/vite.config.ts",
     "package:linux": "node scripts/package-linux.mjs",
     "package:deb": "node scripts/package-deb.mjs",
-    "test:scripted": "node tests/desktop-scripted.mjs",
-    "deploy:website": "pnpm build:website && pnpm dlx --allow-build=esbuild --allow-build=workerd --allow-build=sharp wrangler@4.42.0 deploy --config website/wrangler.jsonc"
+    "test:scripted": "node tests/desktop-scripted.mjs && node tests/onboarding.mjs && node tests/unconfigured.mjs && node tests/startup-failure.mjs && node tests/voice-talk.mjs",
+    "deploy:website": "pnpm build:website && pnpm dlx --allow-build=esbuild --allow-build=workerd --allow-build=sharp wrangler@4.42.0 deploy --config website/wrangler.jsonc",
+    "preflight": "node scripts/preflight.mjs",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.316",
     "@anthropic-ai/sandbox-runtime": "0.0.77",
     "@earendil-works/pi-agent-core": "1.3.0",
     "@earendil-works/pi-ai": "1.3.0",
@@ -49,6 +54,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "5.4.1",
+    "@electron/asar": "4.3.1",
     "@types/node": "24.7.2",
     "@types/qrcode": "1.5.5",
     "@vitejs/plugin-vue": "6.0.1",

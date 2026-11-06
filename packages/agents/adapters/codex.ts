@@ -45,6 +45,8 @@ export function codexDecoder(): Decoder {
       catch { return nothing() }
       const out: Decoded = { events: [] }
       const params = message.params ?? {}
+      if (message.result?.thread?.id && typeof message.result.model === 'string')
+        out.events.push({ type: 'model', id: message.result.model })
       if (message.result?.thread?.id)
         out.sessionId = message.result.thread.id
       switch (message.method) {
@@ -86,6 +88,14 @@ export function codexDecoder(): Decoder {
           const fallback = message.method.includes('command') ? { name: 'bash', input: { command: unwrapShell(params.command ?? ''), cwd: params.cwd } } : { name: 'edit', input: { path: params.grantRoot } }
           const chosen = params.command ? { name: 'bash', input: { command: unwrapShell(params.command), cwd: params.cwd } } : tool ?? fallback
           out.approval = { id: message.id, tool: chosen.name, input: chosen.input, raw: params }
+          break
+        }
+        case 'thread/tokenUsage/updated': {
+          const usage = params.tokenUsage?.total
+          if (usage) {
+            const cached = usage.cachedInputTokens
+            out.cumulativeUsage = { input: typeof usage.inputTokens === 'number' && typeof cached === 'number' ? usage.inputTokens - cached : undefined, output: usage.outputTokens, cacheRead: cached }
+          }
           break
         }
         case 'thread/compacted':

@@ -6,6 +6,7 @@ Thanks for helping! Anna is young, so issues that describe what you tried and wh
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm hooks:install     # install this clone's pre-push checks
 pnpm assets            # Live2D models, not in Git
 pnpm dev:desktop
 ```
@@ -15,7 +16,7 @@ You only need pnpm. It switches itself to the pinned 10.33.0 (`packageManager`) 
 ## Before you open a pull request
 
 ```bash
-pnpm lint && pnpm typecheck && pnpm test
+pnpm preflight
 pnpm build && pnpm test:scripted
 ```
 
@@ -25,10 +26,10 @@ macOS, Windows and Linux.
 ## Guidelines
 
 - **Security first.** Anything that touches `packages/permissions`, the sandbox, the vault or the gate needs a
-  regression test that tries the bypass. Read [docs/permissions.md](docs/permissions.md) first.
+  regression test that tries the bypass. Read [docs/architecture.md#permission-policy](docs/architecture.md#permission-policy) first.
 - **Test at the public seams.** That means the policy engine's `decide()`, the Host commands, the agent decoders with
   recorded fixtures, and the scripted desktop run. Avoid tests that mock internals.
-- **New agents.** Follow [docs/kernels.md](docs/kernels.md#adding-an-agent). Record fixtures with
+- **New agents.** Follow [adding an agent](docs/architecture.md#adding-an-agent). Record fixtures with
   `scripts/record-agent.mjs`, which strips personal details.
 - **Shell scripts.** Brace variables that are followed by text (`${VAR}`), and keep user-facing messages in English.
   A test checks this.
@@ -45,3 +46,9 @@ character, include its license and make sure redistribution is allowed.
 Anna is free for noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE), and the author also
 sells commercial licenses ([COMMERCIAL.md](COMMERCIAL.md)). By opening a pull request, you agree that your contribution
 may be distributed under both: the PolyForm Noncommercial license and commercial licenses granted by the author.
+
+## Review and GitHub lessons
+
+Read [AGENTS.md](AGENTS.md) for the assistant review contract and [GitHub / Actions lessons](docs/github-actions-lessons.md) for known platform traps. Review findings and validation go in `docs/reviews/`. Git hooks run mechanical checks; they do not replace semantic review. Each new clone must install its hook.
+
+Keep the current commit's cross-platform CI green before merging. [Archived branch tips](docs/branch-archives-20261103.md) remain recoverable. Archive tags never use the release `v*` prefix. Real model comparisons and blind review remain paused until the user resumes them.

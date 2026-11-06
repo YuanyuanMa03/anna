@@ -51,18 +51,18 @@ export interface Beat {
 export const beats: Record<AnnaPhase, Beat> = {
   offline: { expression: 'halfLidded', enter: 'doze', repeat: { motion: 'doze', every: 9000 }, look: { x: 0, y: -0.5 }, head: { y: -6 }, idle: false },
   idle: { expression: 'neutral', look: 'person', idle: true },
-  thinking: { expression: 'neutral', enter: 'think', repeat: { motion: 'think', every: 4200 }, look: { x: -0.6, y: 0.55 }, head: { x: -8, y: 6, z: 5 }, idle: false },
+  thinking: { expression: 'neutral', enter: 'think', repeat: { motion: 'think', every: 14000 }, look: { x: -0.6, y: 0.55 }, head: { x: -8, y: 6, z: 5 }, idle: false },
   // Talking to the person: eye contact; the runtime nods along with her voice.
   responding: { expression: 'neutral', look: { x: 0, y: 0 }, idle: false },
-  inspecting: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 3600 }, look: { x: 0.15, y: -0.6 }, head: { y: -6 }, idle: false },
-  editing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 5200 }, look: { x: 0.25, y: -0.55 }, head: { x: 5, y: -8 }, idle: false },
-  running: { expression: 'neutral', enter: 'glance', repeat: { motion: 'glance', every: 7000 }, look: { x: 0.5, y: -0.2 }, head: { x: 10, y: -3 }, idle: false },
-  testing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 4500 }, look: { x: 0.5, y: -0.25 }, head: { x: 10, y: -4 }, idle: false },
+  inspecting: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 12000 }, look: { x: 0.15, y: -0.6 }, head: { y: -6 }, idle: false },
+  editing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 16000 }, look: { x: 0.25, y: -0.55 }, head: { x: 5, y: -8 }, idle: false },
+  running: { expression: 'neutral', enter: 'glance', repeat: { motion: 'glance', every: 16000 }, look: { x: 0.5, y: -0.2 }, head: { x: 10, y: -3 }, idle: false },
+  testing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 15000 }, look: { x: 0.5, y: -0.25 }, head: { x: 10, y: -4 }, idle: false },
   // Watching a collaborator work: half turned toward its card, an occasional nod.
-  supervising: { expression: 'neutral', repeat: { motion: 'nod', every: 6500 }, look: { x: 0.55, y: -0.1 }, head: { x: 10, z: -3 }, idle: false },
-  reviewing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 3600 }, look: { x: 0.2, y: -0.55 }, head: { y: -7, z: -3 }, idle: false },
+  supervising: { expression: 'neutral', repeat: { motion: 'nod', every: 18000 }, look: { x: 0.55, y: -0.1 }, head: { x: 10, z: -3 }, idle: false },
+  reviewing: { expression: 'neutral', enter: 'readNote', repeat: { motion: 'readNote', every: 14000 }, look: { x: 0.2, y: -0.55 }, head: { y: -7, z: -3 }, idle: false },
   // Asking the person: a questioning tilt and eye contact until they answer.
-  waiting: { expression: 'neutral', enter: 'tilt', repeat: { motion: 'tilt', every: 7000 }, look: { x: 0, y: 0 }, head: { z: -7 }, idle: false },
+  waiting: { expression: 'neutral', enter: 'tilt', look: { x: 0, y: 0 }, head: { z: -7 }, idle: false },
   compacting: { expression: 'halfLidded', enter: 'spaceOut', repeat: { motion: 'spaceOut', every: 8000 }, look: { x: -0.3, y: 0.3 }, idle: false },
   retrying: { expression: 'neutral', enter: 'no', repeat: { motion: 'think', every: 5000 }, look: { x: -0.3, y: 0.2 }, head: { z: 5 }, idle: false },
   done: { expression: 'smile', enter: 'nod', look: { x: 0, y: 0 }, idle: false },
@@ -93,8 +93,10 @@ const gestures: Record<GestureKind, Reaction> = { nod: { motion: 'nod' }, tilt: 
 /** Alone this long while idle, she dozes off, carrying herself as when offline. */
 const drowsyMs = 90_000
 const asleep = beats.offline
-/** A pointer that moved this recently is followed; after that her gaze wanders on its own. */
-const followMs = 4000
+/** Brief attention, followed by a break even if the pointer keeps moving. */
+const followMs = 1600
+const glanceMs = 1800
+const lookAwayMs = 4200
 /** Three pokes inside this window earn a pout. */
 const pokeMs = 2500
 
@@ -129,6 +131,8 @@ export class BodyDirector {
   private pokes: number[] = []
   private dozing = false
   private listening = false
+  private lookingSince?: number
+  private lookAwayUntil = 0
 
   touch(region: Touch, now: number, double = false) {
     // A double click anywhere on her earns a wink. It arrives after its two clicks: one gesture, not a third poke.
@@ -194,13 +198,24 @@ export class BodyDirector {
     let look = carriage.look
     let head = carriage.head ?? {}
     if (listening) {
+      this.lookingSince = undefined
       // She looks down at what is being typed, leaning in a little.
       look = { x: 0, y: -0.45 }
       head = { y: -4, z: 4 }
     }
     else if (phase === 'idle' && !this.dozing) {
-      look = now - input.pointerAt < followMs ? 'person' : 'free'
+      const nearby = now - input.pointerAt < followMs
+      if (!nearby)
+        this.lookingSince = undefined
+      if (nearby && this.lookingSince === undefined && now >= this.lookAwayUntil)
+        this.lookingSince = now
+      if (this.lookingSince !== undefined && now - this.lookingSince >= glanceMs) {
+        this.lookingSince = undefined
+        this.lookAwayUntil = now + lookAwayMs
+      }
+      look = this.lookingSince === undefined ? 'free' : 'person'
     }
+    else { this.lookingSince = undefined }
     // While the person moves around she attends to them; her own idle motions resume once they rest.
     return { expression: held ?? carriage.expression, motion, look, head, idle: carriage.idle && !listening && look !== 'person' }
   }
@@ -243,27 +258,6 @@ export function aim(look: Look, head: Head = {}, pointer?: { dx: number, dy: num
     angleY: clamp(gazeY * 4 + (head.y ?? 0), -4, 4),
     angleZ: clamp((head.z ?? 0) - gazeX * gazeY * 2, -3, 3),
   }
-}
-
-const syllablesPerSecond = 6.5
-/** Spoken phrases: this many syllables, then a breath of `breath` syllables. */
-const phrase = 12
-const breath = 2
-function hash(n: number) {
-  const x = Math.sin(n * 12.9898) * 43758.5453
-  return x - Math.floor(x)
-}
-/**
- * A voice level (0..1) at `t` seconds for text being read out without audio: one rise and fall per syllable,
- * syllables of varying stress, and a short breath between phrases. Feeds the runtime's lip sync.
- */
-export function voiceAt(t: number) {
-  const beat = t * syllablesPerSecond
-  const index = Math.floor(beat)
-  if (index % (phrase + breath) >= phrase)
-    return 0
-  const stress = 0.6 + 0.4 * hash(index)
-  return Math.sin(Math.PI * (beat - index)) ** 1.5 * stress
 }
 
 /**
