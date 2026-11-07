@@ -1,5 +1,5 @@
 diff --git a/dist/index.js b/dist/index.js
-index 9d4970a48f598d8c40a89250e8a4180d0e78e19a..f383de43ab06eb269ea06bf9f20d5064cf67737c 100644
+index 9d4970a48f598d8c40a89250e8a4180d0e78e19a..ad45b23f8f03f3e40f5237843f31b54443239a95 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -308,7 +308,8 @@ function xn(n) {
@@ -12,6 +12,17 @@ index 9d4970a48f598d8c40a89250e8a4180d0e78e19a..f383de43ab06eb269ea06bf9f20d5064
    }
    const O = n.hand, $ = O?.elbow ?? [0, 0], D = O?.wrist ?? [0, 0], q = O?.knuckle ?? [0, 0], N = O?.contact ?? [0, 0], P = O?.forearmShare ?? 0;
    function H(x, M) {
+@@ -1890,7 +1891,9 @@ function lt(n) {
+   if (ot.has(n)) return ot.get(n);
+   const e = new Promise((t, r) => {
+     const a = new Image();
+-    a.onload = () => t(a), a.onerror = () => r(new Error(`failed to load ${n}`)), a.src = n;
++    // WebKit fires onload before the decoded bitmap can be uploaded to WebGL (texImage2D → INVALID_VALUE);
++    // hand the image over only once decode() settles so every browser uploads a ready bitmap.
++    a.onload = () => a.decode().then(() => t(a), () => t(a)), a.onerror = () => r(new Error(`failed to load ${n}`)), a.src = n;
+   });
+   return ot.set(n, e), e;
+ }
 diff --git a/dist/rig/types.d.ts b/dist/rig/types.d.ts
 index a52d406530bfc0d20fc92f3f3653f96cbd1ed61c..c38eba8f0666a37680d7fc3633016c0f384cb372 100644
 --- a/dist/rig/types.d.ts
