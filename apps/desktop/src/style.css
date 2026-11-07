@@ -208,7 +208,7 @@ code { font: 11px ui-monospace, Menlo, monospace; background: #f1ebf6; border-ra
   .header-actions button { white-space: nowrap; flex: none; padding: 6px 10px }
   .scene { display: flex; flex-direction: column; gap: 10px; padding: 0 12px }
   /* Since v1.0.1 the stage fills the scene (absolute) on desktop; here it takes its own place above the text. */
-  .stage { position: relative; inset: auto; height: 46dvh; min-height: 300px; flex: none }
+  .stage, .life-onboarding .stage { position: relative; inset: auto; height: 46dvh; min-height: 300px; flex: none }
   .scene[data-form=body]::before { display: none }
   /* The speech placement follows her gaze with inline left/top/width; a phone column ignores all three. */
   .speech { position: static; width: auto !important; margin: 0 }
