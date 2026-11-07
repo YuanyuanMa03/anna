@@ -87,3 +87,35 @@ The 1.0 candidate was committed to `release/v1.0` (based on `1149134`, which con
 `fix/install-and-startup-reliability` pointed at `main` (bbc9279) and was deleted without a tag. The local-only `release/v1.0-windows` (1149134) was replaced by `release/v1.0`, which contains it. The stash's changes were checked line by line against the 1.0 candidate; its `scripts/package-runtime.mjs` pruning was superseded by the rewritten `stage-runtime.mjs`. Restore a stash with `git stash apply archive/20261106/stash/startup-reliability-main-base`.
 
 Remaining branches: `main`, `release/v1.0`, `release/online-v0.6.0`.
+
+## 2026-11-07: website/WebKit consolidation
+
+After the phone-layout and WebKit body fixes landed (PR #66, #67, #68 into `main`/`release/online-v1.0.1`)
+and the website deploy, the tips below were tagged, the remote tag SHAs verified, then deleted.
+`docs/web-phone-deploy-record`'s unique commit b36ce3d (the phone-layout deploy record) was first
+cherry-picked onto `release/online-v1.0.1` as 59f0d5e. `origin/codex/body-calm` had already been
+auto-deleted; only its local side is archived. Remote `release/v1.0` (7e8144a, a merge commit) differed
+from the local tip (0cd2cd4) and is archived separately.
+
+| Source | Original | Commit | Archive tag |
+|---|---|---|---|
+| local | claude/kind-lumiere-009616 | 59c710b7f359ac784260e663350fd59f718ea19e | archive/20261107/local/claude/kind-lumiere-009616 |
+| local | codex/body-calm | 1d81b7858da0c774885778a0a6fcb7ed3ad922af | archive/20261107/local/codex/body-calm |
+| local | codex/website-mobile-presence | 15c836a1eb3781c47bd9fd78a7a94984d9c00670 | archive/20261107/local/codex/website-mobile-presence |
+| local | docs/web-phone-deploy-record | b36ce3d873843de2f92552a0088294b9b2ffe816 | archive/20261107/local/docs/web-phone-deploy-record |
+| local | fix/body-webkit-main | d9339889df57f51d532291f3a9eb96aafa44545f | archive/20261107/local/fix/body-webkit-main |
+| local | fix/online-mobile-layout | 069a2c5b330c578e1806d021c77f0dcbe093a9e8 | archive/20261107/local/fix/online-mobile-layout |
+| local | fix/web-body-webkit | d12eec1f4fbc72baec8516df129f908ca706b345 | archive/20261107/local/fix/web-body-webkit |
+| local | release/online-v0.6.0 | 9e5bb9eb5b63f245e1459ed7c038f5a1dfe3f2ed | archive/20261107/local/release/online-v0.6.0 |
+| local | release/v1.0 | 0cd2cd45d33b123ab0fd865fadc7de4faecb15e2 | archive/20261107/local/release/v1.0 |
+| remote | codex/website-mobile-presence | 15c836a1eb3781c47bd9fd78a7a94984d9c00670 | archive/20261107/remote/codex/website-mobile-presence |
+| remote | fix/body-webkit-main | d9339889df57f51d532291f3a9eb96aafa44545f | archive/20261107/remote/fix/body-webkit-main |
+| remote | fix/online-mobile-layout | 069a2c5b330c578e1806d021c77f0dcbe093a9e8 | archive/20261107/remote/fix/online-mobile-layout |
+| remote | fix/web-body-webkit | d12eec1f4fbc72baec8516df129f908ca706b345 | archive/20261107/remote/fix/web-body-webkit |
+| remote | release/online-v0.6.0 | 9e5bb9eb5b63f245e1459ed7c038f5a1dfe3f2ed | archive/20261107/remote/release/online-v0.6.0 |
+| remote | release/v1.0 | 7e8144a64af5d8f45421c202096c9945faeb0678 | archive/20261107/remote/release/v1.0 |
+
+Remaining branches: `main`, `release/online-v1.0.1`, and `fix/pre-push-worktree-env` (open PR #64,
+the linked-worktree pre-push hook fix). The detached claude worktree under
+`.claude/worktrees/kind-lumiere-009616` is untouched. Studio rollback for the current deploy is
+commit 4acfcc5 in the Studio git repo; `release/online-v0.6.0` is no longer needed as a rollback source.
