@@ -29,6 +29,7 @@ const bodyDirector = new BodyDirector()
 const reduced = matchMedia('(prefers-reduced-motion: reduce)')
 let avatar: MeshAvatar | undefined
 let avatarPackage: AvatarPackage | undefined
+const assetReads: Promise<unknown>[] = []
 let image = { width: 1, height: 1 }
 let mouth = { x: 0, y: 0 }
 let head: AvatarPackage['rig']['head'] | undefined
@@ -193,10 +194,12 @@ onMounted(async () => {
     gazeCentre = { x: centre[0]!, y: centre[1]! }
     regions = bodyRegions(rig, props.body.hands)
     // Without the outline she still reacts by region; touches in the air around her just count too.
-    traceSilhouette(opened.assets['base.png']!).catch(() => {})
+    assetReads.push(traceSilhouette(opened.assets['base.png']!).catch(() => {}))
     layout()
     // No margins: the canvas is exactly her image, so stage and image pixels map by `placement` alone.
-    const loaded = await loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', ...(props.body.archive ? {} : { lipSync: herLipSync }) })
+    const loading = loadMeshAvatar(canvas.value!, { ...opened, rig: stableRig }, { padTop: 0, padSide: 0, fit: 'contain', ...(props.body.archive ? {} : { lipSync: herLipSync }) })
+    assetReads.push(loading)
+    const loaded = await loading
     if (disposed) {
       loaded.destroy()
       return
@@ -237,8 +240,11 @@ onBeforeUnmount(() => {
   // instead of piling one up per form switch until garbage collection.
   canvas.value?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
   avatar = undefined
-  avatarPackage?.release()
+  // A form switch can unmount her while the runtime still reads blob textures.
+  // Keep their URLs alive until both the renderer and silhouette reader settle.
+  const opened = avatarPackage
   avatarPackage = undefined
+  void Promise.allSettled(assetReads).then(() => opened?.release())
 })
 </script>
 
