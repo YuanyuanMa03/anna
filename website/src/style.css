@@ -345,7 +345,6 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
   .duo-card figcaption { left: 12px; bottom: 12px; gap: 6px; padding: 7px 12px }
   .duo-card figcaption small { font-size: 10px }
   .duo { padding-top: 56px }
-  .duo-stage { gap: 14px }
   .duo-canvas { height: clamp(310px, 95vw, 430px) }
   .shot { padding-top: 48px }
   .lede { font-size: 15px }
