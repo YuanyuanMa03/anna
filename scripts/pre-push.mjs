@@ -14,7 +14,10 @@ if (updates.length) {
   const dirty = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()
   if (dirty)
     throw new Error('Commit or preserve outstanding changes before validating the pushed commit.')
-  const result = spawnSync(process.execPath, ['scripts/preflight.mjs'], { stdio: 'inherit' })
+  // Git exports GIT_DIR, GIT_INDEX_FILE and friends to hooks; from a linked worktree GIT_DIR is absolute.
+  // Validation must see none of them, or any test that runs `git init`/`git commit` in a temp dir writes into this repository.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_')))
+  const result = spawnSync(process.execPath, ['scripts/preflight.mjs'], { stdio: 'inherit', env })
   if (result.status === 0 && (execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() !== head || execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()))
     throw new Error('The reviewed checkout changed during validation; review and validate the new state again.')
   process.exit(result.status === 0 ? 0 : result.status ?? 1)
