@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
@@ -12,12 +12,12 @@ async function fixture() {
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   git('init')
   await mkdir(join(dir, 'scripts'))
-  await writeFile(join(dir, '.gitignore'), 'validated\n')
-  await writeFile(join(dir, 'scripts/preflight.mjs'), 'import {writeFileSync} from "node:fs"; writeFileSync("validated", "yes"); if(process.env.FIXTURE_EXIT === "mutate") writeFileSync("unreviewed", "change"); else if(process.env.FIXTURE_EXIT === "signal") process.kill(process.pid, "SIGTERM"); else process.exit(Number(process.env.FIXTURE_EXIT || 0));')
+  await writeFile(join(dir, '.gitignore'), 'validated\ngit-env\n')
+  await writeFile(join(dir, 'scripts/preflight.mjs'), 'import {writeFileSync} from "node:fs"; writeFileSync("validated", "yes"); writeFileSync("git-env", JSON.stringify(Object.keys(process.env).filter(key => key.toUpperCase().startsWith("GIT_")))); if(process.env.FIXTURE_EXIT === "mutate") writeFileSync("unreviewed", "change"); else if(process.env.FIXTURE_EXIT === "signal") process.kill(process.pid, "SIGTERM"); else process.exit(Number(process.env.FIXTURE_EXIT || 0));')
   git('add', '.')
   git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture')
   const head = git('rev-parse', 'HEAD')
-  const run = (ref: string, sha = head, exit = '0', destination = ref) => spawnSync(process.execPath, [hook], { cwd: dir, input: `${ref} ${sha} ${destination} ${'0'.repeat(40)}\n`, encoding: 'utf8', env: { ...process.env, FIXTURE_EXIT: exit } })
+  const run = (ref: string, sha = head, exit = '0', destination = ref, env: NodeJS.ProcessEnv = {}) => spawnSync(process.execPath, [hook], { cwd: dir, input: `${ref} ${sha} ${destination} ${'0'.repeat(40)}\n`, encoding: 'utf8', env: { ...process.env, ...env, FIXTURE_EXIT: exit } })
   return { dir, head, git, run }
 }
 it('runs validation for the exact clean commit and propagates failed checks', async () => {
@@ -51,4 +51,18 @@ it('validates HEAD and explicit SHA pushes based on their remote branch destinat
   expect(run('HEAD', head, '7', 'refs/heads/feature').status).toBe(7)
   expect(existsSync(join(dir, 'validated'))).toBe(true)
   expect(run(head, head, '0', 'refs/heads/feature').status).toBe(0)
+})
+it('runs validation without the hook\'s repository environment, as a linked worktree push sets an absolute GIT_DIR', async () => {
+  const pushed = await fixture()
+  // A second repository as the working directory: the hook's own checks must follow GIT_DIR to the pushed one, and preflight must not.
+  const other = await fixture()
+  other.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'other')
+  const gitDir = join(pushed.dir, '.git')
+  // Git exports these to hooks; a child `git init` elsewhere would otherwise rewrite the pushed repository.
+  const hookEnv = { GIT_DIR: gitDir, GIT_INDEX_FILE: join(gitDir, 'index'), GIT_WORK_TREE: pushed.dir, GIT_COMMON_DIR: gitDir, GIT_PREFIX: '', GIT_AUTHOR_NAME: 'Kept' }
+  expect(other.run('refs/heads/feature', pushed.head, '0', undefined, hookEnv).status).toBe(0)
+  const seen = JSON.parse(await readFile(join(other.dir, 'git-env'), 'utf8'))
+  for (const key of ['GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_PREFIX'])
+    expect(seen).not.toContain(key)
+  expect(seen).toContain('GIT_AUTHOR_NAME')
 })
