@@ -92,8 +92,10 @@ const studioCommit = run('git', ['rev-parse', 'HEAD'], { cwd: studioDir }).trim(
 run('git', ['push', 'modelscope', 'HEAD:master'], { cwd: studioDir, stdio: 'inherit' })
 console.log(`deploy-studio: studio commit ${studioCommit.slice(0, 7)} pushed`)
 
-// ── Deploy and watch the logs: docker builds first, then the run log grows a fresh "listening" ─────────
-const baseline = ((await api(`/studios/${studio}/logs/run`))?.logs ?? '').length
+// ── Deploy and watch the logs: docker builds first, then a fresh "listening" line appears ──────────────
+// A redeploy can append to the old run log or replace it outright, so the baseline is the old
+// content itself: success is a "listening" line that the old content did not already contain.
+const baseline = (await api(`/studios/${studio}/logs/run`))?.logs ?? ''
 await api(`/studios/${studio}/deploy`, { method: 'POST' })
 console.log('deploy-studio: deploy requested; watching logs…')
 const started = Date.now()
@@ -103,7 +105,8 @@ for (;;) {
   if (/\bERROR\b|error:|failed to|COPY failed|returned a non-zero code/i.test(build))
     fail(`image build failed:\n${build}`)
   const runLog = (await api(`/studios/${studio}/logs/run`))?.logs ?? ''
-  if (runLog.length > baseline && /listening on port/.test(runLog.slice(baseline))) {
+  const fresh = runLog.length >= baseline.length ? runLog.slice(baseline.length) : runLog
+  if (runLog !== baseline && /listening on port/.test(fresh)) {
     console.log(`deploy-studio: running after ${Math.round((Date.now() - started) / 1000)}s — ${endpoint}/studios/${studio}`)
     console.log(`rollback: git -C ${studioDir} push -f modelscope ${remoteTip}:master, then POST deploy again`)
     break
