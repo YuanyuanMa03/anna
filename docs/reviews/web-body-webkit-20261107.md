@@ -49,7 +49,16 @@ images reach `texImage2D`.
 
 ## Deploy
 
-Owner asked for the demo experience to be fixed; deployed per the established Studio flow (commit and
-image tag recorded below after deploy).
+Owner asked for the demo experience to be fixed; deployed with the new `pnpm deploy:studio`
+(PR #67 + the watcher follow-up 27c5022, which landed on the release branch directly after the first
+run exposed a replaced-log misreport — hook-verified, content identical to the intended PR):
 
+- Studio commit 4ee51fe "Deploy from 1e2a9b11 (#67)", image `369790-4ee51fe8-2026-11-07-11-56-50`,
+  run log `Anna web listening on port 7860` at 12:03.
+- Live acceptance (`output/studio-render-diagnosis/verify-live.mjs`, iPhone viewport): the Studio
+  iframe serves bundle `index-Cg1xQ6jo.js`; `.scene[data-form=body]`, state `ready`, canvas coverage
+  0.340 (WebKit) / 0.344 (Chromium); screenshot shows the complete body on WebKit.
 - Rollback: Studio commit 4acfcc5.
+
+One cosmetic leftover seen while verifying: the web edition's header still reads `v1.0.0` while the
+desktop line is at v1.0.1 — version-string plumbing in the web build, separate from this fix.
