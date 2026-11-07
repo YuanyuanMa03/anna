@@ -51,8 +51,19 @@ environment to the tests, and the visitor-seed test then committed its demo proj
 - Browser pane at 375×812: stage, reply bubble, prompts, tour card and failure card in order, no overlap.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` (1031 passed / 19 skipped), pre-push preflight.
 
+## Deploy (owner approved in chat, 2026-11-07)
+
+- PR #63 merged into `release/online-v1.0.1` → 17f5ea9.
+- Built from 17f5ea9 (`pnpm build:web`, phone check ok), packaged with `scripts/package-modelscope.mjs`; the Studio's
+  existing `package-lock.json` kept (the package step re-resolved AWS SDK transitives, unrelated to this fix).
+  `dist/web-server.js` and `dist/web-core.js` byte-identical to the previous deploy; only the renderer bundle and
+  `DEPLOYMENT.md` changed.
+- Studio commit 4acfcc5 ("Deploy from 17f5ea9"); build log SUCCESS with image tag `369790-4acfcc5b-…`; run log
+  `Anna web listening on port 7860 (per-visitor users)`; status Running on free `platform/2v-cpu-8g-mem`.
+- Rollback: Studio commit 648a25e.
+
 ## Not verified
 
-- A real phone against the live Studio: needs a deploy, which waits for the owner's approval; `ms.show` is not
-  reachable from this network.
+- A real phone against the live Studio: `ms.show` answers 403 from this network, so the owner's phone scan is the
+  live check.
 - The test is manual (`pnpm test:web-phone`), not part of `pnpm preflight`.
