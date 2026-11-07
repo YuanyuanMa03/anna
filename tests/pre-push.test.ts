@@ -52,11 +52,17 @@ it('validates HEAD and explicit SHA pushes based on their remote branch destinat
   expect(existsSync(join(dir, 'validated'))).toBe(true)
   expect(run(head, head, '0', 'refs/heads/feature').status).toBe(0)
 })
-it('runs validation without the hook\'s git environment, as a linked worktree push sets an absolute GIT_DIR', async () => {
-  const { run, dir } = await fixture()
-  const gitDir = join(dir, '.git')
-  // Git exports these to hooks; a linked worktree's GIT_DIR is absolute, so a child `git init` elsewhere would rewrite this repository.
-  const hookEnv = { GIT_DIR: gitDir, GIT_INDEX_FILE: join(gitDir, 'index'), GIT_WORK_TREE: dir, GIT_COMMON_DIR: gitDir, GIT_PREFIX: '', GIT_EXEC_PATH: execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim() }
-  expect(run('refs/heads/feature', undefined, '0', undefined, hookEnv).status).toBe(0)
-  expect(JSON.parse(await readFile(join(dir, 'git-env'), 'utf8'))).toEqual([])
+it('runs validation without the hook\'s repository environment, as a linked worktree push sets an absolute GIT_DIR', async () => {
+  const pushed = await fixture()
+  // A second repository as the working directory: the hook's own checks must follow GIT_DIR to the pushed one, and preflight must not.
+  const other = await fixture()
+  other.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'other')
+  const gitDir = join(pushed.dir, '.git')
+  // Git exports these to hooks; a child `git init` elsewhere would otherwise rewrite the pushed repository.
+  const hookEnv = { GIT_DIR: gitDir, GIT_INDEX_FILE: join(gitDir, 'index'), GIT_WORK_TREE: pushed.dir, GIT_COMMON_DIR: gitDir, GIT_PREFIX: '', GIT_AUTHOR_NAME: 'Kept' }
+  expect(other.run('refs/heads/feature', pushed.head, '0', undefined, hookEnv).status).toBe(0)
+  const seen = JSON.parse(await readFile(join(other.dir, 'git-env'), 'utf8'))
+  for (const key of ['GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_PREFIX'])
+    expect(seen).not.toContain(key)
+  expect(seen).toContain('GIT_AUTHOR_NAME')
 })

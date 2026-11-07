@@ -15,8 +15,10 @@ if (updates.length) {
   if (dirty)
     throw new Error('Commit or preserve outstanding changes before validating the pushed commit.')
   // Git exports GIT_DIR, GIT_INDEX_FILE and friends to hooks; from a linked worktree GIT_DIR is absolute.
-  // Validation must see none of them, or any test that runs `git init`/`git commit` in a temp dir writes into this repository.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_')))
+  // Validation must not see them, or any test that runs `git init`/`git commit` in a temp dir writes into this repository.
+  // Drop exactly the repository-local variables git itself clears when entering another repository; keep user settings such as GIT_AUTHOR_NAME.
+  const local = new Set(execFileSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).split(/\s+/).filter(Boolean))
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !local.has(key.toUpperCase())))
   const result = spawnSync(process.execPath, ['scripts/preflight.mjs'], { stdio: 'inherit', env })
   if (result.status === 0 && (execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() !== head || execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()))
     throw new Error('The reviewed checkout changed during validation; review and validate the new state again.')
