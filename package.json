@@ -37,6 +37,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "build:web": "node scripts/build-web.mjs",
     "start:web": "node dist/web-server.js",
+    "deploy:studio": "node scripts/deploy-studio.mjs",
     "test:web-phone": "node tests/web-phone.mjs"
   },
   "dependencies": {
