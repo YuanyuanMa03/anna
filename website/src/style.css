@@ -65,14 +65,27 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
 .github svg { width: 16px; height: 16px }
 .github:hover { background: #2a2134 }
 
-/* Hero */
-.hero { padding-top: 64px; padding-bottom: 8px; text-align: center }
-.hero-copy { display: flex; flex-direction: column; align-items: center }
-.hero .lede { margin-inline: auto }
-.hero .actions { justify-content: center }
-.hero h1 { font-size: clamp(38px, 4.3vw, 62px); line-height: 1.18; margin: 22px 0 24px; text-wrap: balance }
+.menu-toggle { display: none }
+.nav .mobile-nav { display: none }
+
+/* First encounter: her portrait is part of the first screen, including on phones. */
+.hero { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12px 32px; padding-top: 64px; padding-bottom: 24px; isolation: isolate }
+.hero::before { content: ''; position: absolute; inset: 24px 0 60px; z-index: -1; border-radius: 40px; background: radial-gradient(ellipse at 85% 30%, #e5d4e8 0, #f1e8ed80 45%, transparent 75%) }
+.hero-copy { position: relative; z-index: 2; min-width: 0 }
+.hero h1 { font-size: clamp(40px, 4.8vw, 66px); line-height: 1.22; margin: 22px 0 24px; text-wrap: balance }
 .hero h1 span { display: inline-block }
-.hero h1 em { font-style: italic; font-family: Georgia, var(--serif) }
+.hero h1 em { color: #8c5e78 }
+.hero .lede { font-size: 16px; max-width: 27em; margin-inline: 0 }
+.hero .actions { gap: 10px; margin-top: 26px; justify-content: flex-start }
+.hero .primary { background: #493548; border-color: #493548; box-shadow: 0 8px 24px #49354825 }
+.hero-download { display: inline-block; font-size: 12px; color: var(--soft); margin-top: 18px; text-underline-offset: 5px; text-decoration: underline }
+.hero-portrait { position: relative; min-width: 0; align-self: stretch; display: flex; align-items: flex-end; justify-content: center; padding-top: 48px }
+.hero-portrait img { position: relative; width: 115%; max-width: none; flex: none; height: auto; filter: drop-shadow(0 20px 24px #765b6b20); z-index: 1 }
+.portrait-orbit { position: absolute; width: 90%; aspect-ratio: 1; border: 1px solid #bd9eaf60; border-radius: 50%; top: 6%; left: 5%; background: radial-gradient(circle, #fffaf2a0, transparent 70%) }
+.portrait-orbit::after { content: ''; position: absolute; inset: 14px; border: 1px dashed #bd9eaf50; border-radius: inherit }
+.portrait-index { position: absolute; top: 8%; right: 0; font: 10px var(--mono); letter-spacing: .18em; color: #99798e }
+.hero-portrait figcaption { position: absolute; bottom: 6px; z-index: 2; padding: 9px 16px; border: 1px solid #ffffffc0; border-radius: 99px; background: #fff9f2ed; box-shadow: 0 8px 30px #765b6b18; font-size: 11px; color: #72586b; white-space: nowrap }
+.hero-foot { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 22px; margin-top: 20px; color: var(--soft); font-size: 10px; letter-spacing: .12em }
 .lede { font-size: 17px; color: var(--soft); line-height: 1.85; max-width: 32em }
 .command { display: flex; align-items: center; gap: 10px; background: #2f2639; color: #eee3f6; border-radius: 14px; padding: 8px 8px 8px 18px; box-shadow: 0 14px 30px #2f263926; min-width: 0 }
 .command code { flex: 1; min-width: 0; background: none; color: inherit; font-size: 13px; padding: 0; overflow-x: auto; scrollbar-width: none; user-select: all }
@@ -81,18 +94,29 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
 .command button:hover { background: #ffffff33 }
 .actions { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap }
 
-/* Duo: her two forms, left and right, both alive */
+/* Two forms, one visible renderer; an explicit greeting also works by keyboard or touch. */
 .duo { padding-top: 72px; scroll-margin-top: 40px }
-.duo-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+.duo-stage { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 48px; align-items: center }
+.form-switch { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--line); background: #efe8f3; border-radius: 14px; width: fit-content; max-width: 100%; margin-bottom: 20px }
+.form-switch button { border-color: transparent; background: transparent; font-size: 13px }
+.form-switch button[aria-pressed=true] { background: #fff; border-color: var(--line); box-shadow: 0 3px 8px #5a437412 }
+.greet-button { position: absolute; top: 16px; right: 16px; z-index: 3; font-size: 12px; min-height: 44px; background: #fffdf8ed }
+.presence-notes { min-width: 0 }
+.presence-notes ol { display: grid; gap: 28px; margin: 24px 0 }
+.presence-notes li { display: flex; gap: 18px }
+.presence-notes li > span { font: 12px var(--mono); color: #aa8199; padding-top: 6px }
+.presence-notes h3 { font: 500 23px var(--serif); margin-bottom: 8px }
+.presence-notes li p { font-size: 14px; color: var(--soft) }
+.presence-notes > a { margin-top: 20px }
 .duo-card { position: relative; border: 1px solid var(--line); border-radius: 24px; overflow: hidden; background: var(--paper); box-shadow: var(--shadow); transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s }
-.duo-card:hover, .duo-card:focus-within { transform: translateY(-6px) }
+@media (hover: hover) { .duo-card:hover { transform: translateY(-4px) } }
 .duo-canvas { position: relative; height: clamp(360px, 42vw, 520px); background: radial-gradient(ellipse at 50% 30%, #fbf7ff, #ece2f3 88%); overflow: hidden; cursor: pointer }
 .duo-canvas .model-canvas { position: absolute; inset: 0 }
 .duo-canvas img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom }
 .duo-card figcaption { position: absolute; left: 18px; bottom: 16px; z-index: 3; display: flex; align-items: baseline; gap: 10px; padding: 8px 16px; border-radius: 999px; background: #fffdfff0; border: 1px solid var(--line); box-shadow: 0 8px 20px #5a43741a }
 .duo-card figcaption b { font: 600 15px var(--serif); color: var(--ink) }
 .duo-card figcaption small { font-size: 11px; color: var(--muted) }
-.poke-heart { position: absolute; top: 18px; right: 20px; z-index: 3; font-size: 26px; color: #d8577f; animation: poke-pop 1.1s ease-out forwards; pointer-events: none }
+.poke-heart { position: absolute; top: 76px; right: 30px; z-index: 3; font-size: 26px; color: #d8577f; animation: poke-pop 1.1s ease-out forwards; pointer-events: none }
 @keyframes poke-pop { 0% { opacity: 0; transform: translateY(8px) scale(.4) } 25% { opacity: 1; transform: translateY(-2px) scale(1.15) } 60% { opacity: 1; transform: translateY(-8px) scale(1) } 100% { opacity: 0; transform: translateY(-22px) scale(.9) } }
 .cast-note { margin: 18px auto 0; max-width: 40em; text-align: center; font-size: 14px; color: var(--soft) }
 
@@ -268,6 +292,8 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
 .installer { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap }
 .installer .label { margin: 0 }
 .download .cli-label { margin-top: 30px }
+.demo, .duo, .download, .meet, .features, .modes { scroll-margin-top: 90px }
+@media (max-width: 380px) { .mode-switch { grid-template-columns: repeat(2, minmax(0, 1fr)) } .os-tabs { display: flex } .os-tabs button { flex: 1; padding-inline: 10px } .log li { flex-wrap: wrap } .log code { max-width: 100% } }
 .first-open { font-size: 14px; color: var(--soft); line-height: 1.8; margin-top: 14px; max-width: 640px }
 .steps { counter-reset: step; display: flex; flex-direction: column; gap: 10px; margin: 26px 0 18px }
 .steps li { counter-increment: step; display: flex; gap: 12px; font-size: 14px; color: var(--soft) }
@@ -294,14 +320,33 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
   .wrap { padding-inline: 16px }
   .nav { padding: 12px 16px; gap: 12px }
   .nav nav { display: none }
+  .menu-toggle { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 10px; font-size: 12px }
+  .nav .mobile-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); position: absolute; top: 100%; left: 0; right: 0; margin: 0; gap: 0; padding: 8px 16px; background: #fffdfff7; border-bottom: 1px solid var(--line); box-shadow: 0 12px 24px #5a437412 }
+  .mobile-nav a { min-height: 44px; display: flex; align-items: center; padding: 8px 12px }
   .github span { display: none }
   .github { padding: 8px }
-  .hero { padding-top: 40px; padding-bottom: 0 }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 30px; padding-bottom: 0 }
+  .hero::before { inset: 16px 0 40px; border-radius: 0; background: radial-gradient(ellipse at 70% 65%, #e6d6df90, transparent 70%) }
+  .hero-copy { text-align: center }
+  .hero .eyebrow { font-size: 10px; letter-spacing: .12em }
+  .hero h1 { margin: 16px 0 14px; font-size: clamp(32px, 8.4vw, 48px); line-height: 1.18 }
+  .hero .lede { margin-inline: auto; font-size: 14px; max-width: 28em }
+  .hero .actions { justify-content: center; margin-top: 20px }
+  .hero .button { padding: 11px 14px; font-size: 13px; gap: 8px; min-height: 44px }
+  .hero-download { margin-top: 12px }
+  .hero-portrait { width: min(100%, 430px); height: clamp(250px, 75vw, 340px); justify-self: center; margin-top: 14px; padding-top: 0 }
+  .hero-portrait img { width: auto; height: 100%; max-width: 115%; object-fit: contain }
+  .hero-portrait figcaption { bottom: 0; font-size: 10px }
+  .portrait-index { top: 12px; right: 8px; font-size: 9px }
+  .hero-foot { font-size: 9px; letter-spacing: .06em; margin-top: 24px; padding-top: 16px; flex-wrap: wrap; justify-content: center; gap: 6px 20px }
+  .nav .lang, .nav .github { min-width: 44px; min-height: 44px; justify-content: center }
+  .duo-stage { gap: 28px }
+  .presence-notes ol { gap: 20px }
+  .duo-card figcaption { left: 12px; bottom: 12px; gap: 6px; padding: 7px 12px }
+  .duo-card figcaption small { font-size: 10px }
   .duo { padding-top: 56px }
-  .duo-stage { gap: 14px }
-  .duo-canvas { height: min(72vw, 380px) }
+  .duo-canvas { height: clamp(310px, 95vw, 430px) }
   .shot { padding-top: 48px }
-  .hero h1 { font-size: 36px }
   .lede { font-size: 15px }
   .window { transform: none }
   .chip-a { left: 8px; bottom: -18px }
@@ -321,7 +366,8 @@ a.button:not(.primary) { border: 1px solid #d8cbe6; background: #ffffffc0 }
   .remote { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-block: 24px }
   .remote-devices { flex-direction: column; gap: 8px }
   .remote-link { display: none }
-  .remote-phone { flex-basis: 230px }
+  .remote-desktop { flex: none; width: 100% }
+  .remote-phone { flex: none; width: min(250px, 100%); align-self: center }
   .grid, .traits, .mode-cards, .journey ol { grid-template-columns: minmax(0, 1fr) }
   .journey ol::before { left: 7px; right: auto; top: 0; bottom: 0; width: 2px; height: auto }
   .journey li { padding: 0 0 0 36px }

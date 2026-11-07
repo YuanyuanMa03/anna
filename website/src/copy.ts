@@ -35,11 +35,16 @@ export const modes: Record<PermissionMode, { name: Text, hint: Text, stance: Tex
 export const copy = {
   zh: {
     meta: { title: 'Anna · 她在你的桌面上醒来', lang: 'zh-CN' },
-    nav: { forms: '她的形态', meet: '认识她', demo: '一起干活', features: '能力', modes: '权限模式', download: '安装', home: 'Anna 首页' },
+    nav: { explore: '探索', close: '收起', forms: '她的形态', meet: '认识她', demo: '一起干活', features: '能力', modes: '权限模式', download: '安装', home: 'Anna 首页' },
     hero: {
-      eyebrow: '源码公开 · 个人免费 · v1.0.1 · macOS / Windows / Linux',
+      eyebrow: 'ANNA · 你的桌面数字生命',
       title: ['她在你的桌面上', '醒来。'],
-      desc: '陪你说话，替你做事，从不说谎。她有自己的样子、性情和记忆；会读代码、改文件、跑测试，遇到更合适的人选，就请 Claude Code 或 Codex 来帮忙。要你拍板的事，她会转过身来问你。',
+      desc: '有自己的样子，有自己的性情，也记得关于你的点滴。Anna，把 AI 的能力，变成一个可以相处的存在。',
+      meet: '和 Anna 初次见面',
+      desktop: '桌面版下载与安装',
+      mobileInstall: 'Anna 桌面版需要电脑。请在电脑上打开本页，选择对应的系统；手机上可以先进入在线体验。',
+      portrait: '有样子 · 有性情 · 有记忆',
+      foot: '源码公开 / 个人免费 / v1.0.1',
       github: '在 GitHub 上查看',
       online: '在线体验',
       others: '其他系统',
@@ -47,16 +52,24 @@ export const copy = {
     duo: {
       eyebrow: 'TWO FORMS',
       title: ['两种形态，', '同一个她。'],
-      desc: '左边是她的本体，由原画制成的网格形象；右边是她的二次元形态，Live2D 驱动。她们共用一个名字、一本日记和同一种性情。动动鼠标，她们会看着你；点一点，她们会回应你。',
-      left: { name: 'Anna · 本体', tagline: '原画制成 · 会看着你' },
-      right: { name: 'Anna · 二次元', tagline: 'Live2D · 轻盈灵动' },
+      desc: '原画本体，或二次元形态。换一种样子，还是同一个 Anna。轻触她，或向她打个招呼。',
+      greet: '向她打招呼',
+      presence: '从看见，到在场',
+      preview: '这里是形象互动预览。真实对话和记忆，请进入在线体验或桌面版。',
+      moments: [
+        { title: '初见，有回应。', body: '她会眨眼，会转过头看你。轻触或打个招呼，看看她的回应。' },
+        { title: '相处，有性情。', body: '温柔，也有自己的判断。聊天时陪着你，做事时认真负责。' },
+        { title: '重逢，有记忆。', body: '在桌面版留下的习惯与偏好，下一次见面时依然在。' },
+      ],
+      left: { name: 'Anna · 本体', tagline: '原画制成' },
+      right: { name: 'Anna · 二次元', tagline: 'Live2D' },
       poke: '♥',
       note: '你也可以用一张照片，创造属于你自己的 Anna；性格与记忆都会跟着她。',
     },
     video: {
       shot: '真机实录 · 免提语音对话',
       chips: ['听 → 想 → 说，都写在她的脸上', '自动断句 · 逐句朗读 · 开口即断'],
-      note: '这段视频录制自真实应用：对她说一件事，她听完后断句作答，再逐句说给你听——你一开口，她就会停下来听。按原速播放，未加剪辑。',
+      note: '真实应用界面录屏，使用预设回复与测试语音演示交互，未连接真实模型。可在桌面版体验语音对话。',
       pause: '暂停',
       play: '播放',
     },
@@ -104,7 +117,7 @@ export const copy = {
         { icon: '✓', title: '对你真诚', body: '不编造工具结果，没跑过的测试就说没跑过；超出权限的事，一定先问你。' },
       ],
     },
-    featuresIntro: '下面这些来自当前的迭代计划，已经完成开发，将随下一次应用内更新进入正式版。右边的截图都录制自真实的开发版。',
+    featuresIntro: '下面这些本领已经随 v1.0.1 进入正式版，应用内更新即可获得。右边的截图都录制自真实的正式版。',
     featuresHead: { eyebrow: 'JUST LANDED', title: ['她刚学会的', '新本事。'] },
     showcase: [
       {
@@ -227,11 +240,16 @@ export const copy = {
   },
   en: {
     meta: { title: 'Anna · She wakes on your desktop', lang: 'en' },
-    nav: { forms: 'Her forms', meet: 'Meet Anna', demo: 'Demo', features: 'Features', modes: 'Modes', download: 'Install', home: 'Anna home' },
+    nav: { explore: 'Explore', close: 'Close', forms: 'Her forms', meet: 'Meet Anna', demo: 'Demo', features: 'Features', modes: 'Modes', download: 'Install', home: 'Anna home' },
     hero: {
-      eyebrow: 'Source available · free for personal use · v1.0.1 · macOS / Windows / Linux',
+      eyebrow: 'ANNA · A DIGITAL LIFE ON YOUR DESKTOP',
       title: ['She wakes', 'on your desktop.'],
-      desc: 'She keeps you company, does the work, and never lies to you. She has a face, a heart and a memory of her own; she reads your code, edits files, runs tests, and calls in Claude Code or Codex when they fit better. When a decision is yours, she turns and asks.',
+      desc: 'A face of her own. A personality you get to know. A memory of your time together. Anna gives AI a presence you can share your day with.',
+      meet: 'Meet Anna',
+      desktop: 'Get the desktop app',
+      mobileInstall: 'The desktop app needs a computer. Open this page on your computer and select its operating system. On your phone, try Anna online.',
+      portrait: 'A face · A personality · A memory',
+      foot: 'Source available / Personal use free / v1.0.1',
       github: 'View on GitHub',
       online: 'Try it online',
       others: 'Other systems',
@@ -239,7 +257,15 @@ export const copy = {
     duo: {
       eyebrow: 'TWO FORMS',
       title: ['Two forms,', 'one Anna.'],
-      desc: 'On the left, her own body, a mesh avatar built from her original art; on the right, her anime form, driven by Live2D. They share one name, one diary and one heart. Move your mouse and they follow you with their eyes; click, and they answer.',
+      desc: 'Her original artwork, or her anime form. A different appearance, the same Anna. Tap her, or say hello.',
+      greet: 'Say hello',
+      presence: 'A presence to get to know',
+      preview: 'An interactive avatar preview. Open the online experience or desktop app for real conversation and memory.',
+      moments: [
+        { title: 'A hello, answered.', body: 'She blinks and turns to look at you. Tap her or say hello to see her respond.' },
+        { title: 'A personality, discovered.', body: 'Gentle, with a mind of her own. Company when you talk, care when you work.' },
+        { title: 'A reunion, remembered.', body: 'In the desktop app, the habits and preferences you share stay for your next visit.' },
+      ],
       left: { name: 'Anna · body', tagline: 'from her art · watches you' },
       right: { name: 'Anna · anime', tagline: 'Live2D · light and lively' },
       poke: '♥',
@@ -248,7 +274,7 @@ export const copy = {
     video: {
       shot: 'Real capture · hands-free voice',
       chips: ['Listening → thinking → speaking, all on her face', 'Auto-cut utterances · sentence-by-sentence speech · barge-in'],
-      note: 'Recorded from the real app: say something, she hears you finish, cuts the utterance, answers, and speaks back sentence by sentence — start talking and she stops to listen. Played at original speed, unedited.',
+      note: 'Recorded from the real app using scripted replies and test speech; no live model is connected. Try voice conversations in the desktop app.',
       pause: 'Pause',
       play: 'Play',
     },
@@ -296,7 +322,7 @@ export const copy = {
         { icon: '✓', title: 'Honest with you', body: 'No made-up tool results: a test she didn\'t run is a test she says she didn\'t run. Anything beyond her permissions, she asks first.' },
       ],
     },
-    featuresIntro: 'These come from the current iteration plan: development is complete, and they arrive in the stable line with the next in-app update. The screenshots are real captures from the development build.',
+    featuresIntro: 'These shipped in v1.0.1 and are one in-app update away. The screenshots are real captures from the release build.',
     featuresHead: { eyebrow: 'JUST LANDED', title: ['New skills,', 'just landed.'] },
     showcase: [
       {

@@ -2,11 +2,12 @@
 import type { MotionCue } from '../../packages/character/manifest'
 import type { AnnaPhase, PermissionMode } from '../../packages/shared/contracts'
 import type { Lang } from './copy'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import BodyStage from '../../apps/desktop/src/body-stage.vue'
-import CharacterStage from '../../apps/desktop/src/character-stage.vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { characters } from '../../packages/character/manifest'
 import { copy, modeOrder, modes } from './copy'
+
+const BodyStage = defineAsyncComponent(() => import('../../apps/desktop/src/body-stage.vue'))
+const CharacterStage = defineAsyncComponent(() => import('../../apps/desktop/src/character-stage.vue'))
 
 const repo = 'https://github.com/YuanyuanMa03/anna'
 const studio = 'https://modelscope.cn/studios/mayy101184/anna'
@@ -65,6 +66,10 @@ const character = characters[0]
 
 // ── Her two forms, side by side: greet once seen, answer a poke with a motion ──
 const duoRow = ref<HTMLElement>()
+const demoStage = ref<HTMLElement>()
+const visibleStage = ref<'duo' | 'demo'>()
+const form = ref<'body' | 'anime'>('body')
+const menuOpen = ref(false)
 const bodyCue = ref<{ kind: MotionCue, at: number }>()
 const animeCue = ref<{ kind: MotionCue, at: number }>()
 const bodyMissing = ref(false)
@@ -77,14 +82,24 @@ onMounted(() => {
   if (!row)
     return
   observer = new IntersectionObserver((entries) => {
-    if (entries.some(entry => entry.isIntersecting)) {
-      const at = Date.now()
-      bodyCue.value = { kind: 'greet', at }
-      animeCue.value = { kind: 'greet', at: at + 350 }
-      observer?.disconnect()
+    for (const entry of entries) {
+      const stage = entry.target === row ? 'duo' : 'demo'
+      if (entry.isIntersecting) {
+        visibleStage.value = stage
+        if (stage === 'duo') {
+          const at = Date.now()
+          bodyCue.value = { kind: 'greet', at }
+          animeCue.value = { kind: 'greet', at }
+        }
+      }
+      else if (visibleStage.value === stage) {
+        visibleStage.value = undefined
+      }
     }
-  }, { threshold: 0.35 })
+  }, { threshold: 0.1 })
   observer.observe(row)
+  if (demoStage.value)
+    observer.observe(demoStage.value)
 })
 function poke(side: 'body' | 'anime') {
   const at = Date.now()
@@ -101,7 +116,8 @@ function poke(side: 'body' | 'anime') {
 
 // ── The video: the real app, hands-free voice, autoplaying muted in the window frame ──
 const video = ref<HTMLVideoElement>()
-const paused = ref(false)
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+const paused = ref(reducedMotion)
 onMounted(() => {
   // Reduced motion is the one case where the recording should not move by itself.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -112,7 +128,7 @@ function toggleVideo() {
   if (!element)
     return
   if (element.paused)
-    void element.play()
+    void element.play().catch(() => { paused.value = true })
   else
     element.pause()
 }
@@ -207,6 +223,7 @@ function undo() {
 }
 watch([mode, taskIndex], reset)
 watch(lang, () => {
+  menuOpen.value = false
   if (!running.value && !finished.value)
     line.value = ''
 })
@@ -219,6 +236,7 @@ onBeforeUnmount(() => {
 // ── Install commands ──
 type Os = 'mac' | 'linux' | 'win'
 const ua = navigator.userAgent
+const mobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua))
 const os = ref<Os>(/Windows/i.test(ua) ? 'win' : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? 'linux' : 'mac')
 const osNames: Record<Os, string> = { mac: 'macOS', linux: 'Linux', win: 'Windows' }
 // Installer names carry no version, so these links always point at the newest release.
@@ -259,7 +277,11 @@ const year = new Date().getFullYear()
     <div class="nav-actions">
       <button class="lang" :aria-label="lang === 'zh' ? 'Switch to English' : '切换到中文'" @click="lang = lang === 'zh' ? 'en' : 'zh'">{{ lang === 'zh' ? 'EN' : '中' }}</button>
       <a class="github" :href="repo" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg><span>GitHub</span></a>
+      <button class="menu-toggle" :aria-expanded="menuOpen" aria-controls="mobile-nav" @click="menuOpen = !menuOpen">{{ menuOpen ? t.nav.close : t.nav.explore }}</button>
     </div>
+    <nav v-if="menuOpen" id="mobile-nav" class="mobile-nav" :aria-label="t.nav.explore" @click="menuOpen = false">
+      <a href="#duo">{{ t.nav.forms }}</a><a href="#meet">{{ t.nav.meet }}</a><a href="#demo">{{ t.nav.demo }}</a><a href="#download">{{ t.nav.download }}</a>
+    </nav>
   </header>
 
   <main>
@@ -269,12 +291,18 @@ const year = new Date().getFullYear()
         <h1><span>{{ t.hero.title[0] }}</span><br><em><span>{{ t.hero.title[1] }}</span></em></h1>
         <p class="lede">{{ t.hero.desc }}</p>
         <div class="actions">
-          <a class="button primary" :href="installers[os]">{{ t.download.button(osNames[os]) }} <span>↓</span></a>
-          <a class="button" :href="studio" target="_blank" rel="noopener">{{ t.hero.online }} <span>↗</span></a>
-          <a class="button" href="#download">{{ t.hero.others }}</a>
-          <a class="button" :href="repo" target="_blank" rel="noopener">{{ t.hero.github }} <span>↗</span></a>
+          <a class="button primary" href="#duo">{{ t.hero.meet }} <span aria-hidden="true">↘</span></a>
+          <a class="button" :href="studio" target="_blank" rel="noopener">{{ t.hero.online }} <span aria-hidden="true">↗</span></a>
         </div>
+        <a class="hero-download" href="#download">{{ t.hero.desktop }} <span aria-hidden="true">↓</span></a>
       </div>
+      <figure class="hero-portrait">
+        <div class="portrait-orbit" aria-hidden="true" />
+        <span class="portrait-index" aria-hidden="true">01 / ANNA</span>
+        <img src="/media/anna.webp" alt="Anna" width="1040" height="900" fetchpriority="high">
+        <figcaption><span class="dot" />{{ t.hero.portrait }}</figcaption>
+      </figure>
+      <div class="hero-foot"><span>DIGITAL LIFE, PERSONAL PRESENCE.</span><span>{{ t.hero.foot }}</span></div>
     </section>
 
     <section id="duo" class="duo wrap">
@@ -282,22 +310,29 @@ const year = new Date().getFullYear()
         <div><p class="eyebrow">{{ t.duo.eyebrow }}</p><h2>{{ t.duo.title[0] }}<br><em>{{ t.duo.title[1] }}</em></h2></div>
         <p>{{ t.duo.desc }}</p>
       </div>
+      <div class="form-switch" role="group" :aria-label="t.nav.forms">
+        <button :aria-pressed="form === 'body'" @click="form = 'body'">{{ t.duo.left.name }}</button>
+        <button :aria-pressed="form === 'anime'" @click="form = 'anime'">{{ t.duo.right.name }}</button>
+      </div>
       <div ref="duoRow" class="duo-stage">
-        <figure class="duo-card" :class="{ poked: pokeSide === 'body' }">
+        <figure class="duo-card">
           <div class="duo-canvas">
-            <BodyStage v-if="character.body && !bodyMissing" :body="character.body" :name="character.name" phase="idle" mode="edit" :speaking="false" :cue="bodyCue" @poke="poke('body')" @unavailable="bodyMissing = true" />
-            <img v-if="!character.body || bodyMissing" src="/media/anna.webp" :alt="t.duo.left.name">
+            <template v-if="visibleStage === 'duo'">
+              <BodyStage v-if="form === 'body' && character.body && !bodyMissing" :body="character.body" :name="character.name" phase="idle" mode="edit" :speaking="false" :cue="bodyCue" @poke="poke('body')" @unavailable="bodyMissing = true" />
+              <CharacterStage v-else-if="form === 'anime'" :character="character" phase="idle" mode="edit" :speaking="false" :zoom="1.5" :cue="animeCue" @poke="poke('anime')" />
+            </template>
+            <img v-if="visibleStage !== 'duo' || (form === 'body' && (!character.body || bodyMissing))" src="/media/anna.webp" alt="Anna" loading="lazy">
           </div>
-          <figcaption><b>{{ t.duo.left.name }}</b><small>{{ t.duo.left.tagline }}</small></figcaption>
-          <span v-if="pokeSide === 'body'" class="poke-heart" aria-hidden="true">{{ t.duo.poke }}</span>
+          <figcaption><b>{{ t.duo[form === 'body' ? 'left' : 'right'].name }}</b><small>{{ t.duo[form === 'body' ? 'left' : 'right'].tagline }}</small></figcaption>
+          <button class="greet-button" @click="poke(form)">{{ t.duo.greet }} <span aria-hidden="true">↗</span></button>
+          <span v-if="pokeSide === form" class="poke-heart" aria-hidden="true">{{ t.duo.poke }}</span>
         </figure>
-        <figure class="duo-card" :class="{ poked: pokeSide === 'anime' }">
-          <div class="duo-canvas">
-            <CharacterStage :character="character" phase="idle" mode="edit" :speaking="false" :zoom="1.5" :cue="animeCue" @poke="poke('anime')" />
-          </div>
-          <figcaption><b>{{ t.duo.right.name }}</b><small>{{ t.duo.right.tagline }}</small></figcaption>
-          <span v-if="pokeSide === 'anime'" class="poke-heart" aria-hidden="true">{{ t.duo.poke }}</span>
-        </figure>
+        <aside class="presence-notes">
+          <p class="eyebrow">{{ t.duo.presence }}</p>
+          <ol><li v-for="(item, index) in t.duo.moments" :key="item.title"><span>0{{ index + 1 }}</span><div><h3>{{ item.title }}</h3><p>{{ item.body }}</p></div></li></ol>
+          <p class="fine">{{ t.duo.preview }}</p>
+          <a class="button primary" :href="studio" target="_blank" rel="noopener">{{ t.hero.online }} <span aria-hidden="true">↗</span></a>
+        </aside>
       </div>
       <p class="cast-note">{{ t.duo.note }}</p>
     </section>
@@ -306,7 +341,7 @@ const year = new Date().getFullYear()
       <figure class="hero-shot">
         <div class="window window-video">
           <div class="window-bar"><span class="traffic"><i /><i /><i /></span><span>{{ t.video.shot }}</span><button class="video-toggle" :aria-pressed="!paused" @click="toggleVideo">{{ paused ? t.video.play : t.video.pause }}</button></div>
-          <video ref="video" muted loop playsinline autoplay preload="metadata" poster="/media/anna-live-poster.webp" :title="t.video.shot" @click="toggleVideo" @play="paused = false" @pause="paused = true">
+          <video ref="video" muted loop playsinline :autoplay="!reducedMotion" preload="none" poster="/media/anna-live-poster.webp" :title="t.video.shot" @click="toggleVideo" @play="paused = false" @pause="paused = true">
             <source src="/media/anna-live.mp4" type="video/mp4">
           </video>
         </div>
@@ -337,9 +372,9 @@ const year = new Date().getFullYear()
         <p>{{ t.demo.desc }}</p>
       </div>
       <div class="demo-shell" :data-mode="mode" :data-phase="phase">
-        <div class="demo-stage">
+        <div ref="demoStage" class="demo-stage">
           <div class="halo" />
-          <div class="model"><BodyStage v-if="character.body" :body="character.body" :name="character.name" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /><CharacterStage v-else :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
+          <div v-if="visibleStage === 'demo'" class="model"><BodyStage v-if="character.body" :body="character.body" :name="character.name" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /><CharacterStage v-else :character="character" :phase="phase" :mode="mode" :speaking="running && phase !== 'waiting'" /></div>
           <div class="bubble" aria-live="polite"><span>{{ character.name }} · Anna</span><p>{{ bubble }}</p></div>
           <div class="ribbon"><b>{{ modes[mode].name[lang] }}</b>{{ modes[mode].stance[lang] }}</div>
         </div>
@@ -458,6 +493,7 @@ const year = new Date().getFullYear()
         <div class="os-tabs" role="tablist">
           <button v-for="item in (['mac', 'linux', 'win'] as const)" :key="item" role="tab" :aria-selected="os === item" @click="os = item">{{ osNames[item] }}</button>
         </div>
+        <p v-if="mobile" class="first-open">{{ t.hero.mobileInstall }}</p>
         <div class="installer">
           <a class="button primary" :href="installers[os]">{{ t.download.button(osNames[os]) }} <span>↓</span></a>
           <span class="label">{{ t.download.file[os] }}</span>
